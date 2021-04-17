@@ -1,0 +1,33 @@
+/**
+
+\mainpage MarketSim
+
+\section intro Introduction
+
+MarketSim is a simple simulation framework for testing strategies on limit order markets.
+
+\section instal Installation
+
+MarketSim is a header only library, so it suffices to copy it somewhere. It is defined within the \p marketsim namesspace. It uses an <a href="https://github.com/cyberklezmer/orpp">orpp library</a>.
+
+
+\section func How it Works?
+
+Simlply. To test your strategy, you must to derive your ancestor(s) of class marketsim::tstrategy or marketsim::tsimplestrategy, add it (them) to the  marketsim::tsimulation class and run the marketsim::tsimulation::run procedurs. 
+
+Your strategy is repeatedly called by the marketsim::tsimulation class. In particular, when deriving from marketsim::tstrategy, the class calls the marketsim::tsimulation::event function, which has to provide three pieces of information: which existing orders to cancel, which new to put, and when the strategy should be called back. With marketsim::tsimplestrategy the situation is simpler, as the calling interval is once an for all determined at its constructor, and the user provides only (limited number) of orders each time -- once some of them is a limit one, all the previous limit orders are cancelled.
+
+The algorighm of mathching the orders works as follows: each tick (whose average duration is determined in marketsim::tmarketdef::lattency) the algorithm checks, which strategies are to be called since the last check. Then the strategies are randomly shuffled and their requests gradually settled according to clean FIFO algorithm. In case that the inventory and/or cash amount is not sufficient, the request is fulfilled partially and a warning is issued to the strategy by calling marketsim::tstrategy::warning (by default, it olny writes a warning to a standard log, but the warning handler can be overriden). Finally, when the time of the simulation is run out, the algorithm cancels all the pending orders, calls method \p atend of each strategy (does nothing by default) and returns control. The results of the simulation may be retrieved by marketsim::tsimulation::results method.
+See the documentation of the classes and an example:
+
+
+
+\include main.cpp
+
+\section Copyright
+
+The code of was exclusively written by Martin Smid and may be commercsially sed only under his permission.
+
+
+
+*/ 
