@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <random>
 
-#include "marketsim.hpp"
+#include "strategies.hpp"
 
 using namespace marketsim;
 
@@ -57,20 +57,25 @@ int main()
     {
         orpp::sys::seed(788897);
         zistrategy zi("zi", 10,0.5,1,100);
-        mmstrategy mm("mm");
-        trendist tr("trendist", 1,1);
-//        mmstrategy         mm2;
-        tsimulation::addstrategy(mm, {100000,5000});
-//        tsimulation::addstrategy(mm2, {100000,5000});
-//        simplebuy sb(1,0.1);
-        tsimulation::addstrategy(zi, {100000,5000});
-        tsimulation::addstrategy(tr, {1000,10});
-        tsimulation::setlogging(false);
-        tsimulation::run(20);
+        tliquiditytaker lt("lt",10,1);
+        tstollmarketmaker mm("mm",50,500);
+//        trendist tr("trendist", 1,1);
+//        simplebuy sb("simplebuy",1,0.1);
+        tsimulation::addstrategy(mm, {10000,500});
+        tsimulation::addstrategy(lt, {10000,500});
+//        tsimulation::addstrategy(zi, {100000,5000});
+//        tsimulation::addstrategy(sb, {1000,10});
+//        tsimulation::setlogging(true);
+        tsimulation::run(10);
         auto results = tsimulation::results();
 
-        for(auto& r:  results.tradinghistory)
-            r.output(orpp::sys::log(),ttradinghistory::etrades);
+        for(auto& r: results.tradinghistory)
+        {
+            r.output(orpp::sys::log(),ttradinghistory::ewallet);// etrades);
+            orpp::sys::log() << "Value: "
+                  << r.wallet().money()
+                        + results.history.p(std::numeric_limits<double>::max()) *  r.wallet().stocks() << std::endl;
+        }
 
         results.history.output(orpp::sys::log(),1);
         return 0;
