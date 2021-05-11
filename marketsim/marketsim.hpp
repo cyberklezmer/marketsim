@@ -815,12 +815,12 @@ class tsimulation
                 }
                 if(eraserequest.all || afilter.size())
                 {
-                    profiles[owner].blockedmoney() -= fbook[owner].A.value(afilter);
+                    profiles[owner].blockedstocks() -= fbook[owner].A.volume(bfilter);
                     fbook[owner].A.clear(afilter);
                 }
                 if(eraserequest.all || bfilter.size())
                 {
-                    profiles[owner].blockedstocks() -= fbook[owner].B.volume(bfilter);
+                    profiles[owner].blockedmoney() -= fbook[owner].B.value(afilter);
                     fbook[owner].B.clear(bfilter);
                 }
                 sort();
@@ -901,7 +901,7 @@ class tsimulation
                     {
                         profiles[owner].addtrade(price * toexec, -toexec, t, fb[j]->owner);
                         profiles[fb[j]->owner].addtrade(-price * toexec, toexec, t, owner);
-                        profiles[fb[j]->owner].blockedmoney() -= price * toexec;
+                        profiles[fb[j]->owner].blockedmoney() -= fb[j]->price * toexec;
                         fb[j]->volume -= toexec;
                         remains -= toexec;
                     }
@@ -1086,6 +1086,52 @@ public:
         self().dorun(timeofrun);
     }
 
+    struct averageresult
+    {
+        double meanvalue;
+        double stderr;
+    };
+
+
+    /// Evaluates the current strategies by running \p nruns simulation of length \p timeofrun.
+    /// For each strtategy it returns mean value of its profit (comparison to the "hold" strategy,
+    /// i.e. doing nothing) and the standard deviation.
+
+    static std::vector<averageresult> evaluate(double timeofrun, unsigned nruns)
+    {
+        std::vector<double> s(numstrategies(),0);
+        std::vector<double> s2(numstrategies(),0);
+        unsigned nobs = 0;
+        for(unsigned i=0; i<nruns; i++)
+        {
+            orpp::sys::log() << i  << std::endl;
+            run(timeofrun);
+
+            for(unsigned j=0; j<numstrategies(); j++)
+            {
+               auto& r= results().tradinghistory[j];
+               double p = results().history.p(std::numeric_limits<double>::max());
+               if(isnan(p))
+                   orpp::sys::log() << "nan result" << std::endl;
+               else
+               {
+                   auto& e = self().fendowments[j];
+                   double v = (r.wallet().money() - e.money())
+                            + p *  (r.wallet().stocks() - e.stocks());
+                   s[j]+=v;
+                   s2[j]+=v*v;
+                   nobs++;
+               }
+            }
+        }
+        std::vector<averageresult> ret;
+        for(unsigned j=0; j<numstrategies(); j++)
+        {
+            double m=s[j] / nobs;
+            ret.push_back({m, sqrt((s2[j] - m*m))/nobs});
+        }
+        return ret;
+    }
 
 private:
     void dorun(double timeofrun)
@@ -1197,6 +1243,11 @@ private:
                     orpp::sys::log() << "Strategy " << fstrategies[i]->name() << std::endl;
                     orpp::sys::log() << '\t' << "A: " << ob.profile(i).A << std::endl;
                     orpp::sys::log() << '\t' << "B: " << ob.profile(i).B << std::endl;
+                    orpp::sys::log() << '\t' << "money:" << fresults[i].wallet().money()
+                                     << " (blocked:" << fresults[i].blockedmoney() << ") "
+                                     << "stocks:" << fresults[i].wallet().stocks()
+                                     << " (blocked:" << fresults[i].blockedstocks() << ") "
+                                     << std::endl;
                 }
                 orpp::sys::log() <<  std::endl;
              }
@@ -1265,8 +1316,14 @@ public:
     /// accessor
     ttime timeinterval() const { return finterval; }
 protected:
-    tsimplestrategy(const std::string& name, ttime timeinterval)
-        : tstrategy(name), finterval(timeinterval) {}
+    /// constructor; \p name name, \p timeinterval time interval between market actions
+    /// (if zero then called asap), \p random determines, whether the next update should be
+    /// deterministit (false) or exponential with expectation \p timeinterval (hence intensity
+    /// 1/timeinterval.
+    tsimplestrategy(const std::string& name, ttime timeinterval, bool randominterval=false)
+        : tstrategy(name), finterval(timeinterval), frandom(randominterval)
+    {        assert(finterval != 0 || !frandom);
+}
 private:
     /// event handler which has to be overriden by any accessor, \p mi reports
     /// the state of the market, \p history the history associated with the strategy
@@ -1276,6 +1333,7 @@ private:
     virtual trequest event(const tmarketinfo& mi,
                                   const ttradinghistory& aresult )
     {
+
         tsimpleorderprofile r = simpleevent(mi, aresult) ;
         trequest::teraserequest er(false);
         tpreorderprofile pp;
@@ -1313,9 +1371,18 @@ private:
             er.a.push_back(true);
         if(numb && !keepb)
             er.b.push_back(true);
-        return trequest(pp,er,finterval);
+        ttime next;
+        if(frandom)
+        {
+            std::exponential_distribution<> nu(1.0 / finterval);
+            next = nu(orpp::sys::engine());
+        }
+        else
+            next = finterval;
+        return trequest(pp,er,next);
     }
     ttime finterval;
+    bool frandom;
 };
 
 

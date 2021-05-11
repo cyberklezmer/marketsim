@@ -7,6 +7,8 @@
 #include <random>
 
 #include "strategies.hpp"
+#include "peter.hpp"
+
 
 using namespace marketsim;
 
@@ -14,7 +16,7 @@ class simplebuy: public tsimplestrategy
 {
 public:
     simplebuy(const std::string& name,tvolume delta, ttime timeinterval) :
-        tsimplestrategy(name, timeinterval),
+        tsimplestrategy(name, timeinterval,false),
         fdelta(delta)
     {}
 private:
@@ -48,25 +50,47 @@ private:
     tvolume fdelta;
 };
 
+//ucastnici trhu
 
-
-int main()
+void martin()
 {
+    bool evaluate = true;
+    // orpp::sys::seed(788897);
 
-    try
+    /// strategy lt buys/sells on aveage 1 stocks ecach second on average
+    tliquiditytaker lt("lt", 1, 1);
+
+    /// maket maker starts with price 500 and his target inventory is 5000,
+    /// the bid and ask size is 1
+    tstollmarketmaker mm("mm", 500, 5000, 1);
+
+    /// MS changed 100 to 10
+    ta_macd macd("macd", 10, 1,26,12,9);
+    tsimulation::addstrategy(mm, {100000,5000});
+    tsimulation::addstrategy(lt, {100000,5000});
+    tsimulation::addstrategy(macd, { 100000,5000 });
+
+    //        zistrategy zi("zi", 10,0.5,1,100);
+    //        trendist tr("trendist", 1,1);
+    //        simplebuy sb("simplebuy",1,0.1);
+    //        tsimulation::addstrategy(zi, {100000,5000});
+    //        tsimulation::addstrategy(sb, {1000,10});
+    //        tsimulation::setlogging(true);
+
+
+    //        tsimulation::setlogging(true);
+    //doba simulacie
+
+    if(evaluate)
     {
-        orpp::sys::seed(788897);
-        zistrategy zi("zi", 10,0.5,1,100);
-        tliquiditytaker lt("lt",10,1);
-        tstollmarketmaker mm("mm",50,500);
-//        trendist tr("trendist", 1,1);
-//        simplebuy sb("simplebuy",1,0.1);
-        tsimulation::addstrategy(mm, {10000,500});
-        tsimulation::addstrategy(lt, {10000,500});
-//        tsimulation::addstrategy(zi, {100000,5000});
-//        tsimulation::addstrategy(sb, {1000,10});
-//        tsimulation::setlogging(true);
-        tsimulation::run(10);
+        auto r= tsimulation::evaluate(100,100);
+        for(unsigned i=0; i<tsimulation::numstrategies(); i++)
+            orpp::sys::log() << "Stragegy " << tsimulation::results().tradinghistory[i].name()
+                  << ": " << r[i].meanvalue << ", sterr: " << r[i].stderr << std::endl;
+    }
+    else
+    {
+        tsimulation::run(100);
         auto results = tsimulation::results();
 
         for(auto& r: results.tradinghistory)
@@ -78,6 +102,14 @@ int main()
         }
 
         results.history.output(orpp::sys::log(),1);
+    }
+}
+
+int main()
+{
+    try
+    {
+        martin();
         return 0;
     }
     catch (std::exception& e) {

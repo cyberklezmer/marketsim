@@ -9,18 +9,12 @@ namespace marketsim
 /// A liquidity taker strategy, issuing, at a predefined Poisson rate, market orders of a random type.
 class tliquiditytaker: public tsimplestrategy
 {
-    double next(double intensity)
-    {
-        std::exponential_distribution<> nu(intensity);
-          //  a bit unprecise, should be corrected for present cancellations / insertions
-        return nu(orpp::sys::engine());
-    }
 public:
-    /// constructor, \p intensity is the intensity of arrival of the orders (i.e. the mean
+    /// constructor, \p interval is the average interval of arrival of the orders (i.e. the mean
     /// time between order is \c 1/intensity), \p volume is the ordered/offered volume of all the orders
     tliquiditytaker(const std::string& name,
-            double intensity, tvolume volume)
-        : tsimplestrategy(name,next(intensity)), fvolume(volume) {}
+            double interval, tvolume volume)
+        : tsimplestrategy(name,interval, /* random=*/ true), fvolume(volume) {}
     virtual tsimpleorderprofile simpleevent(const tmarketinfo&,
                                      const ttradinghistory&)
     {
