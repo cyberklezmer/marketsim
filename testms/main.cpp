@@ -52,6 +52,7 @@ private:
 
 //ucastnici trhu
 
+
 void martin()
 {
     bool evaluate = true;
@@ -62,7 +63,7 @@ void martin()
 
     /// maket maker starts with price 500 and his target inventory is 5000,
     /// the bid and ask size is 1
-    tstollmarketmaker mm("mm", 500, 5000, 1);
+    tstollmarketmaker mm("mm", 500, 5000, 1,0.01);
 
     /// MS changed 100 to 10
     ta_macd macd("macd", 10, 1,26,12,9);
@@ -83,7 +84,7 @@ void martin()
 
     if(evaluate)
     {
-        auto r= tsimulation::evaluate(100,100);
+        auto r= tsimulation::evaluate(100,10);
         for(unsigned i=0; i<tsimulation::numstrategies(); i++)
             orpp::sys::log() << "Stragegy " << tsimulation::results().tradinghistory[i].name()
                   << ": " << r[i].meanvalue << ", sterr: " << r[i].stderr << std::endl;

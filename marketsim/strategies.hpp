@@ -41,7 +41,7 @@ public:
              tprice initialprice,
              tvolume desiredinventory,
              tvolume offeredvolume = 1,
-             double pestalpha = 0.1,
+             double pestalpha = 0.01,
 
              double dif2bias = 0.005,
              double dif2percspread = 0.005

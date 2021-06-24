@@ -495,7 +495,7 @@ public:
     static std::string warninglabel(ewarning w)
     {
         static std::vector<std::string> lbls =
-        { "OK" , "crossed orders", "not enough moneyto buy",
+        { "OK" , "crossed orders", "not enough money to buy",
           "not enough stocks to sell", "not enough money to put",
           "not enough stocks to put" };
         return lbls[w];
