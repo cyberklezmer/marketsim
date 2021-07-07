@@ -1089,7 +1089,7 @@ public:
     struct averageresult
     {
         double meanvalue;
-        double stderr;
+        double standarderr;
     };
 
 
@@ -1158,7 +1158,6 @@ private:
          {
              std::vector<trequest> orderrequests(n);
 
-//             ttime newt = t + tickdistribution(orpp::sys::engine());
              std::vector<unsigned> requesting;
              for(unsigned i=0; i<n; i++)
              {
@@ -1211,6 +1210,7 @@ private:
                          double d = std::min(c,r.availablemoney());
                          r.wallet().money() -= d;
                          r.addconsumption(d,t);
+                         // tbd warn
                      }
                      requesting.push_back(i);
                  }
