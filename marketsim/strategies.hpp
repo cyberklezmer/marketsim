@@ -6,6 +6,138 @@
 namespace marketsim
 {
 
+///  A market making strategy based on approximate dynamic programming
+
+class tadpmarketmaker : public tsimplestrategy
+{
+    using T2State = std::vector<std::vector<double>>;
+    using T3State = std::vector<T2State>;
+    using T4State = std::vector<std::vector<T2State>>;
+
+public:
+	tadpmarketmaker(const std::string& name,
+		int initmoney,
+		int initstocks,
+		int bndmoney,
+		int bndstocks,
+        int offeredvolume = 1,
+		int ldelta = 10,
+		int udelta = 15,
+		double discfact = 0.98,
+		double epsparam = 0.1,
+		int Kparam = 3000
+	)
+		: tsimplestrategy(name, 0),
+		m(initmoney),
+		n(initstocks),
+		fbndmoney(bndmoney),
+		fbndstocks(bndstocks),
+        fofferedvolume(offeredvolume),
+		fldelta(ldelta),
+		fudelta(udelta),
+		fdiscfact(discfact),
+		fepsparam(epsparam),
+		fKparam(Kparam)
+	{}
+private:
+    virtual tsimpleorderprofile simpleevent(const tmarketinfo& mi, const ttradinghistory& th)
+    {
+        //at the start, initialize W and N
+        if (mi.t < 1.5 * timeinterval())
+        {
+            double p = mi.history.p(mi.t);
+            for (int i = 0; i < fbndmoney; m++)
+                for (int j = 0; j < fbndstocks; n++)
+                    W[i][j] = (i == j == 0) ? 0 : (1.0 - pow(fdiscfact, i + j * p)) / (1.0 - fdiscfact);
+
+            for (int a = 0; a <= fldelta + fudelta; a++)
+            {
+                for (int b = 0; b <= fldelta + fudelta; b++)
+                {
+                    double pra = (a < fudelta) ? 2 / 3 : ((a > fudelta) ? 0 : 1 / 3);
+                    double prb = (b > fldelta) ? 2 / 3 : ((b < fldelta) ? 0 : 1 / 3);
+                    N[1][1][a][b] = 0;
+                    N[1][0][a][b] = fKparam * pra;
+                    N[0][1][a][b] = fKparam * prb;
+                    N[0][0][a][b] = fKparam - N[1][0][a][b] - N[0][1][a][b];
+                }
+            }
+        }
+
+        double p = mi.history.p(mi.t);
+
+        //update bid and ask (alpha, beta)
+        tprice alpha = mi.orderbook.A.minprice();
+        tprice beta = mi.orderbook.B.maxprice();
+        if (beta == khundefprice) 
+            beta = p - 1;
+        if (alpha == klundefprice) 
+            alpha = p + 1;
+
+        //differences da, db; cut off according to bounds \fudelta, \fldelta
+        tprice da = std::min(std::max(mi.history.a(mi.t) - alpha, beta - alpha - fldelta), beta - alpha + fudelta);
+        tprice db = std::min(std::max(mi.history.b(mi.t) - beta, alpha - beta - fudelta), alpha - beta + fldelta);
+
+        //update information (C,D) about the action of the market maker
+        int d = 0, c = 0;
+        if (th.wallet().stocks() < n) { c = 1; n--; }
+        else if (th.wallet().stocks() > n) { d = 1; n++; }
+        
+        //update and normalize N to a probability measure
+        N[c][d][da - (beta - alpha - fldelta)][db - (alpha - beta - fudelta)]++;
+        double sum = std::accumulate(N.begin(), N.end(), 0.0);
+        std::transform(N.begin(), N.end(), P.begin(), [sum](double& e) {return e / sum; });
+        
+        //calculate v as the expected value
+        tprice a_best = alpha, b_best = beta, cash_best = 0;
+        double v = 0;
+        for (int cash = 0; cash <= 1; cash++)
+            for (int b = alpha - fudelta; b > 0 && b <= alpha + fldelta && m - b - cash >= 0; b++)
+                for (int a = beta - fldelta; a > b && a <= beta + fudelta; a++)
+                { 
+                    double u = 0, u_best = 0;
+                    for (int C = 0; C <= 1; C++)
+                        for (int D = 0; D <= 1 && n + D - C >= 0; D++)
+                        {
+                            u_best += cash_best + fdiscfact * W[m - cash_best - D * b_best + C * a_best][n + D - C]
+                                * P[C][D][a_best - alpha][b_best - beta];
+                            u += cash + fdiscfact * W[m - cash - D * b + C * a][n + D - C]
+                                * P[C][D][a - alpha][b - beta];
+                        }
+                    if (u_best < u) 
+                    { 
+                        a_best = a; b_best = b; cash_best = cash; 
+                        v = u; 
+                    }
+                }
+
+        double w = fepsparam * v + (1.0 - fepsparam) * W[m][n];
+        
+        //TODO
+        //W[m][n] = projection operator
+
+        tsimpleorderprofile ord;
+        ord.a.volume = ord.b.volume = fofferedvolume;
+        ord.a.price = a_best;
+        ord.b.price = b_best;
+        return ord;
+    }
+
+    double
+        fdiscfact,
+        fepsparam;
+    int fKparam,
+        fbndmoney,
+        fbndstocks,
+        fldelta,
+        fudelta,
+        fofferedvolume;
+    int m, n;
+    T2State W;
+    T4State N, P;
+};
+
+
 /// A liquidity taker strategy, issuing, at a predefined Poisson rate, market orders of a random type.
 class tliquiditytaker: public tsimplestrategy
 {
@@ -41,7 +173,7 @@ public:
              tprice initialprice,
              tvolume desiredinventory,
              tvolume offeredvolume = 1,
-             double pestalpha = 0.01,
+             double pestalpha = 0.1,
 
              double dif2bias = 0.005,
              double dif2percspread = 0.005
