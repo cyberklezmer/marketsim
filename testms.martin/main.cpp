@@ -7,6 +7,7 @@
 #include <random>
 
 #include "strategies.hpp"
+#include "peter.hpp"
 
 
 using namespace marketsim;
@@ -49,10 +50,12 @@ private:
     tvolume fdelta;
 };
 
-/// \p evaluate: true if the strategies are to be run several times
+//ucastnici trhu
 
-void example(bool evaluate)
+
+void martin()
 {
+    bool evaluate = true;
     // orpp::sys::seed(788897);
 
     /// strategy lt buys/sells on aveage 1 stocks ecach second on average
@@ -61,17 +64,18 @@ void example(bool evaluate)
     /// maket maker starts with price 500 and his target inventory is 5000,
     /// the bid and ask size is 1
     tstollmarketmaker mm("mm", 500, 5000, 1,0.01);
-    zistrategy zi("zi", 10,0.5,1,100);
-    trendist tr("trendist", 1,1);
-    simplebuy sb("simplebuy",1,0.1);
 
     /// MS changed 100 to 10
     tsimulation::addstrategy(mm, {100000,5000});
     tsimulation::addstrategy(lt, {100000,5000});
+    tsimulation::addstrategy(macd, { 100000,5000 });
 
-    tsimulation::addstrategy(zi, {100000,5000});
-    tsimulation::addstrategy(sb, {1000,10});
-    tsimulation::setlogging(true);
+    //        zistrategy zi("zi", 10,0.5,1,100);
+    //        trendist tr("trendist", 1,1);
+    //        simplebuy sb("simplebuy",1,0.1);
+    //        tsimulation::addstrategy(zi, {100000,5000});
+    //        tsimulation::addstrategy(sb, {1000,10});
+    //        tsimulation::setlogging(true);
 
 
     //        tsimulation::setlogging(true);
@@ -105,8 +109,7 @@ int main()
 {
     try
     {
-        example(false);
-        example(true);
+        martin();
         return 0;
     }
     catch (std::exception& e) {
