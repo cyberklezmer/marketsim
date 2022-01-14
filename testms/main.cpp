@@ -105,7 +105,7 @@ int main()
 {
     try
     {
-        example(false);
+        martin(false);
         example(true);
         return 0;
     }
