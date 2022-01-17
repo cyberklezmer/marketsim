@@ -7,10 +7,80 @@
 #include <random>
 
 #include "strategies.hpp"
-#include "peter.hpp"
+//#include "peter.hpp"
 
 
 using namespace marketsim;
+
+class tnaiverketmaker : public tsimplestrategy
+{
+    using Tvec = std::vector<double>;
+    using T2vec = std::vector<Tvec>;
+    using T3vec = std::vector<T2vec>;
+    using T4vec = std::vector<T3vec>;
+
+public:
+    tnaiverketmaker(const std::string& name,
+        tprice initprice
+    )
+        : tsimplestrategy(name, 0),
+        finitprice(initprice),
+        last_bid(klundefprice),
+        last_ask(khundefprice)
+    {
+
+    }
+private:
+    virtual tsimpleorderprofile simpleevent(const tmarketinfo& mi, const ttradinghistory& th)
+    {
+        double p = isnan(mi.history.p(mi.t)) ? finitprice : mi.history.p(mi.t);
+
+        //update bid and ask (alpha, beta)
+        tprice alpha = mi.orderbook.A.minprice();
+        tprice beta = mi.orderbook.B.maxprice();
+
+        if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
+        if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
+
+        //calculate v as the expected value
+        tprice a_best = alpha, b_best = beta;
+
+        if(alpha-beta == 1)
+        {
+            if(p >= alpha)
+                b_best = beta+1;
+            else if(p <= beta)
+                a_best = alpha - 1;
+            else
+            {
+                if(orpp::sys::uniform() < 0.5)
+                    a_best = alpha - 1;
+                else
+                    b_best = beta + 1;
+            }
+        }
+        else
+        {
+            b_best = b_best + 1;
+            a_best = a_best + 1;
+        }
+
+
+        last_ask = a_best;
+        last_bid = b_best;
+
+        tsimpleorderprofile ord;
+        ord.a.volume = 1;
+        ord.b.volume = 1;
+        ord.a.price = a_best;
+        ord.b.price = b_best;
+        return ord;
+    }
+
+    tprice finitprice;
+    tprice last_bid, last_ask;
+};
+
 
 class simplebuy: public tsimplestrategy
 {
@@ -63,12 +133,11 @@ void martin()
 
     /// maket maker starts with price 500 and his target inventory is 5000,
     /// the bid and ask size is 1
-    tstollmarketmaker mm("mm", 500, 5000, 1,0.01);
-
-    /// MS changed 100 to 10
-    tsimulation::addstrategy(mm, {100000,5000});
-    tsimulation::addstrategy(lt, {100000,5000});
-    tsimulation::addstrategy(macd, { 100000,5000 });
+    tnaiverketmaker naivemm("naivemm", 100);
+    tadpmarketmaker adpmm("adpmm",100, 2000, 100 );
+    tsimulation::addstrategy(naivemm, {1000,50});
+    tsimulation::addstrategy(lt, {1000,50});
+    tsimulation::addstrategy(adpmm, {1000,50});
 
     //        zistrategy zi("zi", 10,0.5,1,100);
     //        trendist tr("trendist", 1,1);

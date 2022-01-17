@@ -1065,5 +1065,295 @@ with the Bellman equation identical to the MM's minimalistic problem.
  Computation is analogous, differing only in the action space.
 \end_layout
 
+\begin_layout Section*
+Optimal buyer/seller
+\end_layout
+
+\begin_layout Standard
+Finally consider an agent who only intents to buy/sell a predetermined a
+ amount 
+\begin_inset Formula $h_{0}$
+\end_inset
+
+ of the asset.
+ As he has no reason to 
+\begin_inset Quotes eld
+\end_inset
+
+keep money in the business
+\begin_inset Quotes erd
+\end_inset
+
+, we assume him to pay as late as possible/immediately consume the money
+ torn.
+ We assume time preference, so the reward function of both is given by (
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:cons"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) where 
+\begin_inset Formula $c$
+\end_inset
+
+ is negative/positive, being the cost of the purchase/revenue from selling.
+\end_layout
+
+\begin_layout Subsection*
+The maximalistic DP of a buyer
+\end_layout
+
+\begin_layout Standard
+The action space of a buyer is 
+\begin_inset Formula 
+\begin{multline*}
+A_{t}=A(h_{t})=\{v_{t}\in\mathbb{N}_{0}:v_{t}\leq h_{t}\}
+\end{multline*}
+
+\end_inset
+
+where 
+\begin_inset Formula $v_{t}$
+\end_inset
+
+ stands for volume ordered (i.e.
+ volume of market buy order put) at 
+\begin_inset Formula $t$
+\end_inset
+
+ (we assume unlimited money resources knowing, that the agent will minimize
+ their usage).
+ The negative cost 
+\begin_inset Formula $c_{t+1}$
+\end_inset
+
+ of such an order is equal to 
+\begin_inset Formula 
+\[
+c_{t+1}=-C_{R_{t},v_{t}},\qquad h_{t+1}=D_{R_{t},v_{t}}
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $C_{R,v}$
+\end_inset
+
+ and 
+\begin_inset Formula $D_{R,v}$
+\end_inset
+
+ are random variables determining the total cost, number bought, respectively,
+ as a result of putting the market order with volume 
+\begin_inset Formula $v$
+\end_inset
+
+ to the market with state 
+\begin_inset Formula $R$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+The Bellman equation is 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+V(h,c,r)=\max_{v\in A(h)}[c+\gamma\mathbb{E}_{C,D,R}V(h+D_{R,v},-C_{R,v},R)]\label{eq:bellm-1}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection*
+The minimalistic DP of a buyer
+\end_layout
+
+\begin_layout Standard
+While the simple action space needs not be further simplified (except for
+ some upper bound of 
+\begin_inset Formula $v$
+\end_inset
+
+), and the distribution of 
+\begin_inset Formula $D_{R,v}$
+\end_inset
+
+ may, with certain licence, be viewed as not depending on 
+\begin_inset Formula $R$
+\end_inset
+
+, the variable 
+\begin_inset Formula $C_{R,v}$
+\end_inset
+
+ does depend on 
+\begin_inset Formula $R$
+\end_inset
+
+ (clearly 
+\begin_inset Formula $C$
+\end_inset
+
+ will be different for 
+\begin_inset Formula $a=10$
+\end_inset
+
+ from that given 
+\begin_inset Formula $a=100$
+\end_inset
+
+).
+ Consequently, any approximation of 
+\begin_inset Formula $V$
+\end_inset
+
+ has to take at least 
+\begin_inset Formula $a$
+\end_inset
+
+ into account.
+ Reflecting the fact that, with increasing volume, the price becomes higher,
+ we can assume 
+\begin_inset Formula $C$
+\end_inset
+
+ to be convex in 
+\begin_inset Formula $v$
+\end_inset
+
+, we can approximate 
+\begin_inset Formula 
+\[
+C_{R,v}=C_{a,v}=a+f(vE)
+\]
+
+\end_inset
+
+Further, we approximate 
+\begin_inset Formula 
+\[
+D_{R,v}\doteq vE.
+\]
+
+\end_inset
+
+Here, 
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\xout off
+\uuline off
+\uwave off
+\noun off
+\color none
+
+\begin_inset Formula $\ensuremath{E}$
+\end_inset
+
+ is random, reflecting the ratio of orders fulfilled, taking values perhaps
+ in 
+\begin_inset Formula $\ensuremath{\{0,\frac{1}{2},1\}}$
+\end_inset
+
+ It would be reasonable to estimate 
+\begin_inset Formula $f$
+\end_inset
+
+ by regression.
+ Consequently we approximated 
+\begin_inset Formula 
+\[
+V(h,c,r)\doteq W(h,c,a)=\max_{v\in A(h)}[c+\gamma\mathbb{E}_{A,E}W(h+vE,-a-f(vE),a+F)]
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $F$
+\end_inset
+
+ is a random variable, independent of 
+\begin_inset Formula $E$
+\end_inset
+
+, estimating the shift of the ask.
+ 
+\end_layout
+
+\begin_layout Subsection*
+The maximalistic DP of a seller
+\end_layout
+
+\begin_layout Standard
+The action space of a seller is 
+\begin_inset Formula 
+\begin{multline*}
+A_{t}=A(h_{t})=\{v_{t}\in\mathbb{N}_{0}:v_{t}\leq h_{t}\}
+\end{multline*}
+
+\end_inset
+
+where 
+\begin_inset Formula $v_{t}$
+\end_inset
+
+ stands for volume offered (i.e.
+ volume of market sell order put) at 
+\begin_inset Formula $t$
+\end_inset
+
+.
+ The revenue 
+\begin_inset Formula $c_{t+1}$
+\end_inset
+
+ from such an order is equal to 
+\begin_inset Formula 
+\[
+c_{t+1}=C'_{R_{t},v_{t}},\qquad h_{t+1}=D'_{R_{t},v_{t}}
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $C'_{R,v}$
+\end_inset
+
+ and 
+\begin_inset Formula $D'_{R,v}$
+\end_inset
+
+ are random variables determining the total revenue, number bought, respectively
+, as a result of putting the market order with volume 
+\begin_inset Formula $v$
+\end_inset
+
+ to the market with state 
+\begin_inset Formula $R$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+The approximation is analogous.
+\end_layout
+
 \end_body
 \end_document
