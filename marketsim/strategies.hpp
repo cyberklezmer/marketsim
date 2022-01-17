@@ -123,8 +123,9 @@ namespace marketsim
 
 						double u = 0.0, u_best = 0.0;
 						for (int C = 0; C <= 1; C++)
-							for (int D = 0; D <= 1 && n + D - C >= 0; D++)
+							for (int D = 0; D <= 1; D++)
 							{
+								if(n + D - C < 0) continue;
 								u_best += cash_best + fdiscfact * W[m - cash_best - D * b_best + C * a_best][n + D - C]
 									* P[C][D][da_best - (beta - alpha - fldelta)][db_best - (alpha - beta - fudelta)];
 								u += cash + fdiscfact * W[m - cash - D * b + C * a][n + D - C]
