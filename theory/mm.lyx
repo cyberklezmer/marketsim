@@ -75,6 +75,18 @@
 
 \begin_body
 
+\begin_layout Title
+Does speculation pay off when agents are smart? 
+\end_layout
+
+\begin_layout Title
+description of strategies used in the future paper
+\end_layout
+
+\begin_layout Author
+Martin Šmíd, Peter Hron, Gabriela Suchopárová, Karel Vrbenský
+\end_layout
+
 \begin_layout Section*
 Market Maker
 \end_layout
@@ -1072,10 +1084,14 @@ Optimal buyer/seller
 \begin_layout Standard
 Finally consider an agent who only intents to buy/sell a predetermined a
  amount 
+\begin_inset Formula $h_{\infty}$
+\end_inset
+
+, 
 \begin_inset Formula $h_{0}$
 \end_inset
 
- of the asset.
+, respectively of the asset.
  As he has no reason to 
 \begin_inset Quotes eld
 \end_inset
@@ -1084,8 +1100,8 @@ keep money in the business
 \begin_inset Quotes erd
 \end_inset
 
-, we assume him to pay as late as possible/immediately consume the money
- torn.
+, we assume him to pay as late as possible (buyer) immediately consume the
+ money torn (seller).
  We assume time preference, so the reward function of both is given by (
 \begin_inset CommandInset ref
 LatexCommand ref
@@ -1125,7 +1141,7 @@ where
 \begin_inset Formula $t$
 \end_inset
 
- (we assume unlimited money resources knowing, that the agent will minimize
+ (we assume unlimited money resources knowing that the agent will minimize
  their usage).
  The negative cost 
 \begin_inset Formula $c_{t+1}$
@@ -1189,7 +1205,7 @@ While the simple action space needs not be further simplified (except for
 \begin_inset Formula $D_{R,v}$
 \end_inset
 
- may, with certain licence, be viewed as not depending on 
+ may, with certain license, be viewed as not depending on 
 \begin_inset Formula $R$
 \end_inset
 
@@ -1270,15 +1286,20 @@ Here,
 \begin_inset Formula $\ensuremath{\{0,\frac{1}{2},1\}}$
 \end_inset
 
+ (we can assume 
+\begin_inset Formula $\mathbb{P}[E=1]\doteq1$
+\end_inset
+
+ on liquid markets).
  It would be reasonable to estimate 
 \begin_inset Formula $f$
 \end_inset
 
  by regression.
- Consequently we approximated 
+ Consequently we approximate 
 \begin_inset Formula 
 \[
-V(h,c,r)\doteq W(h,c,a)=\max_{v\in A(h)}[c+\gamma\mathbb{E}_{A,E}W(h+vE,-a-f(vE),a+F)]
+V(h,c,r)\doteq W(h,c,a)=\max_{v\in A(h)}[c+\gamma\mathbb{E}_{A,E}W(h-vE,-a-f(vE),a+F)]
 \]
 
 \end_inset

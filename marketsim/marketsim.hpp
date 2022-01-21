@@ -1288,6 +1288,7 @@ public:
         tpreorder a = tpreorder(khundefprice,0);
         tvolume mb = 0;
         tvolume ma = 0;
+        tprice consumption = 0;
     };
 
     /// returns a \ref tsimpleorderprofile corresponding to a single buy market order
@@ -1379,7 +1380,7 @@ private:
         }
         else
             next = finterval;
-        return trequest(pp,er,next);
+        return trequest(pp,er,next,r.consumption);
     }
     ttime finterval;
     bool frandom;
