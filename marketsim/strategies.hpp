@@ -153,6 +153,7 @@ namespace marketsim
 			ord.b.volume = fofferedvolume;
 			ord.a.price = a_best;
 			ord.b.price = b_best;
+			ord.consumption = cash_best;
 			return ord;
 		}
 
