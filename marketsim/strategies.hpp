@@ -112,9 +112,10 @@ namespace marketsim
 			//calculate v as the expected value
 			tprice a_best = alpha, b_best = beta, cash_best = 0;
 			double v = 0.0;
-			for (int cash = 0; cash <= 1; cash++)
-				for (int b = alpha - fudelta; b > 0 && b <= alpha + fldelta && m - b - cash >= 0; b++)
-					for (int a = beta - fldelta; a > b && a <= beta + fudelta; a++)
+			tprice money = th.wallet().money(); int s = th.wallet().stocks();
+			for (tprice cash = 0; cash <= 1; cash++)
+				for (tprice b = alpha - fudelta; b > 0 && b <= alpha + fldelta && money - b - cash >= 0; b++)
+					for (tprice a = beta - fldelta; a > b && a <= beta + fudelta; a++)
 					{
 						tprice da = std::min(std::max(a - alpha, beta - alpha - fldelta), beta - alpha + fudelta);
 						tprice db = std::min(std::max(b - beta, alpha - beta - fudelta), alpha - beta + fldelta);
@@ -123,12 +124,11 @@ namespace marketsim
 
 						double u = 0.0, u_best = 0.0;
 						for (int C = 0; C <= 1; C++)
-							for (int D = 0; D <= 1; D++)
+							for (int D = 0; D <= 1 && s + D - C >= 0; D++)
 							{
-								if(n + D - C < 0) continue;
-								u_best += cash_best + fdiscfact * W[m - cash_best - D * b_best + C * a_best][n + D - C]
+								u_best += cash_best + fdiscfact * W[std::min(money - cash_best - D * b_best + C * a_best,fbndmoney-1)][std::min(s + D - C,fbndstocks-1)]
 									* P[C][D][da_best - (beta - alpha - fldelta)][db_best - (alpha - beta - fudelta)];
-								u += cash + fdiscfact * W[m - cash - D * b + C * a][n + D - C]
+								u += cash + fdiscfact * W[std::min(money - cash - D * b + C * a,fbndmoney-1)][std::min(s + D - C,fbndstocks-1)]
 									* P[C][D][da - (beta - alpha - fldelta)][db - (alpha - beta - fudelta)];
 							}
 						if (u_best < u)
