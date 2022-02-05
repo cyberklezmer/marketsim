@@ -682,6 +682,9 @@ public:
     const twallet& wallet() const { return fwallet; }
     /// accessor
     twallet& wallet() { return fwallet; }
+
+    /// accessor
+    const std::vector<tconsumptionevent>& consumption() const { return fconsumption; }
     /// returns the amount of money blocked by market (to secure active orders)
     const tprice& blockedmoney() const { return fblockedmoney; }
     /// \see blockedmoney
@@ -1097,7 +1100,7 @@ public:
     /// For each strtategy it returns mean value of its profit (comparison to the "hold" strategy,
     /// i.e. doing nothing) and the standard deviation.
 
-    static std::vector<averageresult> evaluate(double timeofrun, unsigned nruns)
+    static std::vector<averageresult> evaluate(double timeofrun, unsigned nruns, bool countremainingstocks = true)
     {
         std::vector<double> s(numstrategies(),0);
         std::vector<double> s2(numstrategies(),0);
@@ -1116,8 +1119,11 @@ public:
                else
                {
                    auto& e = self().fendowments[j];
-                   double v = (r.wallet().money() - e.money())
-                            + p *  (r.wallet().stocks() - e.stocks());
+                   double v = (r.wallet().money() - e.money());
+                   for(unsigned k=0; k<r.consumption().size(); k++)
+                       v += r.consumption()[k].famount;
+                   if(countremainingstocks)
+                         v += p *  (r.wallet().stocks() - e.stocks());
                    s[j]+=v;
                    s2[j]+=v*v;
                    nobs++;
