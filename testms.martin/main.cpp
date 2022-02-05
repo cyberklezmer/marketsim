@@ -35,9 +35,12 @@ private:
     {
         double p = isnan(mi.history.p(mi.t)) ? finitprice : mi.history.p(mi.t);
 
+        assert(last_ask > last_bid);
+
         //update bid and ask (alpha, beta)
         tprice alpha = mi.orderbook.A.minprice();
         tprice beta = mi.orderbook.B.maxprice();
+        assert(alpha > beta);
 
         if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
         if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
@@ -45,26 +48,35 @@ private:
         //calculate v as the expected value
         tprice a_best = alpha, b_best = beta;
 
-        if(alpha-beta == 1)
+        assert(alpha > beta);
+        if(alpha - beta == 1)
         {
-            if(p >= alpha)
-                b_best = beta+1;
-            else if(p <= beta)
-                a_best = alpha - 1;
-            else
-            {
-                if(orpp::sys::uniform() < 0.5)
-                    a_best = alpha - 1;
-                else
-                    b_best = beta + 1;
-            }
+            b_best = beta;
+            a_best = alpha;
         }
         else
         {
-            b_best = b_best + 1;
-            a_best = a_best + 1;
+            if(alpha-beta == 2)
+            {
+                if(p >= alpha)
+                    b_best = beta+1;
+                else if(p <= beta)
+                    a_best = alpha - 1;
+                else
+                {
+                    if(orpp::sys::uniform() < 0.5)
+                        a_best = alpha - 1;
+                    else
+                        b_best = beta + 1;
+                }
+            }
+            else
+            {
+                b_best = beta + 1;
+                a_best = alpha - 1;
+            }
         }
-
+        assert(a_best > b_best);
 
         last_ask = a_best;
         last_bid = b_best;
@@ -152,6 +164,7 @@ void martin()
 
     if(evaluate)
     {
+//        tsimulation::setlogging(true);
         auto r= tsimulation::evaluate(100,10);
         for(unsigned i=0; i<tsimulation::numstrategies(); i++)
             orpp::sys::log() << "Stragegy " << tsimulation::results().tradinghistory[i].name()
@@ -159,6 +172,7 @@ void martin()
     }
     else
     {
+//tsimulation::setlogging(true);
         tsimulation::run(100);
         auto results = tsimulation::results();
 
