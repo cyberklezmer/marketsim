@@ -665,7 +665,7 @@ public:
     /// accessor
     void addconsumption(tprice c, ttime t)
     {
-        assert(c > fwallet.money());
+        assert(c <= fwallet.money());
         fconsumption.push_back(tconsumptionevent({t,c}));
         fwallet.money() -= c;
     }
