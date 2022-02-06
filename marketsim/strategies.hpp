@@ -22,7 +22,7 @@ namespace marketsim
 			int bndstocks,
 			tvolume offeredvolume = 1,
 			int ldelta = 25,
-			int udelta = 45,
+			int udelta = 40,
 			double discfact = 0.9998,
 			double epsparam = 0.2,
 			int Kparam = 3000
@@ -110,12 +110,13 @@ namespace marketsim
 				}
 
 			//calculate v as the expected value
-			tprice a_best = alpha, b_best = beta, cash_best = 0;
 			double v = 0.0;
 			tprice money = th.wallet().money(); int s = th.wallet().stocks();
+			tprice a_best = alpha; tprice b_best = (money - beta >= 0) ? beta : money; tprice cash_best = 0;
+
 			for (tprice cash = 0; cash <= 1; cash++)
-				for (tprice b = alpha - fudelta; b > 0 && b <= alpha + fldelta && money - b - cash >= 0; b++)
-					for (tprice a = beta - fldelta; a > b && a <= beta + fudelta; a++)
+				for (tprice b = alpha - fudelta; (b > 0) && (b <= alpha + fldelta) && (money - cash - b >= 0); b++)
+					for (tprice a = beta - fldelta; (a > b) && (a <= beta + fudelta) && (money - cash - b + a < fbndmoney); a++)
 					{
 						tprice da = std::min(std::max(a - alpha, beta - alpha - fldelta), beta - alpha + fudelta);
 						tprice db = std::min(std::max(b - beta, alpha - beta - fudelta), alpha - beta + fldelta);
@@ -124,11 +125,11 @@ namespace marketsim
 
 						double u = 0.0, u_best = 0.0;
 						for (int C = 0; C <= 1; C++)
-							for (int D = 0; D <= 1 && s + D - C >= 0; D++)
+							for (int D = 0; (D <= 1) && (s + D - C >= 0) && (s + D - C < fbndstocks); D++)
 							{
-								u_best += cash_best + fdiscfact * W[std::min(money - cash_best - D * b_best + C * a_best,fbndmoney-1)][std::min(s + D - C,fbndstocks-1)]
+								u_best += cash_best + fdiscfact * W[money - cash_best - D * b_best + C * a_best][s + D - C]
 									* P[C][D][da_best - (beta - alpha - fldelta)][db_best - (alpha - beta - fudelta)];
-								u += cash + fdiscfact * W[std::min(money - cash - D * b + C * a,fbndmoney-1)][std::min(s + D - C,fbndstocks-1)]
+								u += cash + fdiscfact * W[money - cash - D * b + C * a][s + D - C]
 									* P[C][D][da - (beta - alpha - fldelta)][db - (alpha - beta - fudelta)];
 							}
 						if (u_best < u)
