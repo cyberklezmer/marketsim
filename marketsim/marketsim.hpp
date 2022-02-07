@@ -1114,20 +1114,20 @@ public:
             {
                auto& r= results().tradinghistory[j];
                double p = results().history.p(std::numeric_limits<double>::max());
-               if(isnan(p))
-                   orpp::sys::log() << "nan result" << std::endl;
-               else
+               auto& e = self().fendowments[j];
+               double v = (r.wallet().money() - e.money());
+               for(unsigned k=0; k<r.consumption().size(); k++)
+                   v += r.consumption()[k].famount;
+               if(countremainingstocks)
                {
-                   auto& e = self().fendowments[j];
-                   double v = (r.wallet().money() - e.money());
-                   for(unsigned k=0; k<r.consumption().size(); k++)
-                       v += r.consumption()[k].famount;
-                   if(countremainingstocks)
+                   if(isnan(p))
+                       orpp::sys::log() << "nan result" << std::endl;
+                   else
                          v += p *  (r.wallet().stocks() - e.stocks());
-                   s[j]+=v;
-                   s2[j]+=v*v;
-                   nobs++;
                }
+               s[j]+=v;
+               s2[j]+=v*v;
+               nobs++;
             }
         }
         std::vector<averageresult> ret;
