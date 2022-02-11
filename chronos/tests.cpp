@@ -3,7 +3,9 @@
 #include "Worker.hpp"
 #include "Chronos.hpp"
 
-#define TICK_LEN 1000
+//1000000000 je vterina
+
+#define TICK_LEN 1000000
 
 namespace chronos {
 
@@ -28,7 +30,7 @@ namespace chronos {
         TestWorkerActive(Chronos &main, int tick_count) : counter(tick_count), Worker(main) {};
 
         void main() override {
-          std::this_thread::sleep_for(counter * TICK_LEN * tick_length);
+          std::this_thread::sleep_for(counter * tick_length);
         }
     };
 
@@ -51,18 +53,34 @@ namespace chronos {
     };
 
 
-    TEST(Chronos, EmptyChr) {
+    TEST(Chronos, EmptyChronos) {
       TestChronos god;
       god.run();
       EXPECT_EQ(god.ticks, 0);
     }
 
+    TEST(Chronos, SinglePassive) {
+      TestChronos god;
+      TestWorkerPassive w1(god, 100);
+      god.run();
+      EXPECT_EQ(god.ticks, 101);
+    }
+
     TEST(Chronos, SingleActive) {
+      TestChronos god;
+      TestWorkerActive w1(god, 100);
+      god.run();
+      //20% time error
+      EXPECT_GT(god.ticks, 80);
+      EXPECT_LT(god.ticks, 120);
+    }
+
+
+    TEST(Chronos, SingleActiveMock) {
       TestChronos god;
       MockPassive w1(god, 100);
       EXPECT_CALL(w1, main());
       god.run();
-      EXPECT_EQ(god.ticks, 100);
     }
 
 //    EXPECT_EQ(f.Bar(input_filepath, output_filepath), 0);

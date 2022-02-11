@@ -39,8 +39,9 @@ namespace chronos {
         const guard lock(worker->alarm_handling);
         if (worker->alarm) {
           if (worker->alarm <= clock_time) {
-            worker->waker.unlock();
             worker->alarm = 0;
+            worker->waker.unlock();
+            worker->working.lock();
             next_alarm = 1;
           }
           else if (!next_alarm || (worker->alarm < next_alarm))
@@ -78,17 +79,10 @@ namespace chronos {
     }
 
     void Chronos::tick_started() {
-      next_tick = std::chrono::steady_clock::now();
-      std::cout << "Tick num/start/next\t" << clock_time << "\t" << format_time() << "\t";
-      next_tick += tick_duration;
-      std::cout << format_time() << "\n";
+      next_tick = std::chrono::steady_clock::now() + tick_duration;
     }
 
     unsigned long Chronos::format_time() {
-//      auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(next_tick);
-//      auto epoch = now_ms.time_since_epoch();
-//      auto value = std::chrono::duration_cast<std::chrono::milliseconds>(epoch);
-      return next_tick.time_since_epoch().count();
-//      return value.count();
+      return std::chrono::steady_clock::now().time_since_epoch().count();
     }
 }

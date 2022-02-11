@@ -16,21 +16,22 @@ namespace chronos {
         alarm = alarm_par;
       }
 
-      working.unlock();
+      working.unlock(); //we stop working (locked again by Chronos when he wakes us back)
       waker.lock();     //this will block
-      working.lock();
+      waker.unlock();   //ready for next round
     }
 
     void Worker::start() {
       running = true;
+      working.lock();
       std::thread runner(&Worker::entry_point, this);
       runner.detach();
     }
 
     void Worker::entry_point() {
-      const guard_working lock(working);
       main();
       running = false;
+      working.unlock();
     }
 }
 
