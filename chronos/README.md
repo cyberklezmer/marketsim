@@ -1,6 +1,6 @@
-#Chronos
+# Chronos
 
-##Key features of `class Chronos`
+## Key features of `class Chronos`
 
 | method                           | description                                                       |
 |----------------------------------|-------------------------------------------------------------------|
@@ -20,7 +20,7 @@
 | `void sleep_until(app_time alarm_par = 1)` | suspend the execution of this worker until `alarm_par` time <br/>without argument (default 1) sleep till next clock tick                            |
 | `app_time get_time()`                      | reurns current tick time - passes to Chronos::get_time()                                                                                            |          
 
-##Usage
+## Usage
 
 ```c++
 class MyChronos : public Chronos {
