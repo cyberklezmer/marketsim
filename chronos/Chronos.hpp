@@ -35,8 +35,16 @@ namespace chronos {
         unsigned long format_time();
 
      public:
+        /**
+         * Constructs a Chronos
+         * @param duration of one tick
+         */
         Chronos(app_duration duration) : tick_duration(duration), clock_time(0) {};
 
+        /**
+         * current global time (number of ticks since start)
+         * @return app_time (unsigned long long)
+         */
         inline app_time get_time() {
           return clock_time;
         };
@@ -44,10 +52,15 @@ namespace chronos {
         //worker registers itself
         void register_worker(Worker *worker);
 
-        //start main loop
+        /**
+         * starts main loop
+         */
         void run();
 
-        // user function called every clock tick
+        /**
+         * user function called every clock tick
+         * overridden in descendants
+         */
         virtual void tick() = 0;
     };
 

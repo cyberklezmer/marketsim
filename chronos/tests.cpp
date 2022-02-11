@@ -40,13 +40,13 @@ namespace chronos {
 
         void main() override {
           for (int i = 0; i < counter; i++)
-            sleep_until(1);
+            sleep_until();
         }
     };
 
     class MockPassive : public TestWorkerPassive {
      public:
-        MockPassive(Chronos &main, int tick_count):TestWorkerPassive(main,tick_count){};
+        MockPassive(Chronos &main, int tick_count) : TestWorkerPassive(main, tick_count) {};
         MOCK_METHOD(void, main, (), (override));
     };
 
