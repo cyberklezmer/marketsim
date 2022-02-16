@@ -29,9 +29,13 @@ namespace chronos {
     }
 
     void Worker::entry_point() {
-      main();
-      running = false;
-      working.unlock();
+      try {
+        main();
+      }
+      catch (...) {
+        running = false;
+        working.unlock();
+      };
     }
 }
 

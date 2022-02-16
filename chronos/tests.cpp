@@ -46,6 +46,15 @@ namespace chronos {
         }
     };
 
+    class TestWorkerCrash : public Worker {
+     public:
+        explicit TestWorkerCrash(Chronos &main) : Worker(main) {};
+
+        void main() override {
+          throw "Something bad happened";
+        }
+    };
+
     class MockPassive : public TestWorkerPassive {
      public:
         MockPassive(Chronos &main, int tick_count) : TestWorkerPassive(main, tick_count) {};
@@ -81,6 +90,12 @@ namespace chronos {
       MockPassive w1(god, 100);
       EXPECT_CALL(w1, main());
       god.run();
+    }
+
+    TEST(Chronos, TestWorkerCrash) {
+      TestChronos god;
+      TestWorkerCrash w1(god);
+      ASSERT_NO_THROW(god.run());
     }
 
 //    EXPECT_EQ(f.Bar(input_filepath, output_filepath), 0);
