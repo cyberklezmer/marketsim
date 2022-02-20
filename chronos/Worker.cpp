@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "Worker.hpp"
 
 namespace chronos {
@@ -33,9 +34,9 @@ namespace chronos {
         main();
       }
       catch (...) {
-        running = false;
-        working.unlock();
       };
+      running = false;
+      working.unlock();
     }
 }
 
