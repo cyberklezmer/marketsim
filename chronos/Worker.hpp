@@ -8,14 +8,9 @@
 #include "Chronos.hpp"
 
 namespace chronos {
-    class Chronos;
-    using guard = std::lock_guard<std::mutex>;
-    using guard_working = std::lock_guard<std::timed_mutex>;
-
     class Worker {
         friend Chronos;
      private:
-        Chronos &parent;
 
         //signal this working thread is running
         std::timed_mutex working;
@@ -31,6 +26,9 @@ namespace chronos {
         std::atomic<bool> running;
 
         void entry_point();
+
+     protected:
+        Chronos &parent;
 
      public:
         Worker(Chronos &main);
