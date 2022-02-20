@@ -1,7 +1,6 @@
 #include <gmock/gmock.h>
 
 #include "Worker.hpp"
-#include "Chronos.hpp"
 
 //1000000000 je vterina
 
@@ -19,6 +18,19 @@ namespace chronos {
 
         void tick() override {
           ticks++;
+        }
+
+        int get_int(int val) {
+          return async([val]() {
+            std::cout << "Evaled lambda";
+            return val + 5;
+          });
+        }
+
+        std::string get_string(std::string s1, std::string s2) {
+          return async([s1, s2]() {
+              return "string: " + s1 + s2;
+          });
         }
     };
 
@@ -54,6 +66,19 @@ namespace chronos {
           throw "Something bad happened";
         }
     };
+
+    class TestWorkerAsync : public Worker {
+     public:
+        int num;
+
+        TestWorkerAsync(Chronos &main) : Worker(main) {};
+
+        void main() override {
+          num = 0;
+          num = ((TestChronos &) parent).get_int(5);
+        }
+    };
+
 
     class MockPassive : public TestWorkerPassive {
      public:
@@ -97,6 +122,14 @@ namespace chronos {
       TestWorkerCrash w1(god);
       ASSERT_NO_THROW(god.run());
     }
+
+    TEST(Chronos, AsyncChronos) {
+      TestChronos god;
+      TestWorkerAsync w1(god);
+      god.run();
+      EXPECT_EQ(w1.num, 10);
+    }
+
 
 //    EXPECT_EQ(f.Bar(input_filepath, output_filepath), 0);
 

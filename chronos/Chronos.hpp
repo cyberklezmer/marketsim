@@ -1,17 +1,17 @@
 #ifndef MULTIPROCESS_CHRONOS_HPP
 #define MULTIPROCESS_CHRONOS_HPP
 
-#include <boost/thread/locks.hpp>
-#include <boost/iterator/indirect_iterator.hpp>
-
 #include <vector>
 #include <mutex>
+#include <future>
+#include "ThreadsafeQueue.hpp"
 
 namespace chronos {
     class Worker;
 
     using app_time = unsigned long long;
     using app_duration = std::chrono::steady_clock::duration;
+    using guard = std::lock_guard<std::mutex>;
 
     class Chronos {
      private:
@@ -19,6 +19,7 @@ namespace chronos {
         std::vector<Worker *> workers;
         std::chrono::steady_clock::time_point next_tick;
         app_duration tick_duration;
+        ThreadsafeQueue<std::function<void()>> async_tasks;
 
         void start_workers();
 
@@ -29,6 +30,8 @@ namespace chronos {
         bool still_running();
 
         void loop();
+
+        void process_async();
 
         void tick_started();
 
@@ -62,6 +65,32 @@ namespace chronos {
          * overridden in descendants
          */
         virtual void tick() = 0;
+
+        /**
+         * passed Functor (probably lambda) is marked for async execution by Chronos
+         * this call then blocks calling thread until the task is finished
+         * returns same type as the Functor
+         *
+         * @tparam Functor
+         * @param function returning ret type
+         * @return ret
+         */
+        template<typename Functor>
+        auto async(Functor functor){
+          using ret = decltype(functor());
+          using task_t = std::packaged_task<ret()>;
+
+          task_t task(functor);
+          std::future<ret> future = task.get_future();
+          auto t = std::make_shared<task_t>(std::move(task));
+
+          async_tasks.push([t]() { (*t)(); });
+
+          //TODO unflag working from calling Worker
+          ret retval = future.get();
+          //TODO reflag working from calling Worker
+          return retval;
+        }
     };
 
 }

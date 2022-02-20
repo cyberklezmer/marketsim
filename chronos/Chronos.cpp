@@ -1,4 +1,4 @@
-#include <iostream>
+#include <algorithm>
 #include "Chronos.hpp"
 #include "Worker.hpp"
 
@@ -20,8 +20,15 @@ namespace chronos {
         clock_time++;
         if (next_alarm <= clock_time)
           next_alarm = wake_workers();
+        process_async();
         tick();
         wait_next_tick();
+      }
+    }
+
+    void Chronos::process_async() {
+      while (auto item = async_tasks.pop()) {
+        item.value()();
       }
     }
 
@@ -40,8 +47,8 @@ namespace chronos {
         if (worker->alarm) {
           if (worker->alarm <= clock_time) {
             worker->alarm = 0;
-            worker->waker.unlock();
             worker->working.lock();
+            worker->waker.unlock();
             next_alarm = 1;
           }
           else if (!next_alarm || (worker->alarm < next_alarm))

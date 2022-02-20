@@ -19,13 +19,16 @@ add_executable(chronos
         Worker.hpp
         Chronos.cpp
         Chronos.hpp
+        ThreadsafeQueue.hpp
         )
 add_executable(tests
         Worker.cpp
         Worker.hpp
         Chronos.cpp
         Chronos.hpp
-        tests.cpp)
+        ThreadsafeQueue.hpp
+        tests.cpp
+        )
 
 target_link_libraries(tests gtest_main gmock_main)
 #add_test(NAME example_test COMMAND example)
