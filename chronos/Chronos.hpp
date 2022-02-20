@@ -68,7 +68,7 @@ namespace chronos {
 
         /**
          * passed Functor (probably lambda) is marked for async execution by Chronos
-         * this call then blocks calling thread until the task is finished
+         * async blocks calling thread until the task is finished
          * returns same type as the Functor
          *
          * @tparam Functor
