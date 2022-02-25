@@ -12,6 +12,7 @@ namespace chronos {
     using app_time = unsigned long long;
     using app_duration = std::chrono::steady_clock::duration;
     using guard = std::lock_guard<std::mutex>;
+    using workers_list = std::vector<Worker *>;
 
     class Chronos {
      private:
@@ -21,15 +22,15 @@ namespace chronos {
         app_duration tick_duration;
         ThreadsafeQueue<std::function<void()>> async_tasks;
 
-        void start_workers();
+        void start_workers(workers_list workers);
 
-        void wait_next_tick();
+        void wait_next_tick(workers_list workers);
 
-        app_time wake_workers();
+        app_time wake_workers(workers_list workers);
 
-        bool still_running();
+        bool still_running(workers_list workers);
 
-        void loop();
+        void loop(workers_list workers);
 
         void process_async();
 
@@ -52,13 +53,10 @@ namespace chronos {
           return clock_time;
         };
 
-        //worker registers itself
-        void register_worker(Worker *worker);
-
         /**
          * starts main loop
          */
-        void run();
+        void run(workers_list workers);
 
         /**
          * user function called every clock tick

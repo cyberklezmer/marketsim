@@ -3,26 +3,22 @@
 #include "Worker.hpp"
 
 namespace chronos {
-    void Chronos::register_worker(Worker *worker) {
-      workers.push_back(worker);
-    }
-
-    void Chronos::run() {
+    void Chronos::run(workers_list workers) {
       clock_time = 0;
-      start_workers();
-      loop();
+      start_workers(workers);
+      loop(workers);
     }
 
-    void Chronos::loop() {
+    void Chronos::loop(workers_list workers) {
       app_time next_alarm = 1;
-      while (still_running()) {
+      while (still_running(workers)) {
         tick_started();
         clock_time++;
         if (next_alarm <= clock_time)
-          next_alarm = wake_workers();
+          next_alarm = wake_workers(workers);
         process_async();
         tick();
-        wait_next_tick();
+        wait_next_tick(workers);
       }
     }
 
@@ -32,7 +28,7 @@ namespace chronos {
       }
     }
 
-    bool Chronos::still_running() {
+    bool Chronos::still_running(workers_list workers) {
       return std::any_of(workers.begin(), workers.end(), [](auto worker) { return !!worker->running; });
     }
 
@@ -40,7 +36,7 @@ namespace chronos {
      * wake workers that have alarm current
      * @return minimal clock when some thread needs waking up (1 means next tick)
      */
-    app_time Chronos::wake_workers() {
+    app_time Chronos::wake_workers(workers_list workers) {
       app_time next_alarm = 0;
       for (auto worker: workers) {
         const guard lock(worker->alarm_handling);
@@ -60,7 +56,7 @@ namespace chronos {
       return next_alarm;
     }
 
-    void Chronos::start_workers() {
+    void Chronos::start_workers(workers_list workers) {
       for (auto worker: workers)
         worker->start();
     }
@@ -74,7 +70,7 @@ namespace chronos {
      *   we do not need to wait and can go on wint next tick
      * anyway always release all the acquired locks
      */
-    void Chronos::wait_next_tick() {
+    void Chronos::wait_next_tick(workers_list workers) {
       int index;
       for (index = 0; index < workers.size(); index++) {
         if (!workers[index]->working.try_lock_until(next_tick))

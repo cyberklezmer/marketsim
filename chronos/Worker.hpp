@@ -27,11 +27,8 @@ namespace chronos {
 
         void entry_point();
 
-     protected:
-        Chronos &parent;
-
      public:
-        Worker(Chronos &main);
+        Worker();
 
         virtual ~Worker();
 
@@ -39,14 +36,6 @@ namespace chronos {
         void start();
 
      protected:
-        /**
-         * returns the global wall time
-         * @return app_time
-         */
-        inline app_time get_time() {
-          return parent.get_time();
-        };
-
         /**
          * suspend the execution of this worker until <alarm_par> time
          * without argument sleep till next clock tick

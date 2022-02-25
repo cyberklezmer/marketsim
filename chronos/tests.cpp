@@ -39,7 +39,7 @@ namespace chronos {
      public:
         int counter;
 
-        TestWorkerActive(Chronos &main, int tick_count) : counter(tick_count), Worker(main) {};
+        TestWorkerActive(int tick_count) : counter(tick_count) {};
 
         void main() override {
           std::this_thread::sleep_for(counter * tick_length);
@@ -50,7 +50,7 @@ namespace chronos {
      public:
         int counter;
 
-        TestWorkerPassive(Chronos &main, int tick_count) : counter(tick_count), Worker(main) {};
+        TestWorkerPassive(int tick_count) : counter(tick_count) {};
 
         void main() override {
           for (int i = 0; i < counter; i++)
@@ -60,8 +60,6 @@ namespace chronos {
 
     class TestWorkerCrash : public Worker {
      public:
-        explicit TestWorkerCrash(Chronos &main) : Worker(main) {};
-
         void main() override {
           throw "Something bad happened";
         }
@@ -70,40 +68,42 @@ namespace chronos {
     class TestWorkerAsync : public Worker {
      public:
         int num;
-
-        TestWorkerAsync(Chronos &main) : Worker(main) {};
-
+        TestChronos & parent;
+        TestWorkerAsync(TestChronos &main) : parent(main) {};
         void main() override {
           num = 0;
-          num = ((TestChronos &) parent).get_int(5);
+          num = parent.get_int(5);
         }
     };
 
 
     class MockPassive : public TestWorkerPassive {
      public:
-        MockPassive(Chronos &main, int tick_count) : TestWorkerPassive(main, tick_count) {};
+        MockPassive(int tick_count) : TestWorkerPassive(tick_count) {};
         MOCK_METHOD(void, main, (), (override));
     };
 
 
     TEST(Chronos, EmptyChronos) {
       TestChronos god;
-      god.run();
+      workers_list workers;
+      god.run(workers);
       EXPECT_EQ(god.ticks, 0);
     }
 
     TEST(Chronos, SinglePassive) {
       TestChronos god;
-      TestWorkerPassive w1(god, 100);
-      god.run();
+      TestWorkerPassive w1(100);
+      workers_list workers = {&w1};
+      god.run(workers);
       EXPECT_EQ(god.ticks, 101);
     }
 
     TEST(Chronos, SingleActive) {
       TestChronos god;
-      TestWorkerActive w1(god, 100);
-      god.run();
+      TestWorkerActive w1(100);
+      workers_list workers = {&w1};
+      god.run(workers);
       //20% time error
       EXPECT_GT(god.ticks, 80);
       EXPECT_LT(god.ticks, 120);
@@ -112,21 +112,24 @@ namespace chronos {
 
     TEST(Chronos, SingleActiveMock) {
       TestChronos god;
-      MockPassive w1(god, 100);
+      MockPassive w1(100);
+      workers_list workers = {&w1};
       EXPECT_CALL(w1, main());
-      god.run();
+      god.run(workers);
     }
 
     TEST(Chronos, TestWorkerCrash) {
       TestChronos god;
-      TestWorkerCrash w1(god);
-      ASSERT_NO_THROW(god.run());
+      TestWorkerCrash w1;
+      workers_list workers = {&w1};
+      ASSERT_NO_THROW(god.run(workers));
     }
 
     TEST(Chronos, AsyncChronos) {
       TestChronos god;
       TestWorkerAsync w1(god);
-      god.run();
+      workers_list workers = {&w1};
+      god.run(workers);
       EXPECT_EQ(w1.num, 10);
     }
 

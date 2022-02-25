@@ -2,9 +2,7 @@
 #include "Worker.hpp"
 
 namespace chronos {
-    Worker::Worker(Chronos &main) : parent(main), running(false) {
-      parent.register_worker(this);
-    }
+    Worker::Worker() : running(false) {}
 
     Worker::~Worker() {
       assert(!running);
