@@ -72,6 +72,7 @@ namespace chronos {
      */
     void Chronos::wait_next_tick(workers_list workers) {
       int index;
+      app_time_point next_tick = tick_start + tick_duration;
       for (index = 0; index < workers.size(); index++) {
         if (!workers[index]->working.try_lock_until(next_tick))
           break;
@@ -82,7 +83,9 @@ namespace chronos {
     }
 
     void Chronos::tick_started() {
-      next_tick = std::chrono::steady_clock::now() + tick_duration;
+      app_time_point now = std::chrono::steady_clock::now();
+      last_tick_duration = now - tick_start;
+      tick_start = now;
     }
 
     unsigned long Chronos::format_time() {

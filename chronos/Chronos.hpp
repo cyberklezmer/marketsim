@@ -11,6 +11,7 @@ namespace chronos {
 
     using app_time = unsigned long long;
     using app_duration = std::chrono::steady_clock::duration;
+    using app_time_point = std::chrono::steady_clock::time_point;
     using guard = std::lock_guard<std::mutex>;
     using workers_list = std::vector<Worker *>;
 
@@ -18,7 +19,8 @@ namespace chronos {
      private:
         std::atomic<app_time> clock_time;
         std::vector<Worker *> workers;
-        std::chrono::steady_clock::time_point next_tick;
+        app_duration last_tick_duration;
+        app_time_point tick_start;
         app_duration tick_duration;
         ThreadsafeQueue<std::function<void()>> async_tasks;
 
@@ -43,7 +45,7 @@ namespace chronos {
          * Constructs a Chronos
          * @param duration of one tick
          */
-        Chronos(app_duration duration) : tick_duration(duration), clock_time(0) {};
+        Chronos(app_duration duration) : tick_duration(duration), clock_time(0), last_tick_duration(0) {};
 
         /**
          * current global time (number of ticks since start)
@@ -51,6 +53,23 @@ namespace chronos {
          */
         inline app_time get_time() {
           return clock_time;
+        };
+
+        /**
+         * get time remaining in this tick. if negative then we are overdue - increase duration set in Chronos
+         * constructor
+         * @return app_duration
+         */
+        app_duration get_remaining_time() {
+          return tick_start + tick_duration - std::chrono::steady_clock::now();
+        };
+
+        /**
+         * get last tick duration
+         * @return app_duration
+         */
+        app_duration get_last_tick_duration() {
+          return last_tick_duration;
         };
 
         /**
