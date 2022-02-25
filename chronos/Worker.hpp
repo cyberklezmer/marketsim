@@ -27,13 +27,14 @@ namespace chronos {
 
         void entry_point();
 
+        //called by Chronos
+        void start();
+
      public:
         Worker();
 
         virtual ~Worker();
 
-        //called by Chronos
-        void start();
 
      protected:
         /**
