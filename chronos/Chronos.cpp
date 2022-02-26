@@ -5,20 +5,21 @@
 namespace chronos {
     void Chronos::run(workers_list workers) {
       clock_time = 0;
-      start_workers(workers);
-      loop(workers);
+      this->workers = workers;
+      start_workers();
+      loop();
     }
 
-    void Chronos::loop(workers_list workers) {
+    void Chronos::loop() {
       app_time next_alarm = 1;
-      while (still_running(workers)) {
+      while (still_running()) {
         tick_started();
         clock_time++;
         if (next_alarm <= clock_time)
-          next_alarm = wake_workers(workers);
+          next_alarm = wake_workers();
         process_async();
         tick();
-        wait_next_tick(workers);
+        wait_next_tick();
       }
     }
 
@@ -28,7 +29,7 @@ namespace chronos {
       }
     }
 
-    bool Chronos::still_running(workers_list workers) {
+    bool Chronos::still_running() {
       return std::any_of(workers.begin(), workers.end(), [](auto worker) { return !!worker->running; });
     }
 
@@ -36,7 +37,7 @@ namespace chronos {
      * wake workers that have alarm current
      * @return minimal clock when some thread needs waking up (1 means next tick)
      */
-    app_time Chronos::wake_workers(workers_list workers) {
+    app_time Chronos::wake_workers() {
       app_time next_alarm = 0;
       for (auto worker: workers) {
         const guard lock(worker->alarm_handling);
@@ -56,7 +57,7 @@ namespace chronos {
       return next_alarm;
     }
 
-    void Chronos::start_workers(workers_list workers) {
+    void Chronos::start_workers() {
       for (auto worker: workers)
         worker->start();
     }
@@ -70,7 +71,7 @@ namespace chronos {
      *   we do not need to wait and can go on wint next tick
      * anyway always release all the acquired locks
      */
-    void Chronos::wait_next_tick(workers_list workers) {
+    void Chronos::wait_next_tick() {
       int index;
       app_time_point next_tick = tick_start + tick_duration;
       for (index = 0; index < workers.size(); index++) {
@@ -78,8 +79,26 @@ namespace chronos {
           break;
       }
       for (index--; index >= 0; index--) {
-        workers[index]->working.unlock();
+        worker_unlock(index);
       }
+    }
+
+    void Chronos::worker_unlock(int index) {
+      workers[index]->working.unlock();
+    }
+
+    void Chronos::worker_lock(int index) {
+      workers[index]->working.lock();
+    }
+
+    int Chronos::get_thread_index() {
+      std::thread::id cur_id = std::this_thread::get_id();
+      int index;
+      for (index = 0; index < workers.size(); index++) {
+        if (workers[index]->thread_id == cur_id)
+          return index;
+      }
+      throw std::runtime_error("Unknown thread");
     }
 
     void Chronos::tick_started() {
@@ -91,4 +110,10 @@ namespace chronos {
     unsigned long Chronos::format_time() {
       return std::chrono::steady_clock::now().time_since_epoch().count();
     }
+
+    Chronos::Chronos(app_duration duration) :
+        tick_duration(duration),
+        clock_time(0),
+        last_tick_duration(0),
+        tick_start(std::chrono::steady_clock::now()) {}
 }

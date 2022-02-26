@@ -25,6 +25,8 @@ namespace chronos {
         //this Worker has running working thread
         std::atomic<bool> running;
 
+        std::thread::id thread_id;
+
         void entry_point();
 
         //called by Chronos

@@ -18,21 +18,21 @@ namespace chronos {
     class Chronos {
      private:
         std::atomic<app_time> clock_time;
-        std::vector<Worker *> workers;
+        workers_list workers;
         app_duration last_tick_duration;
         app_time_point tick_start;
         app_duration tick_duration;
         ThreadsafeQueue<std::function<void()>> async_tasks;
 
-        void start_workers(workers_list workers);
+        void start_workers();
 
-        void wait_next_tick(workers_list workers);
+        void wait_next_tick();
 
-        app_time wake_workers(workers_list workers);
+        app_time wake_workers();
 
-        bool still_running(workers_list workers);
+        bool still_running();
 
-        void loop(workers_list workers);
+        void loop();
 
         void process_async();
 
@@ -40,12 +40,18 @@ namespace chronos {
 
         unsigned long format_time();
 
+        void worker_unlock(int index);
+
+        void worker_lock(int index);
+
+        int get_thread_index();
+
      public:
         /**
          * Constructs a Chronos
          * @param duration of one tick
          */
-        Chronos(app_duration duration) : tick_duration(duration), clock_time(0), last_tick_duration(0) {};
+        Chronos(app_duration duration);
 
         /**
          * current global time (number of ticks since start)
@@ -68,7 +74,7 @@ namespace chronos {
          * get last tick duration
          * @return app_duration
          */
-        app_duration get_last_tick_duration() {
+        inline app_duration get_last_tick_duration() {
           return last_tick_duration;
         };
 
@@ -100,12 +106,14 @@ namespace chronos {
           task_t task(functor);
           std::future<ret> future = task.get_future();
           auto t = std::make_shared<task_t>(std::move(task));
+          int index = get_thread_index();
 
           async_tasks.push([t]() { (*t)(); });
 
-          //TODO unflag working from calling Worker
+          worker_unlock(index);
           ret retval = future.get();
-          //TODO reflag working from calling Worker
+          worker_lock(index);
+
           return retval;
         }
     };

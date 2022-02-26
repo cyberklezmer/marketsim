@@ -18,6 +18,8 @@ namespace chronos {
 
         void tick() override {
           ticks++;
+          if (get_remaining_time().count() < 0)
+            std::cout << "Remaining: " << get_remaining_time().count() << " < 0  - increase TICK_LEN\n";
         }
 
         int get_int(int val) {
