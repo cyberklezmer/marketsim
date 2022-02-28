@@ -18,6 +18,8 @@ namespace chronos {
     class Chronos {
      private:
         std::atomic<app_time> clock_time;
+        std::atomic<bool> finished = false;
+        app_time max_time;
         workers_list workers;
         app_duration last_tick_duration;
         app_time_point tick_start;
@@ -51,7 +53,7 @@ namespace chronos {
          * Constructs a Chronos
          * @param duration of one tick
          */
-        Chronos(app_duration duration);
+        Chronos(app_duration duration, app_time max_time = 0);
 
         /**
          * current global time (number of ticks since start)
@@ -99,9 +101,12 @@ namespace chronos {
          * @return ret
          */
         template<typename Functor>
-        auto async(Functor functor){
+        auto async(Functor functor) {
           using ret = decltype(functor());
           using task_t = std::packaged_task<ret()>;
+
+          if (finished)
+            throw std::runtime_error("Already finished");
 
           task_t task(functor);
           std::future<ret> future = task.get_future();
