@@ -14,10 +14,6 @@ using namespace marketsim;
 
 class tnaiverketmaker : public tsimplestrategy
 {
-    using Tvec = std::vector<double>;
-    using T2vec = std::vector<Tvec>;
-    using T3vec = std::vector<T2vec>;
-    using T4vec = std::vector<T3vec>;
 
 public:
     tnaiverketmaker(const std::string& name,
@@ -137,14 +133,12 @@ private:
 
 void martin()
 {
-    bool evaluate = true;
+    bool evaluate = false;
     // orpp::sys::seed(788897);
 
     /// strategy lt buys/sells on aveage 1 stocks ecach second on average
-    tliquiditytaker lt("lt", 1, 1);
 
-    /// maket maker starts with price 500 and his target inventory is 5000,
-    /// the bid and ask size is 1
+    tliquiditytaker lt("lt", 1, 1);
     tnaiverketmaker naivemm("naivemm", 100);
     tadpmarketmaker adpmm("adpmm",100, 2000, 100 );
     tsimulation::addstrategy(naivemm, {1000,50});

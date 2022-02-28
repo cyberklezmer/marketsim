@@ -7,6 +7,7 @@
 #include <random>
 #include <algorithm>
 #include "orpp.hpp"
+#include "Chronos.hpp"
 
 
 
@@ -47,15 +48,6 @@ inline std::string p2str(tprice p)
     }
 }
 
-
-/// struct defining market behafior
-struct tmarketdef
-{
-    /// mean of (exponential) interval wotj which the market checks new requests
-    double flattency = 0.01;
-    /// minimuim time after which the stretegy can be called again
-    double minupdateinterval = 0.001;
-};
 
 /// class describing the strategies holdings
 class twallet
@@ -140,7 +132,7 @@ inline std::ostream& operator << (std::ostream& o, const tpreorder& r)
 /// Actual order
 struct torder : public tpreorder
 {
-    /// time of submission in sec from simulation start
+    /// time of submission in market time from simulation start
     ttime time;
     /// an index of strategy owning if, \sa marketsim::tsimulation
     unsigned owner;
@@ -306,7 +298,8 @@ private:
 
 };
 
-/// An preorder/order list of type \p ask, \p C is either marketsim::torderptrcontainer or marketsim::tsortedordercontainer
+/// An preorder/order list of type \p ask, \p C is either marketsim::torderptrcontainer
+/// or marketsim::tsortedordercontainer
 template <typename C, bool ask>
 class tlistbase : public C
 {
@@ -405,7 +398,7 @@ using torderlist=tlistbase<tsortedordercontainer<torder,ask>,ask>;
 template <bool ask>
 using torderptrlist=tlistbase<torderptrcontainer<torder>,ask>;
 
-/// Base for order profile (i.e. the list of bost buy and sell orders)
+/// Base for order profile (i.e. the list of buy and sell orders)
 template <typename LB, typename LA>
 class tprofilebase
 {
@@ -487,12 +480,12 @@ public:
     };
 
     /// possible warnings, which can be returned back when settling the request
-    enum ewarning { OK, ecrossedorders, enotenoughmoneytobuy, enotenoughstockstosell,
+    enum eresult { OK /* never used */ , ecrossedorders, enotenoughmoneytobuy, enotenoughstockstosell,
                     enotenoughmoneytoput, enotenoughstockstoput,
-                    enumwargnings};
+                    enumresults};
 
-    /// text version of the warnings, \sa ewarning
-    static std::string warninglabel(ewarning w)
+    /// text version of the warnings, \sa eresult
+    static std::string warninglabel(eresult w)
     {
         static std::vector<std::string> lbls =
         { "OK" , "crossed orders", "not enough money to buy",
@@ -509,27 +502,23 @@ public:
     /// \param consumption amount of money to be consumed
     trequest(const tpreorderprofile& orderrequest,
              const teraserequest& eraserequest = teraserequest(true),
-             ttime nextupdate = 0,
              tprice consumption = 0) :
         fconsumption(consumption),
-        fnextupdate(nextupdate),
         forderrequest(orderrequest),
         feraserequest(eraserequest)
     {}
     /// constructs epmty request
-    trequest() : fconsumption(0), fnextupdate(0),
+    trequest() : fconsumption(0),
         forderrequest(), feraserequest(false) {}
     /// accessor
     tprice consumption() const { return fconsumption; }
     /// accessor
-    const tpreorderprofile& requestprofile() const { return forderrequest; }
+    const tpreorderprofile& orderrequest() const { return forderrequest; }
     /// accessor
     const teraserequest& eraserequest() const { return feraserequest; }
     /// accessor
-    ttime nextupdate() const { return fnextupdate; }
 public:
     tprice fconsumption;
-    ttime fnextupdate;
     tpreorderprofile forderrequest;
     teraserequest feraserequest;
 };
@@ -634,7 +623,7 @@ public:
 
 /// Collects state/history of the strategy's activity. Also holds information about
 /// cash and stocks blocked by market.
-class ttradinghistory
+class ttrading
 {
 public:
     /// record about consumption
@@ -660,7 +649,7 @@ public:
     };
 
     /// constructor, \p name is the name of the strategy, \p wallet is the initial endowment
-    ttradinghistory(const std::string& name, const twallet& wallet) :
+    ttrading(const std::string& name, const twallet& wallet) :
         fname(name), fwallet(wallet), fblockedmoney(0), fblockedstocks(0) {}
     /// accessor
     void addconsumption(tprice c, ttime t)
@@ -750,12 +739,12 @@ private:
     /// is called by marketsim::tsimulation at time, specified by the strategy at the
     /// previous event
     virtual trequest event(const tmarketinfo& ai,
-                           const ttradinghistory& aresult)  = 0;
+                           const ttrading& aresult)  = 0;
     /// is called at the end of the trading session
-    virtual void atend(const ttradinghistory&) {}
+    virtual void atend(const ttrading&) {}
     /// is called when warning arise during settlement -- by default repurts the waring to
     /// orpp::sys::log()
-    virtual void warning(trequest::ewarning code, const std::string& txt)
+    virtual void warning(trequest::eresult code, const std::string& txt)
     {
         std::ostringstream str;
         str << "Warning: '" << trequest::warninglabel(code) << "' to '"
@@ -774,16 +763,29 @@ public:
     /// history of the market
     const tmarkethistory& history;
     /// trading histories of individual strategies
-    const std::vector<ttradinghistory>& tradinghistory;
+    const std::vector<ttrading>& tradinghistory;
 };
+
+
+/// struct defining market behavior
+struct tmarketdef
+{
+    /// mean of (exponential) interval wotj which the market checks new requests
+    double flattency = 0.01;
+    /// minimuim time after which the stretegy can be called again
+    double minupdateinterval = 0.001;
+    /// \p chronos duration
+    chronos::app_duration chronosduration;
+};
+
 
 /// Class performing the simulation. Need not be instantiated, all methods are static
 /// (has to be only single one in program, however)
-class tsimulation
+class tsimulation : private chronos::Chronos
 {
-    struct settlewarning
+    struct tsettlewarning
     {
-        trequest::ewarning w;
+        trequest::eresult w;
         std::string text;
     };
 
@@ -794,14 +796,14 @@ class tsimulation
         {
         }
 
-        std::vector<settlewarning> settle(const trequest& arequest,
-                           std::vector<ttradinghistory>& profiles,
+        std::vector<tsettlewarning> settle(const trequest& arequest,
+                           std::vector<ttrading>& profiles,
                            unsigned owner,
                            ttime t)
         {
-            std::vector<settlewarning> ret;
+            std::vector<tsettlewarning> ret;
             assert(owner < numstrategies());
-            const tpreorderprofile& request = arequest.requestprofile();
+            const tpreorderprofile& request = arequest.orderrequest();
             if(!request.check())
             {
                 ret.push_back({trequest::ecrossedorders,""});
@@ -980,19 +982,6 @@ class tsimulation
 
         std::vector<torderprofile> fbook;
 
-        void sort()
-        {
-            fshuffledowners.clear();
-            fshuffledowners.resize(fbook.size());
-            for(unsigned i=0; i<fbook.size(); i++)
-                fshuffledowners[i] = i;
-            std::shuffle(fshuffledowners.begin(),
-                         fshuffledowners.end(), orpp::sys::engine() );
-            makequeue<true>();
-            makequeue<false>();
-        }
-
-        std::vector<unsigned> fshuffledowners;
         std::vector<torder*> fa;
         std::vector<torder*> fb;
         torderptrprofile fobprofile;
@@ -1004,89 +993,62 @@ class tsimulation
             return tsortedordercontainer<torder,ask>::cmp(*a,*b);
          }
 
-        template <bool ask>
-        void makequeue()
-        {
-            std::vector<torder*>& dst = ask ? fa : fb;
-            dst.clear();
-            for(unsigned n=0; n<fshuffledowners.size(); n++)
-            {
-                unsigned j = fshuffledowners[n];
-                torderlist<ask>* src;
-                if constexpr(ask )
-                    src = &fbook[j].A;
-                else
-                    src = &fbook[j].B;
-                src->removezeros();
-                unsigned s = src->size();
-                for(unsigned i=0; i<s; i++)
-                    dst.push_back(&((*src)[i]));
-            }
-            std::stable_sort(dst.begin(), dst.end(), cmp<ask> );
-
-        }
 
 
     };
 
-    static tsimulation& self()
+public:
+
+    tsimulation(const tmarketdef& adef) : chronos::Chronos(adef.chronosduration), fdef(adef)
     {
-        static tsimulation lself;
-        return lself;
     }
 
-public:
 
     /// if calles with \p alogging=\c true, detailed information is sent to
     /// orpp::sys::log() during simulation
-    static void setlogging(bool alogging)
+    void setlogging(bool alogging)
     {
-        self().flogging = alogging;
+        flogging = alogging;
     }
 
     /// changes the simulation definition
-    static void setdef(const tmarketdef& adef)
-    {
-        self().fdef = adef;
-    }
 
     /// accessor
-    static const tmarketdef& def()
+    const tmarketdef& def() const
     {
-        return self().fdef;
+        return fdef;
     }
 
     /// \c true if logging is on
-    static bool islogging()
+    bool islogging() const
     {
-        return self().flogging;
+        return flogging;
     }
 
     /// adds a strategy \p s, involved in the simulation, and its initial endownment \p e,
     /// to the end if the internal list
-    static void addstrategy(tstrategy& s, twallet e)
+    void addstrategy(tstrategy& s, twallet e)
     {
-        self().fstrategies.push_back(&s);
-        self().fendowments.push_back(e);
+        fstrategies.push_back(&s);
+        fendowments.push_back(e);
     }
 
     /// returns the number of strategies in the internal list
-    static unsigned numstrategies()
+    unsigned numstrategies() const
     {
-        return self().fstrategies.size();
+        return fstrategies.size();
     }
 
     /// returns results of the last simulation
-    static tsimulationresult results()
+    tsimulationresult results() const
     {
-        tsimulationresult ret ={ self().fhistory, self().fresults };
-        return ret;
+        return { fhistory, fresults };
     }
 
     /// Run the simulation of \p timeofrun seconds of trading (the simulation is usually much shorter).
-    static void run(double timeofrun)
+    static void run(double /*timeofrun TBD*/)
     {
-        self().dorun(timeofrun);
+        chronos::Chronos::run();
     }
 
     struct averageresult
@@ -1095,12 +1057,11 @@ public:
         double standarderr;
     };
 
-
     /// Evaluates the current strategies by running \p nruns simulation of length \p timeofrun.
     /// For each strtategy it returns mean value of its profit (comparison to the "hold" strategy,
     /// i.e. doing nothing) and the standard deviation.
 
-    static std::vector<averageresult> evaluate(double timeofrun, unsigned nruns, bool countremainingstocks = true)
+    std::vector<averageresult> evaluate(double timeofrun, unsigned nruns, bool countremainingstocks = true)
     {
         std::vector<double> s(numstrategies(),0);
         std::vector<double> s2(numstrategies(),0);
@@ -1154,7 +1115,7 @@ private:
          double t=0.0;
 
          for(unsigned i=0; i<n; i++)
-             fresults.push_back(ttradinghistory(fstrategies[i]->name(), fendowments[i]));
+             fresults.push_back(ttrading(fstrategies[i]->name(), fendowments[i]));
 
          std::vector<ttime> alarmclock(n,0);
 
@@ -1186,9 +1147,9 @@ private:
                      if(flogging)
                      {
                        orpp::sys::log() << '\t' << "Requests " << std::endl;
-                       orpp::sys::log() << '\t' << '\t' << "A: " << request.requestprofile().A << std::endl;
-                       orpp::sys::log() << '\t' << '\t' << "B: " << request.requestprofile().B << std::endl;
-//if(request.requestprofile().A.size() && request.requestprofile().A[0].price==60 && request.requestprofile().A[0].volume==1)
+                       orpp::sys::log() << '\t' << '\t' << "A: " << request.orderrequest().A << std::endl;
+                       orpp::sys::log() << '\t' << '\t' << "B: " << request.orderrequest().B << std::endl;
+//if(request.orderrequest().A.size() && request.orderrequest().A[0].price==60 && request.orderrequest().A[0].volume==1)
 //    std::clog << "Here!" << std::endl;
                        if(request.eraserequest().all)
                            orpp::sys::log() << '\t' << "wanting to erase all previous orders" << std::endl;
@@ -1204,7 +1165,6 @@ private:
                            orpp::sys::log() << std::endl;
                        }
                        orpp::sys::log() << '\t' << "the strategy wants to consume " << request.consumption()
-                                        << " and to be called after " << request.fnextupdate
                                         << " seconds." << std::endl;
 
                     }
@@ -1228,7 +1188,7 @@ private:
                      orpp::sys::log() << "Settling "
                                       << fstrategies[requesting[i]]->name() << std::endl;
 
-                  std::vector<settlewarning> sr = ob.settle(orderrequests[requesting[i]],
+                  std::vector<tsettlewarning> sr = ob.settle(orderrequests[requesting[i]],
                           fresults,
                           requesting[i],
                           t
@@ -1275,7 +1235,7 @@ private:
     std::vector<tstrategy*> fstrategies;
     std::vector<twallet> fendowments;
 
-    std::vector<ttradinghistory> fresults;
+    std::vector<ttrading> fresults;
     tmarkethistory fhistory;
 
 };
@@ -1336,10 +1296,10 @@ private:
     /// event handler which has to be overriden by any accessor, \p mi reports
     /// the state of the market, \p history the history associated with the strategy
     virtual tsimpleorderprofile simpleevent(const tmarketinfo& mi,
-                                     const ttradinghistory& history ) = 0;
+                                     const ttrading& history ) = 0;
 
     virtual trequest event(const tmarketinfo& mi,
-                                  const ttradinghistory& aresult )
+                                  const ttrading& aresult )
     {
 
         tsimpleorderprofile r = simpleevent(mi, aresult) ;
