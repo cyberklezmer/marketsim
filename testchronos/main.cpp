@@ -6,8 +6,8 @@
 #include <algorithm>
 #include <random>
 
-#include "strategies.hpp"
-
+//#include "strategies.hpp"
+#include "marketsim.hpp"
 
 using namespace marketsim;
 
