@@ -3,11 +3,19 @@
 #include "Worker.hpp"
 
 namespace chronos {
+    Chronos::Chronos(app_duration duration, app_time max_time) :
+        tick_duration(duration),
+        clock_time(0),
+        max_time(max_time),
+        last_tick_duration(0),
+        tick_start(std::chrono::steady_clock::now()) {}
+
     void Chronos::run(workers_list workers) {
       clock_time = 0;
       this->workers = workers;
       start_workers();
       loop();
+      finished = true;
     }
 
     void Chronos::loop() {
@@ -30,7 +38,8 @@ namespace chronos {
     }
 
     bool Chronos::still_running() {
-      return std::any_of(workers.begin(), workers.end(), [](auto worker) { return !!worker->running; });
+      return (!max_time || (max_time <= clock_time)) &&
+             std::any_of(workers.begin(), workers.end(), [](auto worker) { return !!worker->running; });
     }
 
     /**
@@ -111,9 +120,4 @@ namespace chronos {
       return std::chrono::steady_clock::now().time_since_epoch().count();
     }
 
-    Chronos::Chronos(app_duration duration) :
-        tick_duration(duration),
-        clock_time(0),
-        last_tick_duration(0),
-        tick_start(std::chrono::steady_clock::now()) {}
 }
