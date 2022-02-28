@@ -11,13 +11,16 @@ namespace chronos {
 
     using app_time = unsigned long long;
     using app_duration = std::chrono::steady_clock::duration;
+    using app_time_point = std::chrono::steady_clock::time_point;
     using guard = std::lock_guard<std::mutex>;
+    using workers_list = std::vector<Worker *>;
 
     class Chronos {
      private:
         std::atomic<app_time> clock_time;
-        std::vector<Worker *> workers;
-        std::chrono::steady_clock::time_point next_tick;
+        workers_list workers;
+        app_duration last_tick_duration;
+        app_time_point tick_start;
         app_duration tick_duration;
         ThreadsafeQueue<std::function<void()>> async_tasks;
 
@@ -37,12 +40,18 @@ namespace chronos {
 
         unsigned long format_time();
 
+        void worker_unlock(int index);
+
+        void worker_lock(int index);
+
+        int get_thread_index();
+
      public:
         /**
          * Constructs a Chronos
          * @param duration of one tick
          */
-        Chronos(app_duration duration) : tick_duration(duration), clock_time(0) {};
+        Chronos(app_duration duration);
 
         /**
          * current global time (number of ticks since start)
@@ -52,13 +61,27 @@ namespace chronos {
           return clock_time;
         };
 
-        //worker registers itself
-        void register_worker(Worker *worker);
+        /**
+         * get time remaining in this tick. if negative then we are overdue - increase duration set in Chronos
+         * constructor
+         * @return app_duration
+         */
+        app_duration get_remaining_time() {
+          return tick_start + tick_duration - std::chrono::steady_clock::now();
+        };
+
+        /**
+         * get last tick duration
+         * @return app_duration
+         */
+        inline app_duration get_last_tick_duration() {
+          return last_tick_duration;
+        };
 
         /**
          * starts main loop
          */
-        void run();
+        void run(workers_list workers);
 
         /**
          * user function called every clock tick
@@ -83,12 +106,14 @@ namespace chronos {
           task_t task(functor);
           std::future<ret> future = task.get_future();
           auto t = std::make_shared<task_t>(std::move(task));
+          int index = get_thread_index();
 
           async_tasks.push([t]() { (*t)(); });
 
-          //TODO unflag working from calling Worker
+          worker_unlock(index);
           ret retval = future.get();
-          //TODO reflag working from calling Worker
+          worker_lock(index);
+
           return retval;
         }
     };

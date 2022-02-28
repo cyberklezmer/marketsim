@@ -25,28 +25,20 @@ namespace chronos {
         //this Worker has running working thread
         std::atomic<bool> running;
 
+        std::thread::id thread_id;
+
         void entry_point();
-
-     protected:
-        Chronos &parent;
-
-     public:
-        Worker(Chronos &main);
-
-        virtual ~Worker();
 
         //called by Chronos
         void start();
 
-     protected:
-        /**
-         * returns the global wall time
-         * @return app_time
-         */
-        inline app_time get_time() {
-          return parent.get_time();
-        };
+     public:
+        Worker();
 
+        virtual ~Worker();
+
+
+     protected:
         /**
          * suspend the execution of this worker until <alarm_par> time
          * without argument sleep till next clock tick

@@ -3,12 +3,9 @@
 #include "Worker.hpp"
 
 namespace chronos {
-    void Chronos::register_worker(Worker *worker) {
-      workers.push_back(worker);
-    }
-
-    void Chronos::run() {
+    void Chronos::run(workers_list workers) {
       clock_time = 0;
+      this->workers = workers;
       start_workers();
       loop();
     }
@@ -76,20 +73,47 @@ namespace chronos {
      */
     void Chronos::wait_next_tick() {
       int index;
+      app_time_point next_tick = tick_start + tick_duration;
       for (index = 0; index < workers.size(); index++) {
         if (!workers[index]->working.try_lock_until(next_tick))
           break;
       }
       for (index--; index >= 0; index--) {
-        workers[index]->working.unlock();
+        worker_unlock(index);
       }
     }
 
+    void Chronos::worker_unlock(int index) {
+      workers[index]->working.unlock();
+    }
+
+    void Chronos::worker_lock(int index) {
+      workers[index]->working.lock();
+    }
+
+    int Chronos::get_thread_index() {
+      std::thread::id cur_id = std::this_thread::get_id();
+      int index;
+      for (index = 0; index < workers.size(); index++) {
+        if (workers[index]->thread_id == cur_id)
+          return index;
+      }
+      throw std::runtime_error("Unknown thread");
+    }
+
     void Chronos::tick_started() {
-      next_tick = std::chrono::steady_clock::now() + tick_duration;
+      app_time_point now = std::chrono::steady_clock::now();
+      last_tick_duration = now - tick_start;
+      tick_start = now;
     }
 
     unsigned long Chronos::format_time() {
       return std::chrono::steady_clock::now().time_since_epoch().count();
     }
+
+    Chronos::Chronos(app_duration duration) :
+        tick_duration(duration),
+        clock_time(0),
+        last_tick_duration(0),
+        tick_start(std::chrono::steady_clock::now()) {}
 }

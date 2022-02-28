@@ -2,9 +2,7 @@
 #include "Worker.hpp"
 
 namespace chronos {
-    Worker::Worker(Chronos &main) : parent(main), running(false) {
-      parent.register_worker(this);
-    }
+    Worker::Worker() : running(false), thread_id(std::thread::id(0)) {}
 
     Worker::~Worker() {
       assert(!running);
@@ -30,6 +28,7 @@ namespace chronos {
     }
 
     void Worker::entry_point() {
+      thread_id = std::this_thread::get_id();
       try {
         main();
       }
@@ -37,6 +36,7 @@ namespace chronos {
       };
       running = false;
       working.unlock();
+      thread_id = std::thread::id(0);
     }
 }
 

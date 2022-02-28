@@ -7,19 +7,20 @@
 | `Chronos(app_duration duration)`                               | Constructor, takes duration of single global tick as a parameter                                                                                                                                                 |
 | `app_time get_time()`                                          | current global time (number of ticks since start)                                                                                                                                                                |
 | `virtual void tick()`                                          | user function called every clock tick (overridden in descendants)                                                                                                                                                |
-| `void run()`                                                   | starts main loop                                                                                                                                                                                                 |
+| `app_duration get_remaining_time()`                            | get time remaining in this tick. if negative then we are overdue - increase duration set in `Chronos` constructor                                                                                                |
+| `app_duration get_last_tick_duration()`                        | get last tick duration                                                                                                                                                                                           |
+| `void run(workers_list workers)`                               | starts main loop  (`workers_list = std::vector<Worker *>`)                                                                                                                                                       |
 | `template<typename Functor>`<br/>`auto async(Functor functor)` | Register asynchronous call. The `Functor` passed (probably a `lambda`) is marked for async execution by `Chronos`. `async` blocks calling thread until the task is finished. Returns same type as the `Functor`. |
 
 
 ##Key features of `class Worker`
 
 
-| method                                     | description                                                                                                                                         |
-|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Worker(Chronos &main)`                    | Constructor, takes reference to Chronos class (automatically registers itself)                                                                      |
-| `virtual void main()`                      | Main working routine of worker <br/> may call `sleep_until` to give up CPU time <br/>may call `get_time` to see global clock<br/>runs in own thread |
-| `void sleep_until(app_time alarm_par = 1)` | suspend the execution of this worker until `alarm_par` time <br/>without argument (default 1) sleep till next clock tick                            |
-| `app_time get_time()`                      | reurns current tick time - passes to Chronos::get_time()                                                                                            |          
+| method                                     | description                                                                                                                                                                                                           |
+|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Worker()`                                 | Constructor                                                                                                                                                                                                           |
+| `virtual void main()`                      | Main working routine of worker <br/> may call `sleep_until` to give up CPU time <br/>runs in own thread                                                                                                               |
+| `void sleep_until(app_time alarm_par = 1)` | suspend the execution of this worker until `alarm_par` time <br/>without argument (default 1) sleep till next clock tick.<br/> If Worker is not used in any Chronos, calling of this function hangs and never returns |
 
 ## Usage
 
@@ -65,10 +66,15 @@ class MyWorker : public Worker {
 
 MyChronos main_node(1000); //duration of tick
 MyWorker 
-  worker_1(main_node),
-  worker_2(main_node),
-  worker_3(main_node);
+  worker_1,
+  worker_2,
+  worker_3;
 
-main_node.run();
+workers_list workers = {
+    &worker_1,
+    &worker_2,
+    &worker_3
+};
+main_node.run(workers);
 
 ```
