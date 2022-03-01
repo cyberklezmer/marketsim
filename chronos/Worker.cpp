@@ -2,13 +2,14 @@
 #include "Worker.hpp"
 
 namespace chronos {
-    Worker::Worker() : running(false), thread_id(std::thread::id(0)) {}
-
     Worker::~Worker() {
-      assert(!running);
+      if (runner)
+        runner->join();
     }
 
     void Worker::sleep_until(app_time alarm_par) {
+      if (finished)
+        return;
       {
         const guard lock(alarm_handling);
         waker.lock();
@@ -21,14 +22,15 @@ namespace chronos {
     }
 
     void Worker::start() {
+      assert(!running); //same worker used multiple times?
+      assert(!runner);
       running = true;
+      finished = false;
       working.lock();
-      std::thread runner(&Worker::entry_point, this);
-      runner.detach();
+      runner = new std::thread(&Worker::entry_point, this);
     }
 
     void Worker::entry_point() {
-      thread_id = std::this_thread::get_id();
       try {
         main();
       }
@@ -36,7 +38,6 @@ namespace chronos {
       };
       running = false;
       working.unlock();
-      thread_id = std::thread::id(0);
     }
 }
 
