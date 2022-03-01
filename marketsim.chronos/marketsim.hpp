@@ -526,8 +526,7 @@ public:
     /// \param nextupdate after which time the strategy should be called again
     /// (as soon as possible if equal to zero, according to marketsim::tmarkedef::minupdateinterval)
     /// \param consumption amount of money to be consumed
-    trequest(const tstrategy* owner,
-             const tpreorderprofile& orderrequest,
+    trequest(const tpreorderprofile& orderrequest,
              const teraserequest& eraserequest = teraserequest(true),
              tprice consumption = 0) :
         fconsumption(consumption),
@@ -759,7 +758,7 @@ class tmarket;
 class tstrategy: private chronos::Worker
 {
     friend class tmarket;
-    void main() override
+    virtual void main() override
     {
         try {
             trade(fendowment);
@@ -768,11 +767,14 @@ class tstrategy: private chronos::Worker
         }
     }
 
+
+    virtual void tick() /* override */ {}
 protected:
     /// constructor, \p name is recommended to be unique to each instance
-    tstrategy() : fmarket(0) {}
+    tstrategy(const std::string& name) : fname(name), fmarket(0) {}
+//    ~tstrategy() {}
+    virtual void trade(twallet /* endowment */) = 0;
 
-    virtual void trade(twallet& /* endowment */) = 0;
 
 
 public:
@@ -785,8 +787,10 @@ public:
 
 
     /// accessor
+    const std::string& name() const { return fname; }
 protected:
     trequestresult request(const trequest& request);
+    void sleepfor(tabstime t);
 
 private:
 
@@ -829,7 +833,7 @@ public:
 struct tmarketdef
 {
     /// mean of (exponential) interval wotj which the market checks new requests
-    double flattency = 0.01;
+//    double flattency = 0.01;
     /// minimuim time after which the stretegy can be called again
     double minupdateinterval = 0.001;
     /// \p chronos duration
@@ -876,6 +880,7 @@ class tmarket : private chronos::Chronos
             makequeue<true>();
             makequeue<false>();
         }
+
 
         std::vector<tsettleerror> settle(
                            const trequest& arequest,
@@ -1113,7 +1118,10 @@ class tmarket : private chronos::Chronos
         return this->get_time() * fdef.chronos2abstime;
     }
 
-    tstrategy::trequestresult settle(const tstrategy* ownerptr,
+
+
+
+    std::vector<tsettleerror>  settle(const tstrategy* ownerptr,
                                      const trequest& request)
     {
         assert(fmarketdata);
@@ -1125,18 +1133,18 @@ class tmarket : private chronos::Chronos
         if(owner < 0)
             throw "Internal error: cannot assign owner";
 
-        ret.results = fmarketdata->forderbook.settle(
+        return fmarketdata->forderbook.settle(
                        request,
                        fmarketdata->ftradings,
                        owner,
                        fmarketdata->ftimestamp++,
                        getabstime());
-       ret.timehorizonreached = false; //tbd
     }
 
 public:
 
-    tmarket(const tmarketdef& adef) : chronos::Chronos(adef.chronosduration), fdef(adef)
+    tmarket(tabstime maxtime, tmarketdef adef  = tmarketdef()) :
+        chronos::Chronos(adef.chronosduration, maxtime / adef.chronos2abstime), fdef(adef)
     {
     }
 
@@ -1172,8 +1180,7 @@ public:
 
     /// Run the simulation of \p timeofrun seconds of trading (the simulation is usually much shorter).
     void run(std::vector<tstrategy*> strategies,
-             std::vector<twallet> endowments,
-             double /*timeofrun TBD*/)
+             std::vector<twallet> endowments)
     {
       assert(endowments.size()==strategies.size());
       if(flogging)
@@ -1485,7 +1492,26 @@ private:
 inline tstrategy::trequestresult tstrategy::request(const trequest& request)
 {
     assert(fmarket);
-    return fmarket->settle(this,request);
+    tstrategy::trequestresult ret;
+    try
+    {
+        ret.results = fmarket->async([this,&request]()
+        {
+            return this->fmarket->settle(this,request);
+        });
+        ret.timehorizonreached = false;
+        return ret;
+    }
+    catch (...)
+    {
+        ret.timehorizonreached = true;
+        return ret;
+    }
+}
+
+inline void tstrategy::sleepfor(tabstime t)
+{
+    sleep_until(t/fmarket->def().chronos2abstime);
 }
 
 

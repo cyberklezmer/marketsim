@@ -10,12 +10,36 @@
 #include "marketsim.hpp"
 
 using namespace marketsim;
+using namespace std;
+
+class foostrategy: public tstrategy
+{
+public:
+       foostrategy() : tstrategy("foo") {}
+
+       virtual void trade(twallet) override
+       {
+          for(;;)
+          {
+              sleepfor(10);
+          }
+      }
+};
 
 
 int main()
 {
     try
     {
+        tmarket m(10);
+
+        foostrategy f;
+        twallet e(10,10);
+
+        std::cout << "start" << std::endl;
+        m.run({&f},{e});
+        std::cout << "stop" << std::endl;
+
         return 0;
     }
     catch (std::exception& e) {

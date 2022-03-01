@@ -11,4 +11,4 @@ include_directories("../orpp")
 include_directories("../chronos")
 
 
-add_executable(testchronos main.cpp ../chronos/Chronos.cpp ../chronos/Worker.cpp)
+add_executable(testchronos main.cpp ../chronos/Chronos.cpp ../chronos/Worker.cpp )
