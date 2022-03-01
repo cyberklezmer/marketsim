@@ -768,7 +768,6 @@ class tstrategy: private chronos::Worker
     }
 
 
-    virtual void tick() /* override */ {}
 protected:
     /// constructor, \p name is recommended to be unique to each instance
     tstrategy(const std::string& name) : fname(name), fmarket(0) {}
@@ -1369,10 +1368,12 @@ private:
     bool flogging = false;
 
 //    std::vector<tstrategy*> fstrategies;
-
-
     std::shared_ptr<tmarketdata> fmarketdata;
+
+    virtual void tick() /* override */ {}
+
 };
+
 
 /*
 /// Simplified version of \ref tstrategy. The simplifiaction consists in once forever

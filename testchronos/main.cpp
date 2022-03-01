@@ -21,6 +21,7 @@ public:
        {
           for(;;)
           {
+//              cout << "trade" << endl;
               sleepfor(10);
           }
       }
