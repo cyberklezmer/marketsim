@@ -23,9 +23,10 @@ namespace chronos {
         app_time alarm = 0;
 
         //this Worker has running working thread
-        std::atomic<bool> running;
-
-        std::thread::id thread_id;
+        std::atomic<bool> running = false;
+        std::thread *runner = nullptr;
+        //Chronos is still alive
+        std::atomic<bool> finished = false;
 
         void entry_point();
 
@@ -33,10 +34,9 @@ namespace chronos {
         void start();
 
      public:
-        Worker();
+        Worker() {};
 
         virtual ~Worker();
-
 
      protected:
         /**
@@ -54,6 +54,13 @@ namespace chronos {
          * returns when done computing
          */
         virtual void main() = 0;
+
+        /**
+         * Chronos is still running
+         */
+        inline bool ready() {
+          return !finished;
+        }
     };
 }
 

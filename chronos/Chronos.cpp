@@ -15,7 +15,15 @@ namespace chronos {
       this->workers = workers;
       start_workers();
       loop();
+      signal_finish();
+      process_async();
+      wake_workers(true);
+    }
+
+    void Chronos::signal_finish() {
       finished = true;
+      for (auto worker: workers)
+        worker->finished = true;
     }
 
     void Chronos::loop() {
@@ -46,12 +54,12 @@ namespace chronos {
      * wake workers that have alarm current
      * @return minimal clock when some thread needs waking up (1 means next tick)
      */
-    app_time Chronos::wake_workers() {
+    app_time Chronos::wake_workers(bool wake_all) {
       app_time next_alarm = 0;
       for (auto worker: workers) {
         const guard lock(worker->alarm_handling);
         if (worker->alarm) {
-          if (worker->alarm <= clock_time) {
+          if (wake_all || (worker->alarm <= clock_time)) {
             worker->alarm = 0;
             worker->working.lock();
             worker->waker.unlock();
@@ -104,10 +112,10 @@ namespace chronos {
       std::thread::id cur_id = std::this_thread::get_id();
       int index;
       for (index = 0; index < workers.size(); index++) {
-        if (workers[index]->thread_id == cur_id)
+        if (workers[index]->runner->get_id() == cur_id)
           return index;
       }
-      throw std::runtime_error("Unknown thread");
+      throw error_unknown_thread();
     }
 
     void Chronos::tick_started() {
