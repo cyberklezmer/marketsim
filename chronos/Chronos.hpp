@@ -9,6 +9,30 @@
 namespace chronos {
     class Worker;
 
+    class error : std::runtime_error {
+     public:
+        error(const std::string &what = "") : std::runtime_error(what) {}
+    };
+
+    /**
+     *  the caller thread of async function is unknown
+     */
+    class error_unknown_thread : error {
+     public:
+        error_unknown_thread() : error("Unknown thread") {}
+    };
+
+    /**
+     *  chronos has already finished
+     *  from Workers you should check eather
+     *  Chronos::running()        [should be true]
+     *  Chronos::get_max_time()   [should be > Chronos::get_time()]
+     */
+    class error_already_finished : error {
+     public:
+        error_already_finished() : error("Already finished") {}
+    };
+
     using app_time = unsigned long long;
     using app_duration = std::chrono::steady_clock::duration;
     using app_time_point = std::chrono::steady_clock::time_point;
@@ -30,11 +54,13 @@ namespace chronos {
 
         void wait_next_tick();
 
-        app_time wake_workers();
+        app_time wake_workers(bool wake_all = false);
 
         bool still_running();
 
         void loop();
+
+        void signal_finish();
 
         void process_async();
 
@@ -62,6 +88,14 @@ namespace chronos {
         inline app_time get_time() {
           return clock_time;
         };
+
+        inline app_time get_max_time() {
+          return max_time;
+        };
+
+        inline bool running() {
+          return !finished;
+        }
 
         /**
          * get time remaining in this tick. if negative then we are overdue - increase duration set in Chronos
@@ -106,14 +140,18 @@ namespace chronos {
           using task_t = std::packaged_task<ret()>;
 
           if (finished)
-            throw std::runtime_error("Already finished");
+            throw error_already_finished();
 
           task_t task(functor);
           std::future<ret> future = task.get_future();
           auto t = std::make_shared<task_t>(std::move(task));
           int index = get_thread_index();
 
-          async_tasks.push([t]() { (*t)(); });
+          async_tasks.push([t, this]() {
+            if (this->finished)
+              throw error_already_finished();
+            (*t)();
+          });
 
           worker_unlock(index);
           ret retval = future.get();
