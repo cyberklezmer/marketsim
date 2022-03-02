@@ -11,13 +11,19 @@ namespace chronos {
         tick_start(std::chrono::steady_clock::now()) {}
 
     void Chronos::run(workers_list workers) {
-      clock_time = 0;
       this->workers = workers;
       start_workers();
+      clock_time = 1;
+      signal_start();
       loop();
       signal_finish();
       process_async();
       wake_workers(true);
+    }
+
+    void Chronos::signal_start() {
+      for (auto worker: workers)
+        worker->alarm_handling.unlock();
     }
 
     void Chronos::signal_finish() {
@@ -30,12 +36,12 @@ namespace chronos {
       app_time next_alarm = 1;
       while (still_running()) {
         tick_started();
-        clock_time++;
         if (next_alarm <= clock_time)
           next_alarm = wake_workers();
         process_async();
         tick();
         wait_next_tick();
+        clock_time++;
       }
     }
 
@@ -46,7 +52,7 @@ namespace chronos {
     }
 
     bool Chronos::still_running() {
-      return (!max_time || (max_time <= clock_time)) &&
+      return (!max_time || (clock_time <= max_time)) &&
              std::any_of(workers.begin(), workers.end(), [](auto worker) { return !!worker->running; });
     }
 

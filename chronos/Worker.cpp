@@ -27,10 +27,15 @@ namespace chronos {
       running = true;
       finished = false;
       working.lock();
+      alarm_handling.lock();
       runner = new std::thread(&Worker::entry_point, this);
     }
 
     void Worker::entry_point() {
+      {
+        //wait for start
+        const guard lock(alarm_handling);
+      }
       try {
         main();
       }

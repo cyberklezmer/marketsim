@@ -62,6 +62,8 @@ namespace chronos {
 
         void signal_finish();
 
+        void signal_start();
+
         void process_async();
 
         void tick_started();
