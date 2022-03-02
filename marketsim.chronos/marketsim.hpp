@@ -837,7 +837,7 @@ struct tmarketdef
     /// minimuim time after which the stretegy can be called again
     double minupdateinterval = 0.001;
     /// \p chronos duration
-    chronos::app_duration chronosduration;
+    chronos::app_duration chronosduration = chronos::app_duration(1000000);
     /// tbd
     double chronos2abstime = 1;
 };
