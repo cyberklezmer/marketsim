@@ -21,6 +21,11 @@ namespace chronos {
       wake_workers(true);
     }
 
+    void Chronos::wait() {
+      for (auto worker: workers)
+        worker->wait();
+    }
+
     void Chronos::signal_start() {
       for (auto worker: workers)
         worker->alarm_handling.unlock();

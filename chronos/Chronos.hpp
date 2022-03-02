@@ -117,9 +117,11 @@ namespace chronos {
         };
 
         /**
-         * starts main loop
+         * starts the main loop
          */
         void run(workers_list workers);
+
+        void wait();
 
         /**
          * user function called every clock tick

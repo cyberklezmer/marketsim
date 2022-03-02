@@ -33,6 +33,8 @@ namespace chronos {
         //called by Chronos
         void start();
 
+        void wait();
+
      public:
         Worker() {};
 

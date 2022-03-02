@@ -3,8 +3,7 @@
 
 namespace chronos {
     Worker::~Worker() {
-      if (runner)
-        runner->join();
+      assert(!running);
     }
 
     void Worker::sleep_until(app_time alarm_par) {
@@ -29,6 +28,10 @@ namespace chronos {
       working.lock();
       alarm_handling.lock();
       runner = new std::thread(&Worker::entry_point, this);
+    }
+
+    void Worker::wait() {
+      runner->join();
     }
 
     void Worker::entry_point() {

@@ -175,7 +175,8 @@ TEST(Chronos, TimesGoesOn) {
   workers_list workers = {&w1};
   god.run(workers);
   EXPECT_EQ(god.ticks, g_max_time);
-  EXPECT_GT(w1.counter, 0);
+  god.wait();
+  EXPECT_EQ(w1.counter, 2 * g_max_time);
 }
 
 int main(int argc, char **argv) {
