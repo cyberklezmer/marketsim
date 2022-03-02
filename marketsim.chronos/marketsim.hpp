@@ -1299,6 +1299,7 @@ public:
         {
             wl.push_back(strategies[i]);
             strategies[i]->fendowment = endowments[i];
+            strategies[i]->fmarket = this;
         }
         chronos::Chronos::run(wl);
 
