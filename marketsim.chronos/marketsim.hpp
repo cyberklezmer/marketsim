@@ -790,6 +790,7 @@ public:
 protected:
     trequestresult request(const trequest& request);
     void sleepfor(tabstime t);
+    bool endoftrading();
 
 private:
 
@@ -1516,6 +1517,10 @@ inline void tstrategy::sleepfor(tabstime t)
     sleep_until(t/fmarket->def().chronos2abstime);
 }
 
+inline bool tstrategy::endoftrading()
+{
+    return !ready();
+}
 
 } // namespace
 

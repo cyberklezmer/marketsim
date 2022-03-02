@@ -12,6 +12,8 @@
 using namespace marketsim;
 using namespace std;
 
+unsigned iwashere = 0;
+
 class foostrategy: public tstrategy
 {
 public:
@@ -19,12 +21,12 @@ public:
 
        virtual void trade(twallet) override
        {
-          for(;;)
-          {
-//              cout << "trade" << endl;
-              sleepfor(10);
-          }
-      }
+           while(!endoftrading())
+           {
+               iwashere++;
+                sleepfor(0.1);
+           }
+       }
 };
 
 
@@ -40,6 +42,7 @@ int main()
         std::cout << "start" << std::endl;
         m.run({&f},{e});
         std::cout << "stop" << std::endl;
+        cout << "I was there " << iwashere << " times." << endl;
 
         return 0;
     }
