@@ -15,7 +15,7 @@ class TestChronos : public Chronos {
  public:
     int ticks = 0;
 
-    TestChronos() : Chronos(tick_length) {};
+    TestChronos(app_duration tick_l = tick_length) : Chronos(tick_l) {};
 
     void tick() override {
       ticks++;
@@ -60,6 +60,31 @@ class TestWorkerPassive : public Worker {
         sleep_until();
     }
 };
+
+class TestWorkerPassiveSlave : public Worker {
+ public:
+    int ticks = 0;
+
+    void main() override {
+      while (ready()) {
+        ticks++;
+        sleep_until();
+      }
+    }
+};
+
+class TestWorkerPassiveSlaveZero : public Worker {
+ public:
+    int ticks = 0;
+
+    void main() override {
+      while (ready()) {
+        ticks++;
+        sleep_until(0);
+      }
+    }
+};
+
 
 class TestWorkerCrash : public Worker {
  public:
@@ -143,7 +168,7 @@ class TestChronosTime : public Chronos {
  public:
     int ticks = 0;
 
-    TestChronosTime(app_time p_max) : Chronos(tick_length_long, p_max) {};
+    TestChronosTime(app_time p_max, app_duration tick_l = tick_length) : Chronos(tick_l, p_max) {};
 
     void tick() override {
       ticks++;
@@ -177,6 +202,28 @@ TEST(Chronos, TimesGoesOn) {
   EXPECT_EQ(god.ticks, g_max_time);
   god.wait();
   EXPECT_EQ(w1.counter, 2 * g_max_time);
+}
+
+TEST(Chronos, TestWorkerPassiveSlave) {
+  app_time g_max_time = 10;
+  TestChronosTime god(g_max_time);
+  TestWorkerPassiveSlave w1;
+  workers_list workers = {&w1};
+  god.run(workers);
+  EXPECT_EQ(god.ticks, g_max_time);
+  EXPECT_NO_FATAL_FAILURE(god.wait());
+  EXPECT_EQ(w1.ticks, g_max_time);
+}
+
+TEST(Chronos, TestWorkerPassiveSlaveZero) {
+  app_time g_max_time = 10;
+  TestChronosTime god(g_max_time);
+  TestWorkerPassiveSlaveZero w1;
+  workers_list workers = {&w1};
+  god.run(workers);
+  EXPECT_EQ(god.ticks, g_max_time);
+  EXPECT_NO_FATAL_FAILURE(god.wait());
+  EXPECT_EQ(w1.ticks, g_max_time);
 }
 
 int main(int argc, char **argv) {

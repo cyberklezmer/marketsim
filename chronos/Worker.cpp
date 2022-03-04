@@ -7,6 +7,8 @@ namespace chronos {
     }
 
     void Worker::sleep_until(app_time alarm_par) {
+      if (!alarm_par)
+        alarm_par = 1;
       if (finished)
         return;
       {
