@@ -43,7 +43,6 @@ int main()
         m.run({&f},{e});
         std::cout << "stop" << std::endl;
         cout << "I was there " << iwashere << " times." << endl;
-
         return 0;
     }
     catch (std::exception& e) {

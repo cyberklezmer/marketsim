@@ -1303,7 +1303,7 @@ public:
             strategies[i]->fmarket = this;
         }
         chronos::Chronos::run(wl);
-
+        chronos::Chronos::wait() ;
 /* tbd make some ending proceczre
         for(unsigned i=0; i<n; i++)
         {
