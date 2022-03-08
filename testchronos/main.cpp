@@ -132,17 +132,32 @@ public:
        }
 };
 
-double getduration(unsigned nstrategies, tmarketdef def = tmarketdef())
+double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
 {
-    int d = 100;
-    tmarketdef df =def;
-    df.chronosduration = chronos::app_duration(d);
-    tmarket m(10000*df.chronos2abstime,df);
-    vector<twallet> e(nstrategies,
-                      twallet(numeric_limits<tprice>::max()/2, numeric_limits<tvolume>::max()/2));
-    vector<tstrategy*> s(nstrategies,new calibratingstrategy());
-    m.run(s,e);
-    return m.results()->fremainingdurations.average();
+    cout << "Finding duration for " << nstrategies << " agents on this PC." << endl;
+    int d = 1000;
+    for(unsigned i=0; i<10; i++,d*= 10)
+    {
+        tmarketdef df =def;
+        df.chronosduration = chronos::app_duration(d);
+        tmarket m(10000*df.chronos2abstime,df);
+        vector<twallet> e(nstrategies,
+                          twallet(numeric_limits<tprice>::max()/2, numeric_limits<tvolume>::max()/2));
+        vector<tstrategy*> s;
+        vector<shared_ptr<tstrategy>> ss; // just for the sake of destruction
+        for(unsigned j=0; j<nstrategies; j++)
+        {
+            s.push_back(new calibratingstrategy());
+            ss.push_back(shared_ptr<tstrategy>(s[s.size()-1]));
+        }
+        m.run(s,e);
+        double rem = m.results()->fremainingdurations.average();
+        cout << "d = " << d << ", rem = " << rem << endl;
+        if(rem > 0)
+            break;
+    }
+    cout << d << " found suitable " << endl;
+    return d;
 }
 
 
@@ -150,9 +165,9 @@ int main()
 {
     try
     {
-        int d = getduration(1);
-        cout << "Calibrate " << d << endl;
-        return 0;
+//        int d = findduration(1);
+//        cout << "Calibrate " << d << endl;
+//        return 0;
         tmarket m(1000);
 
         ostringstream l;
@@ -161,11 +176,15 @@ int main()
 
         twallet e(5000,100);
 
-        luckockstrategy s(100,1);
+        luckockstrategy l1(100,1);
+        luckockstrategy l2(100,1);
+        calibratingstrategy c1;
+        calibratingstrategy c2;
 
         std::cout << "start" << std::endl;
 
-        m.run({&s},{e});
+//        m.run({&l1,&l2},{e,e});
+        m.run({&c1,&c2},{e,e});
         std::cout << "stop" << std::endl;
 
         m.results()->fhistory.output(l,1);
