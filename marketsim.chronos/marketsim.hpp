@@ -2,7 +2,7 @@
 #define MARKETSIM_HPP
 #include "assert.h"
 #include <vector>
-#include <iostream>
+#include <ostream>
 #include <limits>
 #include <random>
 #include <algorithm>
@@ -69,6 +69,11 @@ public:
     const tprice& money() const  { return fmoney; }
     /// accessor
     const tvolume& stocks() const { return fstocks; }
+
+    void output(std::ostream& o) const
+    {
+        o << "m=" << fmoney << ", s=" << fstocks;
+    }
 private:
     tprice fmoney;
     tvolume fstocks;
@@ -400,6 +405,11 @@ public:
         return s;
     }
 
+    void output(std::ostream& o) const
+    {
+        for(unsigned i=0; i<this->size(); i++)
+            o << (*this)[i] << ",";
+    }
 };
 
 
@@ -466,6 +476,16 @@ public:
         tprice bp = b();
         return  a() > b() || (bp == khundefprice && ap==khundefprice) ||
                 (bp == klundefprice && ap==klundefprice);
+    }
+
+    void output(std::ostream& o) const
+    {
+        o << "bids: ";
+        B.output(o);
+        o << std::endl;
+        o << "asks: ";
+        A.output(o);
+        o << std::endl;
     }
 };
 
@@ -542,7 +562,22 @@ public:
     const tpreorderprofile& orderrequest() const { return forderrequest; }
     /// accessor
     const teraserequest& eraserequest() const { return feraserequest; }
-    /// accessor
+
+    void output(std::ostream& o) const
+    {
+        o << "erase";
+        if(feraserequest.all)
+            o << "all" << std::endl;
+        else
+        {
+            o << feraserequest.b.size() << " bids, ";
+            o << feraserequest.b.size() << " asks." << std::endl;
+        }
+        o << "orders" << std::endl;
+        forderrequest.output(o);
+        o << "consumption: " << fconsumption << std::endl;
+    }
+
 private:
     tprice fconsumption;
     tpreorderprofile forderrequest;
@@ -789,7 +824,9 @@ public:
     const std::string& name() const { return fname; }
 protected:
     trequestresult request(const trequest& request);
+    tabstime abstime();
     void sleepfor(tabstime t);
+    void sleepuntil(tabstime t);
     bool endoftrading();
 
 private:
@@ -802,14 +839,14 @@ private:
     /// is called at the end of the trading session
     virtual void atend(const ttrading&) {}
     /// is called when warning arise during settlement -- by default repurts the waring to
-    /// orpp::sys::log()
+    /// flog
     virtual void warning(trequest::eresult code, const std::string& txt)
     {
         std::ostringstream str;
         str << "Warning: '" << trequest::warninglabel(code) << "' to '"
             << name() << "': " << txt << std::endl;
 //        throw str.str();
-        orpp::sys::log() << str.str();
+        flog << str.str();
     }*/
 private:
     std::string fname;
@@ -837,9 +874,9 @@ struct tmarketdef
     /// minimuim time after which the stretegy can be called again
     double minupdateinterval = 0.001;
     /// \p chronos duration
-    chronos::app_duration chronosduration = chronos::app_duration(1000000);
+    chronos::app_duration chronosduration = chronos::app_duration(10000000);
     /// tbd
-    double chronos2abstime = 1;
+    double chronos2abstime = 0.01;
 };
 
 
@@ -1086,6 +1123,15 @@ class tmarket : private chronos::Chronos
         }
     };
 
+    struct statcounter
+    {
+        double sum = 0.0;
+        double sumsq = 0.0;
+        unsigned num = 0;
+        void add(double x) { sum += x; sumsq += x*x; num++;}
+        double average() { return sum / num; }
+    };
+
     class tmarketdata
     {
         static std::vector<ttrading> maketradings(const std::vector<twallet>& endowments)
@@ -1108,6 +1154,7 @@ class tmarket : private chronos::Chronos
         tmarkethistory fhistory;
         torderbook forderbook;
         ttimestamp ftimestamp;
+        statcounter fremainingdurations;
     };
 
 
@@ -1118,14 +1165,10 @@ class tmarket : private chronos::Chronos
         return this->get_time() * fdef.chronos2abstime;
     }
 
-
-
-
-    std::vector<tsettleerror>  settle(const tstrategy* ownerptr,
+    std::vector<tsettleerror> settle(const tstrategy* ownerptr,
                                      const trequest& request)
     {
         assert(fmarketdata);
-        tstrategy::trequestresult ret;
         int owner = -1;
         for(unsigned i=0; i<fmarketdata->fstrategies.size(); i++)
             if(ownerptr == fmarketdata->fstrategies[i])
@@ -1133,13 +1176,58 @@ class tmarket : private chronos::Chronos
         if(owner < 0)
             throw "Internal error: cannot assign owner";
 
-        return fmarketdata->forderbook.settle(
+        if(flog)
+        {
+            *flog << "Called settle by " << ownerptr->name()
+                  << "(" << owner << ")"
+                  << " at " << getabstime() << "(" << this->get_time() << ")"
+                  << std::endl;
+            *flog << "Request: ";
+            request.output(*flog);
+            *flog << std::endl;
+        }
+        std::vector<tsettleerror> errs = fmarketdata->forderbook.settle(
                        request,
                        fmarketdata->ftradings,
                        owner,
                        fmarketdata->ftimestamp++,
                        getabstime());
+
+        if(flog)
+        {
+            *flog << "Result of settle ";
+            if(errs.size()==0)
+                *flog << "OK";
+            else
+                for(unsigned i=0; i<errs.size(); i++)
+                    *flog << std::endl << errs[i].text;
+
+            *flog << std::endl << std::endl;
+
+            *flog << "Wallet: ";
+            auto t = fmarketdata->ftradings[owner];
+            t.wallet().output(*flog);
+            *flog << std::endl;
+            *flog << "Blocked: m=" << t.blockedmoney() <<
+                     " s=" << t.blockedstocks() << std::endl;
+
+            *flog << "Resulting order book: " << std::endl;
+            fmarketdata->forderbook.obprofile().output(*flog);
+
+            *flog << std::endl << std::endl;
+
+        }
+
+        return errs;
+
     }
+
+    virtual void tick() override
+    {
+        assert(fmarketdata);
+        fmarketdata->fremainingdurations.add(get_remaining_time().count());
+    }
+
 
 public:
 
@@ -1150,12 +1238,16 @@ public:
 
 
     /// if calles with \p alogging=\c true, detailed information is sent to
-    /// orpp::sys::log() during simulation
-    void setlogging(bool alogging)
+    /// flog during simulation
+    void setlogging(std::ostream& log)
     {
-        flogging = alogging;
+        flog = &log;
     }
 
+    void resetlogging()
+    {
+        flog = 0;
+    }
     /// changes the simulation definition
 
     /// accessor
@@ -1167,24 +1259,24 @@ public:
     /// \c true if logging is on
     bool islogging() const
     {
-        return flogging;
+        return flog != 0;
     }
 
 
 
-/*    /// returns results of the last simulation
-    tmarketresult results() const
+    /// returns results of the last simulation
+    std::shared_ptr<tmarketdata> results() const
     {
-        return { fhistory, ftradings };
-    }*/
+        return fmarketdata;
+    }
 
     /// Run the simulation of \p timeofrun seconds of trading (the simulation is usually much shorter).
     void run(std::vector<tstrategy*> strategies,
              std::vector<twallet> endowments)
     {
       assert(endowments.size()==strategies.size());
-      if(flogging)
-          orpp::sys::log() << "Starting simulation with " << endowments.size()
+      if(flog)
+          *flog << "Starting simulation with " << endowments.size()
                            << " strategies" << std::endl;
 
 
@@ -1206,11 +1298,11 @@ public:
                     auto& r = ftradings[i];
                     if(flogging)
                     {
-                       orpp::sys::log() << "Calling stategy " <<  fstrategies[i]->name() << " at " << t << std::endl;
-                       orpp::sys::log() << '\t' << "with profile " << std::endl;
-                       orpp::sys::log() << '\t' << "A: " << ob.profile(i).A << std::endl;
-                       orpp::sys::log() << '\t' << "B: " << ob.profile(i).B << std::endl;
-                       orpp::sys::log() << '\t' << "..." << std::endl;
+                       flog << "Calling stategy " <<  fstrategies[i]->name() << " at " << t << std::endl;
+                       flog << '\t' << "with profile " << std::endl;
+                       flog << '\t' << "A: " << ob.profile(i).A << std::endl;
+                       flog << '\t' << "B: " << ob.profile(i).B << std::endl;
+                       flog << '\t' << "..." << std::endl;
                     }
 
 
@@ -1219,25 +1311,25 @@ public:
                     auto& request = orderrequests[i]=fstrategies[i]->event(mi,r);
                     if(flogging)
                     {
-                      orpp::sys::log() << '\t' << "Requests " << std::endl;
-                      orpp::sys::log() << '\t' << '\t' << "A: " << request.orderrequest().A << std::endl;
-                      orpp::sys::log() << '\t' << '\t' << "B: " << request.orderrequest().B << std::endl;
+                      flog << '\t' << "Requests " << std::endl;
+                      flog << '\t' << '\t' << "A: " << request.orderrequest().A << std::endl;
+                      flog << '\t' << '\t' << "B: " << request.orderrequest().B << std::endl;
 //if(request.orderrequest().A.size() && request.orderrequest().A[0].price==60 && request.orderrequest().A[0].volume==1)
 //    std::clog << "Here!" << std::endl;
                       if(request.eraserequest().all)
-                          orpp::sys::log() << '\t' << "wanting to erase all previous orders" << std::endl;
+                          flog << '\t' << "wanting to erase all previous orders" << std::endl;
                       else
                       {
-                          orpp::sys::log() << '\t' << "Erase profiles: ";
-                          orpp::sys::log() << "A:";
+                          flog << '\t' << "Erase profiles: ";
+                          flog << "A:";
                           for(auto r: request.eraserequest().a)
-                              orpp::sys::log() << (r ? "Y" : "N");
-                          orpp::sys::log() << ", B:";
+                              flog << (r ? "Y" : "N");
+                          flog << ", B:";
                           for(auto r: request.eraserequest().b)
-                              orpp::sys::log() << (r ? "Y" : "N");
-                          orpp::sys::log() << std::endl;
+                              flog << (r ? "Y" : "N");
+                          flog << std::endl;
                       }
-                      orpp::sys::log() << '\t' << "the strategy wants to consume " << request.consumption()
+                      flog << '\t' << "the strategy wants to consume " << request.consumption()
                                        << " seconds." << std::endl;
 
                    }
@@ -1257,7 +1349,7 @@ public:
             for(unsigned i=0; i<requesting.size(); i++)
             {
                 if(flogging)
-                    orpp::sys::log() << "Settling "
+                    flog << "Settling "
                                      << fstrategies[requesting[i]]->name() << std::endl;
 
                  std::vector<tsettleerror> sr = ob.settle(orderrequests[requesting[i]],
@@ -1275,19 +1367,19 @@ public:
 
             if(requesting.size() && flogging)
             {
-               orpp::sys::log() << "After settlement: "  << std::endl;
+               flog << "After settlement: "  << std::endl;
                for(unsigned i=0; i<n; i++)
                {
-                   orpp::sys::log() << "Strategy " << fstrategies[i]->name() << std::endl;
-                   orpp::sys::log() << '\t' << "A: " << ob.profile(i).A << std::endl;
-                   orpp::sys::log() << '\t' << "B: " << ob.profile(i).B << std::endl;
-                   orpp::sys::log() << '\t' << "money:" << ftradings[i].wallet().money()
+                   flog << "Strategy " << fstrategies[i]->name() << std::endl;
+                   flog << '\t' << "A: " << ob.profile(i).A << std::endl;
+                   flog << '\t' << "B: " << ob.profile(i).B << std::endl;
+                   flog << '\t' << "money:" << ftradings[i].wallet().money()
                                     << " (blocked:" << ftradings[i].blockedmoney() << ") "
                                     << "stocks:" << ftradings[i].wallet().stocks()
                                     << " (blocked:" << ftradings[i].blockedstocks() << ") "
                                     << std::endl;
                }
-               orpp::sys::log() <<  std::endl;
+               flog <<  std::endl;
             }
             if(t > timeofrun)
                 break;
@@ -1332,7 +1424,7 @@ public:
         unsigned nobs = 0;
         for(unsigned i=0; i<nruns; i++)
         {
-            orpp::sys::log() << i  << std::endl;
+            flog << i  << std::endl;
             run(timeofrun);
 
             for(unsigned j=0; j<numstrategies(); j++)
@@ -1346,7 +1438,7 @@ public:
                if(countremainingstocks)
                {
                    if(isnan(p))
-                       orpp::sys::log() << "nan result" << std::endl;
+                       flog << "nan result" << std::endl;
                    else
                          v += p *  (r.wallet().stocks() - e.stocks());
                }
@@ -1367,12 +1459,11 @@ public:
 private:
 
     tmarketdef fdef;
-    bool flogging = false;
+    std::ostream* flog = 0;
 
 //    std::vector<tstrategy*> fstrategies;
     std::shared_ptr<tmarketdata> fmarketdata;
 
-    virtual void tick() /* override */ {}
 
 };
 
@@ -1514,8 +1605,33 @@ inline tstrategy::trequestresult tstrategy::request(const trequest& request)
 
 inline void tstrategy::sleepfor(tabstime t)
 {
+//    if(fmarket->flog)
+//        *(fmarket->flog) << "Called sleepfor t=" << t
+//              << " (" << t/fmarket->def().chronos2abstime << ")"
+//              << std::endl << std::endl << std::endl;
+    sleep_until(fmarket->get_time() + t/fmarket->def().chronos2abstime);
+}
+
+inline void tstrategy::sleepuntil(tabstime t)
+{
+//    if(fmarket->flog)
+//        *(fmarket->flog) << "Called sleepuntil t=" << t
+//              << " (" << t/fmarket->def().chronos2abstime << ")"
+//            << std::endl << std::endl << std::endl;
     sleep_until(t/fmarket->def().chronos2abstime);
 }
+
+inline tabstime tstrategy::abstime()
+{
+    auto result = fmarket->get_time();
+    tabstime at = result * fmarket->def().chronos2abstime;
+//    if(fmarket->flog)
+//        *(fmarket->flog) << "Called abstime, result t=" << at
+//              << " (" << result << ")"
+//              << std::endl << std::endl << std::endl;
+    return at;
+}
+
 
 inline bool tstrategy::endoftrading()
 {
