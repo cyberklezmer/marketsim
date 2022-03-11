@@ -12,20 +12,8 @@
 using namespace marketsim;
 using namespace std;
 
-class randomizingstrategy: public tstrategy
-{
-protected:
-    std::default_random_engine fengine;
-    std::uniform_real_distribution<double> funiform;
-    randomizingstrategy(const std::string& name) : tstrategy(name)
-    {
-        fengine.seed(0 /* time(0) */ );
-    }
-    double uniform()
-    {
-        return funiform(fengine);
-    }
-};
+
+
 
 class calibratingstrategy : public randomizingstrategy
 {
@@ -35,124 +23,106 @@ public:
     {
         while(!endoftrading())
         {
-            while(!endoftrading())
+            bool buy = uniform() > 0.5;
+            tprice lprice = 1+uniform()*100;
+
+            tpreorderprofile pp;
+            if(buy)
             {
-                bool buy = uniform() > 0.5;
-                tprice lprice = 1+uniform()*100;
-
-                tpreorderprofile pp;
-                if(buy)
-                {
-                    tpreorder p(lprice,1);
-                    pp.B.add(p);
-                }
-                else
-                {
-                    tpreorder o(lprice,1);
-                    pp.A.add(o);
-                }
-
-                request({pp,trequest::teraserequest(false),0});
-
+                tpreorder p(lprice,1);
+                pp.B.add(p);
             }
+            else
+            {
+                tpreorder o(lprice,1);
+                pp.A.add(o);
+            }
+
+            request({pp,trequest::teraserequest(false),0});
+
         }
     }
 
 };
 
-class luckockstrategy: public randomizingstrategy
+class luckockstrategy: public asynchronousstrategy
 {
        tprice fmaxprice;
-       double fmeantime;
 public:
        luckockstrategy(tprice maxprice=100, double meantime=1)
-           : randomizingstrategy("Luckock"),
-             fmaxprice(maxprice), fmeantime(meantime)
+           : asynchronousstrategy("Luckock",meantime,true),
+             fmaxprice(maxprice)
        {
        }
 
-       virtual void trade(twallet) override
+       virtual trequest event(const tmarketinfo&)
        {
-           while(!endoftrading())
+           bool buy = uniform() > 0.5;
+           tprice lprice = 1+uniform()*fmaxprice;
+
+           tpreorderprofile pp;
+           if(buy)
            {
-               tabstime at = abstime();
-               bool buy = uniform() > 0.5;
-               tprice lprice = 1+uniform()*fmaxprice;
-
-               tpreorderprofile pp;
-               if(buy)
-               {
-                   tpreorder p(lprice,1);
-                   pp.B.add(p);
-               }
-               else
-               {
-                   tpreorder o(lprice,1);
-                   pp.A.add(o);
-               }
-
-               request({pp,trequest::teraserequest(false),0});
-
-               std::exponential_distribution<> nu(1.0 / fmeantime);
-
-               auto next = nu(fengine);
-               sleepuntil(at+next);
+               tpreorder p(lprice,1);
+               pp.B.add(p);
            }
+           else
+           {
+               tpreorder o(lprice,1);
+               pp.A.add(o);
+           }
+
+           return trequest({pp,trequest::teraserequest(false),0});
        }
 };
 
 
-class naivemmstrategy: public randomizingstrategy
+class naivemmstrategy: public asynchronousstrategy
 {
-       double finterval;
 public:
        naivemmstrategy(double interval=1)
-           : randomizingstrategy("Naivemm"), finterval(interval)
+           : asynchronousstrategy("Naivemm", interval, false)
        {
        }
 
-       virtual void trade(twallet) override
+       virtual trequest event(const tmarketinfo& info)
        {
-           while(!endoftrading())
+           tprice alpha = info.alpha();
+           tprice beta = info.beta();
+
+           if(alpha != khundefprice && beta != klundefprice)
            {
-               auto info = getinfo();
-               tprice alpha = info.alpha();
-               tprice beta = info.beta();
+               tprice mya = info.myprofile.a();
+               tprice myb = info.myprofile.b();
 
-               if(alpha != khundefprice && beta != klundefprice)
+               tprice proposeda = mya;
+               if(alpha <= mya)
+                   proposeda = alpha-1;
+
+               tprice proposedb = myb;
+               if(beta != klundefprice && beta >= myb)
+                   proposedb = beta+1;
+
+               if(proposeda >= proposedb)
                {
-                   tprice mya = info.myprofile.a();
-                   tprice myb = info.myprofile.b();
+                  if(proposeda == proposedb)
+                  {
+                      if(uniform() < 0.5)
+                          proposeda++;
+                      else
+                          proposedb--;
+                  }
+                  tpreorderprofile pp;
 
-                   tprice proposeda = mya;
-                   if(alpha <= mya)
-                       proposeda = alpha-1;
-
-                   tprice proposedb = myb;
-                   if(beta != klundefprice && beta >= myb)
-                       proposedb = beta+1;
-
-                   if(proposeda >= proposedb)
-                   {
-                      if(proposeda == proposedb)
-                      {
-                          if(uniform() < 0.5)
-                              proposeda++;
-                          else
-                              proposedb--;
-                      }
-                      tpreorderprofile pp;
-
-                      pp.B.add(tpreorder(proposedb,1));
-                      pp.A.add(tpreorder(proposeda,1));
+                  pp.B.add(tpreorder(proposedb,1));
+                  pp.A.add(tpreorder(proposeda,1));
 
 //cout << beta << "(" << proposedb << ") - " << alpha << "(" << proposeda << ")" << endl;
 
-                      request({pp,trequest::teraserequest(false),0});
-                   }
+                  return {pp,trequest::teraserequest(true),0};
                }
-               sleepuntil(info.t+finterval);
-            }
+           }
+           return trequest();
        }
 };
 
@@ -161,7 +131,7 @@ public:
 double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
 {
     cout << "Finding duration for " << nstrategies << " agents on this PC." << endl;
-    int d = 1000;
+    int d = 10;
     for(unsigned i=0; i<10; i++,d*= 10)
     {
         tmarketdef df =def;
@@ -170,7 +140,7 @@ double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
         vector<twallet> e(nstrategies,
                           twallet(numeric_limits<tprice>::max()/2, numeric_limits<tvolume>::max()/2));
         competitor<calibratingstrategy> c;
-        vector<competitorbase*> s;
+        std::vector<competitorbase<tstrategy>*> s;
         for(unsigned j=0; j<nstrategies; j++)
             s.push_back(&c);
         m.run(s,e);
@@ -191,20 +161,25 @@ int main()
 //        int d = findduration(1);
 //        cout << "Calibrate " << d << endl;
 //        return 0;
-        tmarket m(1000);
+        tmarket m(10);
 
         ostringstream l;
 
-        m.setlogging(l);
+        m.setlogging(std::cout); // l
 
         twallet e(5000,100);
 
-        competitor<luckockstrategy> cl;
-        competitor<naivemmstrategy> cn;
+        std::cout << "start " << std::endl;
 
-        std::cout << "start" << std::endl;
+        competitor<luckockstrategy,asynchronousstrategy> cl;
+        competitor<naivemmstrategy,asynchronousstrategy> cn;
+//        m.run<false,asynchronousstrategy>({&cl,&cn},{e,e});
+m.run<false,asynchronousstrategy>({&cl,&cn},{e,e});
 
-        m.run({&cl,&cn},{e,e});
+//       competitor<luckockstrategy,tstrategy> cl;
+//        competitor<naivemmstrategy,tstrategy> cn;
+//        competitor<calibratingstrategy,tstrategy> cal;
+//        m.run({&cl,&cn},{e,e});
 
         std::cout << "stop" << std::endl;
 
@@ -217,7 +192,7 @@ int main()
         }
 
 //        m.results()->fhistory.output(l,1);
-//        std::cout << l.str();
+        std::cout << l.str();
 
         return 0;
     }
