@@ -158,9 +158,9 @@ int main()
 {
     try
     {
-//        int d = findduration(1);
-//        cout << "Calibrate " << d << endl;
-//        return 0;
+        int d = findduration(2);
+        cout << "Calibrate " << d << endl;
+        return 0;
         tmarketdef def;
         def.chronosduration = chronos::app_duration(100);
         tmarket m(10,def);
