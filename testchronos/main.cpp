@@ -161,25 +161,28 @@ int main()
 //        int d = findduration(1);
 //        cout << "Calibrate " << d << endl;
 //        return 0;
-        tmarket m(10);
+        tmarketdef def;
+        def.chronosduration = chronos::app_duration(100);
+        tmarket m(10,def);
 
         ostringstream l;
 
-        m.setlogging(std::cout); // l
+        m.setlogging(l);
 
         twallet e(5000,100);
 
         std::cout << "start " << std::endl;
 
-        competitor<luckockstrategy,asynchronousstrategy> cl;
-        competitor<naivemmstrategy,asynchronousstrategy> cn;
+//        competitor<luckockstrategy,asynchronousstrategy> cl;
+//        competitor<naivemmstrategy,asynchronousstrategy> cn;
 //        m.run<false,asynchronousstrategy>({&cl,&cn},{e,e});
-m.run<false,asynchronousstrategy>({&cl,&cn},{e,e});
 
-//       competitor<luckockstrategy,tstrategy> cl;
-//        competitor<naivemmstrategy,tstrategy> cn;
-//        competitor<calibratingstrategy,tstrategy> cal;
-//        m.run({&cl,&cn},{e,e});
+//m.run<false,asynchronousstrategy>({&cl,&cn},{e,e});
+
+       competitor<luckockstrategy,tstrategy> cl;
+        competitor<naivemmstrategy,tstrategy> cn;
+        competitor<calibratingstrategy,tstrategy> cal;
+        m.run({&cl,&cal,&cal},{e,e,e});
 
         std::cout << "stop" << std::endl;
 
