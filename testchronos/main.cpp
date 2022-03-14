@@ -12,9 +12,6 @@
 using namespace marketsim;
 using namespace std;
 
-
-
-
 class calibratingstrategy : public randomizingstrategy
 {
 public:
