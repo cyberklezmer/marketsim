@@ -9,7 +9,7 @@
 namespace chronos {
     class Worker;
 
-    class error : std::runtime_error {
+    class error : public std::runtime_error {
      public:
         error(const std::string &what = "") : std::runtime_error(what) {}
     };
