@@ -17,7 +17,7 @@ namespace chronos {
     /**
      *  the caller thread of async function is unknown
      */
-    class error_unknown_thread : error {
+    class error_unknown_thread : public error {
      public:
         error_unknown_thread() : error("Unknown thread") {}
     };
@@ -28,7 +28,7 @@ namespace chronos {
      *  Chronos::running()        [should be true]
      *  Chronos::get_max_time()   [should be > Chronos::get_time()]
      */
-    class error_already_finished : error {
+    class error_already_finished : public error {
      public:
         error_already_finished() : error("Already finished") {}
     };
