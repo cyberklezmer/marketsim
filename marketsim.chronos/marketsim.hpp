@@ -5,16 +5,22 @@
 #include <ostream>
 #include <limits>
 #include <random>
+#include <atomic>
 #include <algorithm>
 #include "orpp.hpp"
 #include "Chronos.hpp"
 #include "Worker.hpp"
-
-
+//#include "tmpatomic.hpp"
+#include <boost/smart_ptr/atomic_shared_ptr.hpp>
 
 // the namespace encapulating all the library
 namespace marketsim
 {
+
+class tmarketdata;
+using snapshot_shared_ptr = boost::shared_ptr<tmarketdata>;
+using snapshot_atomic_ptr = boost::atomic_shared_ptr<tmarketdata>;
+
 
 using tprice = int;
 
@@ -1174,14 +1180,12 @@ public:
         ftimestamp(src.ftimestamp),
         fremainingdurations(src.fremainingdurations)
     {
-        currentsnapshot.reset();
     }
     const std::vector<std::shared_ptr<tstrategy>> fstrategies;
     std::vector<ttrading> ftradings;
     tmarkethistory fhistory;
     torderbook forderbook;
     ttimestamp ftimestamp;
-    std::shared_ptr<tmarketdata> currentsnapshot;
     statcounter fremainingdurations;
     unsigned n() const { return ftradings.size(); }
 };
@@ -1189,9 +1193,12 @@ public:
 
 class tmarketinfo
 {
-    std::shared_ptr<tmarketdata> fdata;
+//    std::shared_ptr<tmarketdata>
+    snapshot_atomic_ptr
+    fdata;
 public:
-    tmarketinfo(const std::shared_ptr<tmarketdata> data, unsigned id, tabstime at):
+    tmarketinfo(const // std::shared_ptr<tmarketdata>
+             snapshot_shared_ptr data, unsigned id, tabstime at):
         fdata(data), history(data->fhistory),orderbook(data->forderbook.obprofile()),
         myprofile(data->forderbook.profile(id)), myid(id), t(at)
     {
@@ -1318,17 +1325,12 @@ private:
 
         }
 
-        if(!fmarketdata->currentsnapshot)
-        {
-            if(flog)
-                *flog << "Creating a new copy of tmarketdata... ";
-            fmarketdata->currentsnapshot.reset(new tmarketdata(*fmarketdata));
-            if(flog)
-                *flog << "done!" << std::endl;
-        }
         if(flog)
             *flog << std::endl << std::endl;
-        return tmarketinfo(fmarketdata->currentsnapshot,owner,t);
+//        std::shared_ptr<tmarketdata>
+        snapshot_shared_ptr        ssht = fmarketsnapshot.load();
+        assert(ssht);
+        return tmarketinfo(ssht,owner,t);
 
     }
 
@@ -1349,8 +1351,6 @@ private:
             *flog << "Timestamp: " << fmarketdata->ftimestamp << std::endl;
             *flog << std::endl;
         }
-        fmarketdata->currentsnapshot.reset();
-        assert(!(fmarketdata->currentsnapshot));
         auto& ob = fmarketdata->forderbook;
         auto st = chronos ? t : getabstime();
         std::vector<tsettleerror> errs = ob.settle(
@@ -1388,9 +1388,23 @@ private:
 
     }
 
+    void setsnapshot()
+    {
+        assert(fmarketdata);
+        if(flog)
+            *flog << "Creating a new copy of tmarketdata... ";
+        fmarketsnapshot.store // std::shared_ptr<tmarketdata>
+               (snapshot_shared_ptr(new tmarketdata(*fmarketdata)));
+        if(flog)
+            *flog << "done!" << std::endl;
+    }
+
     virtual void tick() override
     {
         assert(fmarketdata);
+        setsnapshot();
+
+
         fmarketdata->fremainingdurations.add(get_remaining_time().count());
     }
 
@@ -1449,6 +1463,7 @@ public:
             strategies.push_back(std::shared_ptr<tstrategy>(competitors[i]->create()));
 
         fmarketdata.reset(new tmarketdata(strategies,endowments));
+        setsnapshot();
         chronos::workers_list wl;
         for(unsigned i=0; i<strategies.size(); i++)
         {
@@ -1484,6 +1499,7 @@ for(unsigned i=0; i<n; i++)
                 if(t >= T)
                     return;
                 ts[first]=(static_cast<eventdrivenstrategy*>(strategies[first].get()))->step(t);
+                setsnapshot();
             }
         }
 
@@ -1545,7 +1561,9 @@ private:
 
 //    std::vector<tstrategy*> fstrategies;
     std::shared_ptr<tmarketdata> fmarketdata;
-
+//    std::atomic<std::shared_ptr<tmarketdata>>
+    snapshot_atomic_ptr
+                   fmarketsnapshot;
 
 };
 
@@ -1708,19 +1726,11 @@ tmarketinfo tstrategy::getinfo()
     assert(fmarket);
     try
     {
-        if constexpr(chronos)
-        {
-            return fmarket->async([this]()
-            {
-                return this->fmarket->getinfo(this,fmarket->getabstime());
-            });
-        }
-        else
-            return this->fmarket->getinfo(this, 0);
+        return this->fmarket->getinfo(this, 0);
     }
     catch (...)
     {
-        throw "unkonwn error in chronos";
+        throw "unkonwn error in chronos, cought in getinfo.";
     }
 }
 

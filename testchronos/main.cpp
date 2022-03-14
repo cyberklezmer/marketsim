@@ -167,21 +167,30 @@ void test()
 
     competitor<luckockstrategy,chronos> cl;
     competitor<naivemmstrategy,chronos> cn;
-    m.run<chronos>({&cl,&cn,&cn},{e,e,e});
-
-
-    auto r = m.results();
-    for(unsigned i=0; i<r->n(); i++)
+    try
     {
-        cout << i << ": ";
-        r->ftradings[i].wallet().output(cout);
-        cout << endl;
+        m.run<chronos>({&cl,&cn,&cn},{e,e,e});
+
+        auto r = m.results();
+        for(unsigned i=0; i<r->n(); i++)
+        {
+            cout << i << ": ";
+            r->ftradings[i].wallet().output(cout);
+            cout << endl;
+        }
+        std::cout << l.str();
+
+        std::cout << "success" << std::endl;
+
+    }
+    catch (...)
+    {
+        std::cout << l.str();
+
+        std::cout << "error" << std::endl;
     }
 
-//        m.results()->fhistory.output(l,1);
-    std::cout << l.str();
 
-    std::cout << "stop" << std::endl;
 
 }
 
@@ -192,8 +201,8 @@ int main()
 //        int d = findduration(2);
 //        cout << "Calibrate " << d << endl;
 //        return 0;
-        test<true>();
-        test<false>();
+        test<true>(); // with chronos
+//        test<false>(); // without chronos
         return 0;
     }
     catch (std::exception& e) {
