@@ -42,12 +42,12 @@ public:
 
 };
 
-class luckockstrategy: public asynchronousstrategy
+class luckockstrategy: public eventdrivenstrategy
 {
        tprice fmaxprice;
 public:
        luckockstrategy(tprice maxprice=100, double meantime=1)
-           : asynchronousstrategy("Luckock",meantime,true),
+           : eventdrivenstrategy("Luckock",meantime,true),
              fmaxprice(maxprice)
        {
        }
@@ -74,11 +74,11 @@ public:
 };
 
 
-class naivemmstrategy: public asynchronousstrategy
+class naivemmstrategy: public eventdrivenstrategy
 {
 public:
        naivemmstrategy(double interval=1)
-           : asynchronousstrategy("Naivemm", interval, false)
+           : eventdrivenstrategy("Naivemm", interval, false)
        {
        }
 
@@ -137,7 +137,7 @@ double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
         vector<twallet> e(nstrategies,
                           twallet(numeric_limits<tprice>::max()/2, numeric_limits<tvolume>::max()/2));
         competitor<calibratingstrategy> c;
-        std::vector<competitorbase<tstrategy>*> s;
+        std::vector<competitorbase<true>*> s;
         for(unsigned j=0; j<nstrategies; j++)
             s.push_back(&c);
         m.run(s,e);
@@ -151,49 +151,49 @@ double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
 }
 
 
+template <bool chronos>
+void test()
+{
+    tmarket m(10);
+
+    ostringstream l;
+
+    m.setlogging(l);
+
+    twallet e(5000,100);
+
+    std::cout << "start " << std::endl;
+
+
+    competitor<luckockstrategy,chronos> cl;
+    competitor<naivemmstrategy,chronos> cn;
+    m.run<chronos>({&cl,&cn,&cn},{e,e,e});
+
+
+    auto r = m.results();
+    for(unsigned i=0; i<r->n(); i++)
+    {
+        cout << i << ": ";
+        r->ftradings[i].wallet().output(cout);
+        cout << endl;
+    }
+
+//        m.results()->fhistory.output(l,1);
+    std::cout << l.str();
+
+    std::cout << "stop" << std::endl;
+
+}
+
 int main()
 {
     try
     {
-        int d = findduration(2);
-        cout << "Calibrate " << d << endl;
-        return 0;
-        tmarketdef def;
-        def.chronosduration = chronos::app_duration(100);
-        tmarket m(10,def);
-
-        ostringstream l;
-
-        m.setlogging(l);
-
-        twallet e(5000,100);
-
-        std::cout << "start " << std::endl;
-
-//        competitor<luckockstrategy,asynchronousstrategy> cl;
-//        competitor<naivemmstrategy,asynchronousstrategy> cn;
-//        m.run<false,asynchronousstrategy>({&cl,&cn},{e,e});
-
-//m.run<false,asynchronousstrategy>({&cl,&cn},{e,e});
-
-       competitor<luckockstrategy,tstrategy> cl;
-        competitor<naivemmstrategy,tstrategy> cn;
-        competitor<calibratingstrategy,tstrategy> cal;
-        m.run({&cl,&cal,&cal},{e,e,e});
-
-        std::cout << "stop" << std::endl;
-
-        auto r = m.results();
-        for(unsigned i=0; i<r->n(); i++)
-        {
-            cout << i << ": ";
-            r->ftradings[i].wallet().output(cout);
-            cout << endl;
-        }
-
-//        m.results()->fhistory.output(l,1);
-        std::cout << l.str();
-
+//        int d = findduration(2);
+//        cout << "Calibrate " << d << endl;
+//        return 0;
+        test<true>();
+        test<false>();
         return 0;
     }
     catch (std::exception& e) {

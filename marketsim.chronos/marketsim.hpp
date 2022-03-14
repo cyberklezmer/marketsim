@@ -816,10 +816,10 @@ public:
     /// accessor
     const std::string& name() const { return fname; }
 protected:
-    template <bool async = true>
+    template <bool chronos = true>
     trequestresult request(const trequest& request, tabstime t=0);
 
-    template <bool async = true>
+    template <bool chronos = true>
     tmarketinfo getinfo();
 
     tabstime abstime();
@@ -835,18 +835,36 @@ private:
 };
 
 
-template <typename B>
+template <bool chronos>
+struct selectstragegybase;
+
+class eventdrivenstrategy;
+
+template<>
+struct selectstragegybase<false>
+{
+    using basetype = eventdrivenstrategy;
+};
+
+template<>
+struct selectstragegybase<true>
+{
+    using basetype = tstrategy;
+};
+
+
+template <bool chronos>
 class competitorbase
 {
 public:
-    virtual B* create() = 0;
+    virtual typename selectstragegybase<chronos>::basetype* create() = 0;
 };
 
-template<typename S, typename B=tstrategy>
-class competitor : public competitorbase<B>
+template<typename S, bool chronos = true>
+class competitor : public competitorbase<chronos>
 {
 public:
-    virtual B* create()
+    virtual typename selectstragegybase<chronos>::basetype* create()
     {
         return new(S);
     }
@@ -873,7 +891,7 @@ struct tmarketdef
     /// minimuim time after which the stretegy can be called again
     double minupdateinterval = 0.001;
     /// \p chronos duration
-    chronos::app_duration chronosduration = chronos::app_duration(10000000);
+    chronos::app_duration chronosduration = chronos::app_duration(1000);
     /// tbd
     double chronos2abstime = 0.01;
 };
@@ -1229,13 +1247,13 @@ public:
     }
 };
 
-class asynchronousstrategy : public randomizingstrategy
+class eventdrivenstrategy : public randomizingstrategy
 {
     friend class tmarket;
 
 
 public:
-    asynchronousstrategy(const std::string& name,
+    eventdrivenstrategy(const std::string& name,
                          double interval, bool random = false) :
         randomizingstrategy(name),
         finterval(interval), frandom(random), fnu(interval) {}
@@ -1314,7 +1332,7 @@ private:
 
     }
 
-    template <bool async>
+    template <bool chronos>
     std::vector<tsettleerror> settle(const tstrategy* ownerptr,
                                      const trequest& request,
                                      tabstime t = 0)
@@ -1334,7 +1352,7 @@ private:
         fmarketdata->currentsnapshot.reset();
         assert(!(fmarketdata->currentsnapshot));
         auto& ob = fmarketdata->forderbook;
-        auto st = async ? t : getabstime();
+        auto st = chronos ? t : getabstime();
         std::vector<tsettleerror> errs = ob.settle(
                        request,
                        fmarketdata->ftradings,
@@ -1417,8 +1435,8 @@ public:
     }
 
     /// Run the simulation of \p timeofrun seconds of trading (the simulation is usually much shorter).
-    template <bool async=true, typename B=tstrategy>
-    void run(std::vector<competitorbase<B>*> competitors,
+    template <bool chronos=true>
+    void run(std::vector<competitorbase<chronos>*> competitors,
              std::vector<twallet> endowments)
     {
         assert(endowments.size()==competitors.size());
@@ -1438,7 +1456,7 @@ public:
             strategies[i]->fendowment = endowments[i];
             strategies[i]->fmarket = this;
         }
-        if constexpr(async)
+        if constexpr(chronos)
         {
             chronos::Chronos::run(wl);
             chronos::Chronos::wait() ;
@@ -1450,7 +1468,7 @@ public:
             std::vector<tabstime> ts(n,0);
             unsigned egen = 0;
 for(unsigned i=0; i<n; i++)
-    static_cast<asynchronousstrategy*>(strategies[i].get())->seed(i);
+    static_cast<eventdrivenstrategy*>(strategies[i].get())->seed(i);
             for(;;)
             {
                 unsigned first;
@@ -1465,7 +1483,7 @@ for(unsigned i=0; i<n; i++)
                 }
                 if(t >= T)
                     return;
-                ts[first]=(static_cast<asynchronousstrategy*>(strategies[first].get()))->step(t);
+                ts[first]=(static_cast<eventdrivenstrategy*>(strategies[first].get()))->step(t);
             }
         }
 
@@ -1647,7 +1665,7 @@ private:
 
 */
 
-template <bool async>
+template <bool chronos>
 inline tstrategy::trequestresult tstrategy::request(const trequest& request, tabstime t)
 {
     assert(fmarket);
@@ -1656,7 +1674,7 @@ inline tstrategy::trequestresult tstrategy::request(const trequest& request, tab
     {
         if(!request.empty())
         {
-            if constexpr(async)
+            if constexpr(chronos)
             {
                 ret.results = fmarket->async([this,&request]()
                 {
@@ -1676,8 +1694,7 @@ inline tstrategy::trequestresult tstrategy::request(const trequest& request, tab
     }
     catch (chronos::error& e)
     {
-//        throw e.what();
-        throw "known error of chronos with private what";
+        throw e.what();
     }
     catch (...)
     {
@@ -1685,13 +1702,13 @@ inline tstrategy::trequestresult tstrategy::request(const trequest& request, tab
     }
 }
 
-template <bool async>
+template <bool chronos>
 tmarketinfo tstrategy::getinfo()
 {
     assert(fmarket);
     try
     {
-        if constexpr(async)
+        if constexpr(chronos)
         {
             return fmarket->async([this]()
             {
