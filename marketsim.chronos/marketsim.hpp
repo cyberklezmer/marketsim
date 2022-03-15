@@ -1312,7 +1312,7 @@ private:
     tmarketinfo getinfo(const tstrategy* ownerptr, tabstime t)
     {
         int owner = findstrategy(ownerptr);
-        if(flog)
+/* thread unsafe        if(flog)
         {
             *flog << "Called getinfo by " << ownerptr->name()
                   << "(" << owner << ")"
@@ -1322,7 +1322,7 @@ private:
         }
 
         if(flog)
-            *flog << std::endl << std::endl;
+            *flog << std::endl << std::endl; */
 //        std::shared_ptr<tmarketdata>
         snapshot_shared_ptr        ssht = atomic_load(&fmarketsnapshot);
         assert(ssht);
