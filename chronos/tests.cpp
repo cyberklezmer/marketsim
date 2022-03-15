@@ -3,11 +3,13 @@
 
 //1000000000 je vterina
 
+#define TICK_LEN_SHORT 100
 #define TICK_LEN 1000000
 #define TICK_LEN_LONG 100000000000
 
 using namespace chronos;
 
+//app_duration tick_length(TICK_LEN_SHORT);
 app_duration tick_length(TICK_LEN);
 app_duration tick_length_long(TICK_LEN_LONG);
 
@@ -163,7 +165,6 @@ TEST(Chronos, AsyncChronos) {
   EXPECT_EQ(w1.num, 10);
 }
 
-
 class TestChronosTime : public Chronos {
  public:
     int ticks = 0;
@@ -199,7 +200,7 @@ TEST(Chronos, TimesGoesOn) {
   TestWorkerTime w1(g_max_time, god);
   workers_list workers = {&w1};
   god.run(workers);
-  EXPECT_EQ(god.ticks, g_max_time);
+  EXPECT_EQ(god.ticks, g_max_time + 1);
   god.wait();
   EXPECT_EQ(w1.counter, 2 * g_max_time);
 }
@@ -210,9 +211,9 @@ TEST(Chronos, TestWorkerPassiveSlave) {
   TestWorkerPassiveSlave w1;
   workers_list workers = {&w1};
   god.run(workers);
-  EXPECT_EQ(god.ticks, g_max_time);
+  EXPECT_EQ(god.ticks, g_max_time + 1);
   EXPECT_NO_FATAL_FAILURE(god.wait());
-  EXPECT_EQ(w1.ticks, g_max_time);
+  EXPECT_EQ(w1.ticks, g_max_time + 1);
 }
 
 TEST(Chronos, TestWorkerPassiveSlaveZero) {
@@ -221,10 +222,61 @@ TEST(Chronos, TestWorkerPassiveSlaveZero) {
   TestWorkerPassiveSlaveZero w1;
   workers_list workers = {&w1};
   god.run(workers);
-  EXPECT_EQ(god.ticks, g_max_time);
+  EXPECT_EQ(god.ticks, g_max_time + 1);
   EXPECT_NO_FATAL_FAILURE(god.wait());
-  EXPECT_EQ(w1.ticks, g_max_time);
+  EXPECT_EQ(w1.ticks, g_max_time + 1);
 }
+
+class TestChronosTimeAsync : public Chronos {
+ public:
+    int ticks = 0;
+
+    TestChronosTimeAsync(app_time p_max, app_duration tick_l = tick_length_long) : Chronos(tick_l, p_max) {};
+
+    void tick() override {
+      ticks++;
+      EXPECT_EQ(ticks, get_time());
+    }
+
+    int get_int(int val) {
+      return async([val]() {
+          return val + 5;
+      });
+    }
+};
+
+class TestWorkerAsyncCallEnd : public Worker
+{
+ public:
+    int counter = 0;
+    TestChronosTimeAsync &parent;
+
+    TestWorkerAsyncCallEnd(TestChronosTimeAsync &pparent) : parent(pparent) {};
+
+    void main() override {
+      while (ready()) {
+        counter++;
+        std::cout << "main " << counter << " " << parent.get_time() << "\n";
+        int ret = parent.get_int(counter);
+        std::cout << "async " << counter << " " << parent.get_time() << " " << ret << "\n";
+        EXPECT_EQ(ret, counter + 5);
+        sleep_until();
+      }
+      std::cout << "END " << counter << " " << parent.get_time() << "\n";
+    }
+};
+
+TEST(Chronos, TestWorkerAsyncCallEnd) {
+  app_time g_max_time = 10;
+  TestChronosTimeAsync god(g_max_time);
+  TestWorkerAsyncCallEnd w1(god);
+  workers_list workers = {&w1};
+  god.run(workers);
+  EXPECT_EQ(god.ticks, g_max_time + 1);
+  EXPECT_NO_FATAL_FAILURE(god.wait());
+  EXPECT_EQ(w1.counter, g_max_time + 1);
+}
+
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
