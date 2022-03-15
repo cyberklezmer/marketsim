@@ -13,7 +13,6 @@ namespace chronos {
     void Chronos::run(workers_list workers) {
       this->workers = workers;
       start_workers();
-      clock_time = 1;
       signal_start();
       loop();
       signal_finish();
@@ -40,13 +39,13 @@ namespace chronos {
     void Chronos::loop() {
       app_time next_alarm = 1;
       while (still_running()) {
+        clock_time++;
         tick_started();
         if (next_alarm <= clock_time)
           next_alarm = wake_workers();
         process_async();
         tick();
         wait_next_tick();
-        clock_time++;
       }
     }
 
