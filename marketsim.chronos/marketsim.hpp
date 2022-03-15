@@ -10,16 +10,13 @@
 #include "orpp.hpp"
 #include "Chronos.hpp"
 #include "Worker.hpp"
-//#include "tmpatomic.hpp"
-#include <boost/smart_ptr/atomic_shared_ptr.hpp>
 
 // the namespace encapulating all the library
 namespace marketsim
 {
 
 class tmarketdata;
-using snapshot_shared_ptr = boost::shared_ptr<tmarketdata>;
-using snapshot_atomic_ptr = boost::atomic_shared_ptr<tmarketdata>;
+using snapshot_shared_ptr = std::shared_ptr<tmarketdata>;
 
 
 using tprice = int;
@@ -1193,8 +1190,7 @@ public:
 
 class tmarketinfo
 {
-//    std::shared_ptr<tmarketdata>
-    snapshot_atomic_ptr
+    snapshot_shared_ptr
     fdata;
 public:
     tmarketinfo(const // std::shared_ptr<tmarketdata>
@@ -1328,7 +1324,7 @@ private:
         if(flog)
             *flog << std::endl << std::endl;
 //        std::shared_ptr<tmarketdata>
-        snapshot_shared_ptr        ssht = fmarketsnapshot.load();
+        snapshot_shared_ptr        ssht = atomic_load(&fmarketsnapshot);
         assert(ssht);
         return tmarketinfo(ssht,owner,t);
 
@@ -1393,8 +1389,7 @@ private:
         assert(fmarketdata);
         if(flog)
             *flog << "Creating a new copy of tmarketdata... ";
-        fmarketsnapshot.store // std::shared_ptr<tmarketdata>
-               (snapshot_shared_ptr(new tmarketdata(*fmarketdata)));
+        atomic_store(&fmarketsnapshot, std::make_shared<tmarketdata>(*new tmarketdata(*fmarketdata)));
         if(flog)
             *flog << "done!" << std::endl;
     }
@@ -1562,7 +1557,7 @@ private:
 //    std::vector<tstrategy*> fstrategies;
     std::shared_ptr<tmarketdata> fmarketdata;
 //    std::atomic<std::shared_ptr<tmarketdata>>
-    snapshot_atomic_ptr
+    snapshot_shared_ptr
                    fmarketsnapshot;
 
 };
