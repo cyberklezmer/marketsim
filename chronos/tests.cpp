@@ -245,31 +245,29 @@ class TestChronosTimeAsync : public Chronos {
     }
 };
 
-class TestWorkerAsyncCallEnd : public Worker
-{
+class TestWorkerAsyncCallEnd : public Worker {
  public:
     int counter = 0;
+    int max_time;
     TestChronosTimeAsync &parent;
 
-    TestWorkerAsyncCallEnd(TestChronosTimeAsync &pparent) : parent(pparent) {};
+    TestWorkerAsyncCallEnd(TestChronosTimeAsync &pparent, int maxt) : parent(pparent), max_time(maxt) {};
 
     void main() override {
       while (ready()) {
         counter++;
-        std::cout << "main " << counter << " " << parent.get_time() << "\n";
         int ret = parent.get_int(counter);
-        std::cout << "async " << counter << " " << parent.get_time() << " " << ret << "\n";
+        EXPECT_EQ(parent.get_time(), std::min(max_time + 1, counter + 1));
         EXPECT_EQ(ret, counter + 5);
-        sleep_until();
       }
-      std::cout << "END " << counter << " " << parent.get_time() << "\n";
+      EXPECT_EQ(parent.get_time(), counter);
     }
 };
 
 TEST(Chronos, TestWorkerAsyncCallEnd) {
   app_time g_max_time = 10;
   TestChronosTimeAsync god(g_max_time);
-  TestWorkerAsyncCallEnd w1(god);
+  TestWorkerAsyncCallEnd w1(god, g_max_time);
   workers_list workers = {&w1};
   god.run(workers);
   EXPECT_EQ(god.ticks, g_max_time + 1);

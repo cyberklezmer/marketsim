@@ -151,14 +151,13 @@ namespace chronos {
           auto t = std::make_shared<task_t>(std::move(task));
           int index = get_thread_index();
 
-          async_tasks.push([t, this]() {
+          async_tasks.push([t, this, index]() {
               (*t)();
+              worker_lock(index);
           });
 
           worker_unlock(index);
           ret retval = future.get();
-          worker_lock(index);
-
           return retval;
         }
     };
