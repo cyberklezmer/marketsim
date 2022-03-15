@@ -1197,10 +1197,10 @@ class tmarketinfo
     snapshot_atomic_ptr
     fdata;
 public:
-    tmarketinfo(const // std::shared_ptr<tmarketdata>
-             snapshot_shared_ptr data, unsigned id, tabstime at):
-        fdata(data), history(data->fhistory),orderbook(data->forderbook.obprofile()),
-        myprofile(data->forderbook.profile(id)), myid(id), t(at)
+    tmarketinfo( // std::shared_ptr<tmarketdata>
+             const snapshot_atomic_ptr data, unsigned id, tabstime at):
+        fdata(data), history(data.load()->fhistory),orderbook(data.load()->forderbook.obprofile()),
+        myprofile(data.load()->forderbook.profile(id)), myid(id), t(at)
     {
     }
 
