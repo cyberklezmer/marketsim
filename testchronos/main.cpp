@@ -1,4 +1,4 @@
-#include <boost/math/distributions.hpp>
+//#include <boost/math/distributions.hpp>
 #include <vector>
 #include <iostream>
 #include <limits>
@@ -156,14 +156,14 @@ void test()
 {
     tmarket m(10);
 
-    ostringstream l;
+//    ofstream o("log.csv");
 
-    m.setlogging(l);
+//    m.setlogging(o);
+    m.setlogging(cout);
 
     twallet e(5000,100);
 
     std::cout << "start " << std::endl;
-
 
     competitor<luckockstrategy,chronos> cl;
     competitor<naivemmstrategy,chronos> cn;
@@ -178,20 +178,17 @@ void test()
             r->ftradings[i].wallet().output(cout);
             cout << endl;
         }
-        std::cout << l.str();
-
         std::cout << "success" << std::endl;
 
     }
+    catch (std::runtime_error& e)
+    {
+        std::cout << "Error:" << e.what() << std::endl;
+    }
     catch (...)
     {
-        std::cout << l.str();
-
-        std::cout << "error" << std::endl;
+        std::cout << "Unknown error" << std::endl;
     }
-
-
-
 }
 
 int main()
