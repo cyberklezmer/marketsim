@@ -44,9 +44,10 @@ class ThreadsafeQueue {
       return tmp;
     }
 
-    void push(const T &item) {
+    void push_and_action(const T &item, std::function<void()> action) {
       std::lock_guard<std::mutex> lock(mutex_);
       queue_.push(item);
+      action();
     }
 };
 
