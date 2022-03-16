@@ -216,7 +216,7 @@ void comp()
     competitor<luckockstrategy,chronos> cl;
     competitor<naivemmstrategy,chronos> cn;
     tcompetition comp;
-    auto res = comp.run<chronos,true>({&cl,&cl,&cn},e,10000,100,cout);
+    auto res = comp.run<chronos,true>({&cl,&cl,&cn},e,1000,10,cout);
     cout << "Results:" << endl;
     for(unsigned i=0;i<res.size();i++)
     {
@@ -234,7 +234,7 @@ int main()
 //        return 0;
 //        test<true>(); // with chronos
 //        test<false>(); // without chronos
-        comp<false>();
+        comp<true>();
         return 0;
     }
     catch (std::exception& e) {

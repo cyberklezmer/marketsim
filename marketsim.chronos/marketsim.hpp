@@ -936,7 +936,7 @@ struct tmarketdef
     /// minimuim time after which the stretegy can be called again
     double minupdateinterval = 0.001;
     /// \p chronos duration
-    chronos::app_duration chronosduration = chronos::app_duration(1000);
+    chronos::app_duration chronosduration = chronos::app_duration(100000);
     /// tbd
     double chronos2abstime = 0.01;
 };
@@ -2035,13 +2035,16 @@ public:
             std::vector<twallet> es(n,endowment);
             try
             {
+//                m.setlogging(std::cout);
+//                m.setdirectlogging(true);
                 m.run<chronos>(competitors,es,33+i*22);
-                auto rest = m.results()->frunstat.fextraduration.average();
+                auto rest = static_cast<double>(m.results()->frunstat.fextraduration.average())
+                              / m.fdef.chronosduration.count();
                 if(rest < 0)
-                    o << "overflow,";
+                    o << "overflow," << rest*100 << "%,";
                 else
                 {
-                    o << "OK,";
+                    o << "OK," << rest*100 << "%,";
                     auto r = m.results();
                     double p = r->fhistory.p(std::numeric_limits<double>::max());
                     for(unsigned j=0; j<n; j++)
@@ -2072,7 +2075,7 @@ public:
             }
             o << std::endl;
 
-            try { mp->wait(); delete mp; } catch(std::runtime_error& e)
+            try { /* mp->wait(); */ delete mp; } catch(std::runtime_error& e)
                         { std::cout<< e.what() << std::endl; } catch(...) {}
         }
         return ress;
