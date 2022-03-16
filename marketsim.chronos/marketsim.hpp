@@ -608,7 +608,7 @@ public:
 private:
     tprice fconsumption;
     tpreorderprofile forderrequest;
-    teraserequest feraserequest;    
+    teraserequest feraserequest;
 };
 
 /// Class serving strategies (ane later possibly for evaluations) to access the history of market
@@ -1402,7 +1402,7 @@ private:
     {
         assert(fmarketdata);
         possiblylog(0,"New copy of tmarketdata...");
-        atomic_store(&fmarketsnapshot, std::make_shared<tmarketdata>(*new tmarketdata(*fmarketdata)));
+        atomic_store(&fmarketsnapshot, std::make_shared<tmarketdata>(*fmarketdata));
         possiblylog(0,"New copy of tmarketdata created");
     }
 
