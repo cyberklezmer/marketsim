@@ -1,4 +1,3 @@
-//#include <boost/math/distributions.hpp>
 #include <vector>
 #include <iostream>
 #include <limits>
@@ -128,7 +127,7 @@ public:
 double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
 {
     cout << "Finding duration for " << nstrategies << " agents on this PC." << endl;
-    int d = 10;
+    int d = 1000000;
     for(unsigned i=0; i<10; i++,d*= 10)
     {
         tmarketdef df =def;
@@ -141,7 +140,7 @@ double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
         for(unsigned j=0; j<nstrategies; j++)
             s.push_back(&c);
         m.run(s,e);
-        double rem = m.results()->fremainingdurations.average();
+        double rem = m.results()->frunstat.fextraduration.average();
         cout << "d = " << d << ", rem = " << rem << endl;
         if(rem > 0)
             break;
@@ -156,10 +155,10 @@ void test()
 {
     tmarket m(10);
 
-//    ofstream o("log.csv");
+    ofstream o("log.csv");
 
-//    m.setlogging(o);
-    m.setlogging(cout);
+    m.setlogging(o);
+//    m.setlogging(cout);
 
     twallet e(5000,100);
 
@@ -178,6 +177,9 @@ void test()
             r->ftradings[i].wallet().output(cout);
             cout << endl;
         }
+        std::cout << r->frunstat.fextraduration.average() << " out of "
+             << m.def().chronosduration.count() << " processor ticks unexploited."
+             << std::endl;
         std::cout << "success" << std::endl;
 
     }
@@ -195,9 +197,9 @@ int main()
 {
     try
     {
-//        int d = findduration(2);
-//        cout << "Calibrate " << d << endl;
-//        return 0;
+        int d = findduration(2);
+        cout << "Calibrate " << d << endl;
+        return 0;
         test<true>(); // with chronos
 //        test<false>(); // without chronos
         return 0;

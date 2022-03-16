@@ -1162,6 +1162,12 @@ struct statcounter
     double average() { return sum / num; }
 };
 
+struct trunstat
+{
+    statcounter fextraduration;
+    tabstime flasttickabstime = 0;
+};
+
 class tmarketdata
 {
     static std::vector<ttrading> maketradings(const std::vector<twallet>& endowments)
@@ -1185,7 +1191,7 @@ public:
         fhistory(src.fhistory),
         forderbook(src.forderbook.duplicate()),
         ftimestamp(src.ftimestamp),
-        fremainingdurations(src.fremainingdurations)
+        frunstat(src.frunstat)
     {
     }
     const std::vector<std::shared_ptr<tstrategy>> fstrategies;
@@ -1193,7 +1199,7 @@ public:
     tmarkethistory fhistory;
     torderbook forderbook;
     ttimestamp ftimestamp;
-    statcounter fremainingdurations;
+    trunstat frunstat;
     unsigned n() const { return ftradings.size(); }
 };
 
@@ -1389,7 +1395,8 @@ private:
     {
         assert(fmarketdata);
         setsnapshot();
-        fmarketdata->fremainingdurations.add(get_remaining_time().count());
+        fmarketdata->frunstat.fextraduration.add(get_remaining_time().count());
+        fmarketdata->frunstat.flasttickabstime = getabstime();
         possiblylog(0,"Tick called");
     }
 
@@ -1760,7 +1767,10 @@ void tstrategy::main()
     catch (chronos::error_already_finished)
     {
         fmarket->possiblylog(this, "stopped: already finished");
-        return;
+        if(fmarket->get_time() < fmarket->get_max_time()-1)
+            throw;
+        else
+            return;
     }
     catch (marketsim::error)
     {
