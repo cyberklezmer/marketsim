@@ -11,10 +11,10 @@
 using namespace marketsim;
 using namespace std;
 
-class calibratingstrategy : public randomizingstrategy
+class calibratingstrategy : public tstrategy
 {
 public:
-    calibratingstrategy() : randomizingstrategy("") {}
+    calibratingstrategy() : tstrategy("calibrating") {}
     virtual void trade(twallet) override
     {
         while(!endoftrading())
@@ -208,6 +208,23 @@ void test()
     }
 }
 
+template <bool chronos>
+void comp()
+{
+    twallet e(5000,100);
+
+    competitor<luckockstrategy,chronos> cl;
+    competitor<naivemmstrategy,chronos> cn;
+    tcompetition comp;
+    auto res = comp.run<chronos,true>({&cl,&cl,&cn},e,10000,100,cout);
+    cout << "Results:" << endl;
+    for(unsigned i=0;i<res.size();i++)
+    {
+        cout << res[i].average() << " (" << sqrt(res[i].var()) << ")" << endl;
+    }
+}
+
+
 int main()
 {
     try
@@ -215,8 +232,9 @@ int main()
 //        int d = findduration(100);
 //        cout << "Calibrate gave result " << d << endl;
 //        return 0;
-        test<true>(); // with chronos
+//        test<true>(); // with chronos
 //        test<false>(); // without chronos
+        comp<false>();
         return 0;
     }
     catch (std::exception& e) {

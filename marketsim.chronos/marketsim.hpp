@@ -826,8 +826,23 @@ class tstrategy: private chronos::Worker
     virtual void main() override;
 
 protected:
+    std::default_random_engine fengine;
+    std::uniform_real_distribution<double> funiform;
+    double uniform()
+    {
+        return funiform(fengine);
+    }
+public:
+    void seed(unsigned i)
+    {
+        fengine.seed(i+1);
+    }
+protected:
     /// constructor, \p name is recommended to be unique to each instance
-    tstrategy(const std::string& name) : fname(name), fmarket(0) {}
+    tstrategy(const std::string& name) : fname(name), fmarket(0)
+    {
+        fengine.seed(0);
+    }
 //    ~tstrategy() {}
     virtual void trade(twallet /* endowment */) = 0;
 
@@ -1177,6 +1192,7 @@ struct statcounter
     unsigned num = 0;
     void add(double x) { sum += x; sumsq += x*x; num++;}
     double average() { return sum / num; }
+    double var() { return sumsq/num - average()*average(); }
 };
 
 struct trunstat
@@ -1262,27 +1278,8 @@ public:
     }
 };
 
-class randomizingstrategy:  public tstrategy
-{
-protected:
-    std::default_random_engine fengine;
-    std::uniform_real_distribution<double> funiform;
-    randomizingstrategy(const std::string& name) : tstrategy(name)
-    {
-        fengine.seed(0 /* time(0) */ );
-    }
-    double uniform()
-    {
-        return funiform(fengine);
-    }
-public:
-    void seed(unsigned i)
-    {
-        fengine.seed(i+1);
-    }
-};
 
-class eventdrivenstrategy : public randomizingstrategy
+class eventdrivenstrategy : public tstrategy
 {
     friend class tmarket;
 
@@ -1290,7 +1287,7 @@ class eventdrivenstrategy : public randomizingstrategy
 public:
     eventdrivenstrategy(const std::string& name,
                          double interval, bool random = false) :
-        randomizingstrategy(name),
+        tstrategy(name),
         finterval(interval), frandom(random), fnu(interval) {}
     virtual trequest event(const tmarketinfo& info) = 0;
     virtual void trade(twallet) override
@@ -1308,7 +1305,7 @@ public:
     {
         auto info = getinfo<false>();
         request<false>(event(info),t);
-        return t + (frandom ? fnu(fengine) : finterval);
+        return t + (frandom ? fnu(fengine) : finterval + uniform() * finterval/100000);
     }
 private:
     double finterval;
@@ -1438,6 +1435,8 @@ public:
     {
     }
 
+    virtual ~tmarket() {}
+
     /// \p on means that logging is done to *flog directly during the execution. In this case,
     /// no logging is done from the strategies' threads
     void setdirectlogging(bool on)
@@ -1487,7 +1486,7 @@ public:
     /// Run the simulation of \p timeofrun seconds of trading (the simulation is usually much shorter).
     template <bool chronos=true>
     void run(std::vector<competitorbase<chronos>*> competitors,
-             std::vector<twallet> endowments)
+             std::vector<twallet> endowments, unsigned seed=0)
     {
         assert(endowments.size()==competitors.size());
         possiblylog(0,"Starting simulation");
@@ -1504,6 +1503,7 @@ public:
             wl.push_back(strategies[i].get());
             strategies[i]->fendowment = endowments[i];
             strategies[i]->fmarket = this;
+            strategies[i]->seed(seed*101+11*i);
         }
 
         bool waserror = true;
@@ -1520,12 +1520,9 @@ public:
             }
             else
             {
-                auto n = competitors.size();
+                auto n = strategies.size();
                 tabstime T = get_max_time() * def().chronos2abstime;
                 std::vector<tabstime> ts(n,0);
-                unsigned egen = 0;
-    for(unsigned i=0; i<n; i++)
-        static_cast<eventdrivenstrategy*>(strategies[i].get())->seed(i);
                 for(;;)
                 {
                     unsigned first;
@@ -1574,54 +1571,7 @@ public:
             throw runerror(errtxt);
     }
 
-    struct averageresult
-    {
-        double meanvalue;
-        double standarderr;
-    };
 
-    /// Evaluates the current strategies by running \p nruns simulation of length \p timeofrun.
-    /// For each strtategy it returns mean value of its profit (comparison to the "hold" strategy,
-    /// i.e. doing nothing) and the standard deviation.
-
-/*    std::vector<averageresult> evaluate(double timeofrun, unsigned nruns, bool countremainingstocks = true)
-    {
-        std::vector<double> s(numstrategies(),0);
-        std::vector<double> s2(numstrategies(),0);
-        unsigned nobs = 0;
-        for(unsigned i=0; i<nruns; i++)
-        {
-            flog << i  << std::endl;
-            run(timeofrun);
-
-            for(unsigned j=0; j<numstrategies(); j++)
-            {
-               auto& r= results().tradinghistory[j];
-               double p = results().history.p(std::numeric_limits<double>::max());
-               auto& e = self().fendowments[j];
-               double v = (r.wallet().money() - e.money());
-               for(unsigned k=0; k<r.consumption().size(); k++)
-                   v += r.consumption()[k].famount;
-               if(countremainingstocks)
-               {
-                   if(isnan(p))
-                       flog << "nan result" << std::endl;
-                   else
-                         v += p *  (r.wallet().stocks() - e.stocks());
-               }
-               s[j]+=v;
-               s2[j]+=v*v;
-               nobs++;
-            }
-        }
-        std::vector<averageresult> ret;
-        for(unsigned j=0; j<numstrategies(); j++)
-        {
-            double m=s[j] / nobs;
-            ret.push_back({m, sqrt((s2[j] - m*m))/nobs});
-        }
-        return ret;
-    } */
 
 private:
 
@@ -1630,9 +1580,7 @@ private:
     std::ostream* flog;
     bool fdirectlogging;
     static constexpr const char* flogheader = "what;strategyid;strategyname;chronotime;abstime;explanation;"
-                                              "timestamp;smapshota,snapshotb;"
-                                              "walletmoney;walletstocks;"
-                                              ";A;A;B;B;";
+                                            ";A;A;B;B;";
 
     std::ostringstream fsublog;
 
@@ -1808,7 +1756,6 @@ private:
 };
 
 */
-
 void tstrategy::main()
 {
     try {
@@ -2039,6 +1986,98 @@ inline bool tstrategy::endoftrading()
     return !ready();
 }
 
+class tcompetition
+{
+public:
+
+//    ~tcompetition() { forciblydestroy(); }
+/*    void forciblydestroy()
+    {
+        for(unsigned i=0; i<fms.size(); i++)
+        {
+            try
+            {
+                delete fms[i];
+            }
+            catch (...)
+            {
+            }
+        }
+        fms.clear();
+    }
+*/
+    /// Evaluates the current strategies by running \p nruns simulation of length \p timeofrun.
+    /// For each strtategy it returns mean value of its profit (comparison to the "hold" strategy,
+    /// i.e. doing nothing) and the standard deviation.
+
+    template <bool chronos=true, bool countremainingstocks=false>
+    std::vector<statcounter>
+            run(std::vector<competitorbase<chronos>*> competitors,
+                        twallet endowment, unsigned nruns, tabstime timeofrun,
+                        std::ostream& o = std::cout)
+    {
+        auto n = competitors.size();
+        std::vector<statcounter> ress(n);
+
+        unsigned nobs = 0;
+        for(unsigned i=0; i<nruns; i++)
+        {
+            o << i << ",";
+
+            auto mp = new tmarket(timeofrun);
+            auto& m = *mp;
+
+//            ostringstream os;
+//            os << "log" << i << ".csv";
+//            ofstream log(os.str);
+//            m.setlogging(log);
+            std::vector<twallet> es(n,endowment);
+            try
+            {
+                m.run<chronos>(competitors,es,33+i*22);
+                auto rest = m.results()->frunstat.fextraduration.average();
+                if(rest < 0)
+                    o << "overflow,";
+                else
+                {
+                    o << "OK,";
+                    auto r = m.results();
+                    double p = r->fhistory.p(std::numeric_limits<double>::max());
+                    for(unsigned j=0; j<n; j++)
+                    {
+                        auto& tr= r->ftradings[j];
+                        auto& e = es[j];
+                        double v = (tr.wallet().money() - e.money());
+                        for(unsigned k=0; k<tr.consumption().size(); k++)
+                            v += tr.consumption()[k].famount;
+                        if(countremainingstocks)
+                        {
+                            if(!isnan(p))
+                                  v += p * (tr.wallet().stocks() - e.stocks());
+                        }
+                        o << v << ",";
+                        ress[j].add(v);
+                    }
+                    nobs++;
+                }
+            }
+            catch (std::runtime_error& e)
+            {
+                std::cout << "\"Error:" << e.what() << "\",";
+            }
+            catch (...)
+            {
+                std::cout << "\"Unknown error\"";
+            }
+            o << std::endl;
+
+            try { delete mp; } catch(...) {}
+        }
+        return ress;
+    }
+private:
+    std::vector<tmarket*> fms;
+};
 
 } // namespace
 
