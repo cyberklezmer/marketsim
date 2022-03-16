@@ -1321,6 +1321,7 @@ class tmarket : private chronos::Chronos
 
 private:
     friend class tstrategy;
+    friend class tcompetition;
 
     tabstime getabstime()
     {
@@ -2063,15 +2064,16 @@ public:
             }
             catch (std::runtime_error& e)
             {
-                std::cout << "\"Error:" << e.what() << "\",";
+                std::cout << "\"Error:" << e.what() << "\"," << std::endl;
             }
             catch (...)
             {
-                std::cout << "\"Unknown error\"";
+                std::cout << "\"Unknown error\"" << std::endl;
             }
             o << std::endl;
 
-            try { delete mp; } catch(...) {}
+            try { mp->wait(); delete mp; } catch(std::runtime_error& e)
+                        { std::cout<< e.what() << std::endl; } catch(...) {}
         }
         return ress;
     }
