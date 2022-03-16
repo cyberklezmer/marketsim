@@ -34,7 +34,7 @@ public:
                 pp.A.add(o);
             }
 
-            request({pp,trequest::teraserequest(false),0});
+            request({pp,trequest::teraserequest(true),0});
 
         }
     }
@@ -127,23 +127,37 @@ public:
 double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
 {
     cout << "Finding duration for " << nstrategies << " agents on this PC." << endl;
-    int d = 1000000;
+    int d = 10;
     for(unsigned i=0; i<10; i++,d*= 10)
     {
         tmarketdef df =def;
         df.chronosduration = chronos::app_duration(d);
-        tmarket m(10000*df.chronos2abstime,df);
+        tmarket m(100*df.chronos2abstime,df);
+//        m.setlogging(cout);
+//        m.setdirectlogging(true);
+
         vector<twallet> e(nstrategies,
                           twallet(numeric_limits<tprice>::max()/2, numeric_limits<tvolume>::max()/2));
         competitor<calibratingstrategy> c;
         std::vector<competitorbase<true>*> s;
         for(unsigned j=0; j<nstrategies; j++)
             s.push_back(&c);
-        m.run(s,e);
-        double rem = m.results()->frunstat.fextraduration.average();
-        cout << "d = " << d << ", rem = " << rem << endl;
-        if(rem > 0)
-            break;
+        try {
+            cout << "d = " << d << endl;
+            m.run(s,e);
+            double rem = m.results()->frunstat.fextraduration.average();
+            cout << "remaining = " << rem << endl;
+            if(rem > 0)
+                break;
+        }
+        catch (std::runtime_error& e)
+        {
+            std::cout << "Error:" << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            std::cout << "Unknown error" << std::endl;
+        }
     }
     cout << d << " found suitable " << endl;
     return d;
@@ -198,7 +212,7 @@ int main()
     try
     {
         int d = findduration(2);
-        cout << "Calibrate " << d << endl;
+        cout << "Calibrate gave result " << d << endl;
         return 0;
         test<true>(); // with chronos
 //        test<false>(); // without chronos

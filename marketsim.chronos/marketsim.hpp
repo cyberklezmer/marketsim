@@ -1403,8 +1403,21 @@ private:
 public:
 
     tmarket(tabstime maxtime, tmarketdef adef  = tmarketdef()) :
-        chronos::Chronos(adef.chronosduration, maxtime / adef.chronos2abstime), fdef(adef)
+        chronos::Chronos(adef.chronosduration, maxtime / adef.chronos2abstime), fdef(adef),
+        flog(0), fdirectlogging(false)
     {
+    }
+
+    /// \p on means that logging is done to *flog directly during the execution. In this case,
+    /// no logging is done from the strategies' threads
+    void setdirectlogging(bool on)
+    {
+        fdirectlogging = on;
+    }
+
+    bool isdirectlogging() const
+    {
+        return fdirectlogging;
     }
 
 
@@ -1433,6 +1446,7 @@ public:
     {
         return flog != 0;
     }
+
 
     /// returns results of the last simulation
     std::shared_ptr<tmarketdata> results() const
@@ -1466,6 +1480,8 @@ public:
         std::string errtxt;
         try
         {
+            if(islogging() && isdirectlogging())
+                *flog << flogheader << std::endl;
 
             if constexpr(chronos)
             {
@@ -1517,15 +1533,12 @@ public:
             errtxt = "ruh throwed unknown error.";
         }
 
-        if(islogging())
+        if(islogging() && !isdirectlogging())
         {
-            *flog << "what;strategyid;strategyname;chronotime;abstime;explanation;"
-                     "timestamp;smapshota,snapshotb;"
-                     "walletmoney;walletstocks;"
-                     ";A;A;B;B;";
-            *flog << fsublog.str() << std::endl;
+            *flog << flogheader << std::endl;
             for(unsigned i=0; i<strategies.size(); i++)
                 *flog << strategies[i]->fsublog.str() << std::endl;
+            *flog << fsublog.str() << std::endl;
         }
         if(waserror)
             throw runerror(errtxt);
@@ -1585,6 +1598,12 @@ private:
 
     tmarketdef fdef;
     std::ostream* flog;
+    bool fdirectlogging;
+    static constexpr const char* flogheader = "what;strategyid;strategyname;chronotime;abstime;explanation;"
+                                              "timestamp;smapshota,snapshotb;"
+                                              "walletmoney;walletstocks;"
+                                              ";A;A;B;B;";
+
     std::ostringstream fsublog;
 
     void possiblylog(tstrategy* owner, const std::string&
@@ -1592,10 +1611,11 @@ private:
     {
         if(islogging())
         {
+            if(isdirectlogging() && owner)
+                return;
             int sn = owner ? findstrategy(owner) : 0;
-            std::ostream& o =
-//std::cout;
-                    owner ? owner->fsublog : fsublog;
+            std::ostream& o = fdirectlogging ? *flog ://std::cout;
+                                       (owner ? owner->fsublog : fsublog);
             o << shortmsg << ";";
             if(owner)
                 o << sn << ";" << owner->name() << ";";
