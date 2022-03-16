@@ -50,9 +50,9 @@ namespace chronos {
     }
 
     void Chronos::process_async() {
-      while (auto item = async_tasks.pop()) {
-        item.value()();
-      }
+      int items = async_tasks.size();
+      for (int i = 0; i < items; i++)
+        async_tasks.pop().value()();
     }
 
     bool Chronos::still_running() {

@@ -150,14 +150,16 @@ namespace chronos {
           std::future<ret> future = task.get_future();
           auto t = std::make_shared<task_t>(std::move(task));
           int index = get_thread_index();
-          worker_unlock(index);
 
-          async_tasks.push([t]() {
-              (*t)();
-          });
+          async_tasks.push_and_action([t, this, index]() {
+                                          (*t)();
+                                          worker_lock(index);
+                                      }, [this, index]() {
+                                          worker_unlock(index);
+                                      }
+          );
 
           ret retval = future.get();
-          worker_lock(index);
           return retval;
         }
     };
