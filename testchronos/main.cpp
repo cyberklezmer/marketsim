@@ -124,7 +124,7 @@ public:
 
 
 
-double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
+int findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
 {
     cout << "Finding duration for " << nstrategies << " agents on this PC." << endl;
     int d = 10;
@@ -132,7 +132,7 @@ double findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
     {
         tmarketdef df =def;
         df.chronosduration = chronos::app_duration(d);
-        tmarket m(100*df.chronos2abstime,df);
+        tmarket m(1000*df.chronos2abstime,df);
 //        m.setlogging(cout);
 //        m.setdirectlogging(true);
 
@@ -211,7 +211,7 @@ int main()
 {
     try
     {
-        int d = findduration(2);
+        int d = findduration(100);
         cout << "Calibrate gave result " << d << endl;
         return 0;
         test<true>(); // with chronos
