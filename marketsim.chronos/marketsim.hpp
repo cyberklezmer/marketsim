@@ -787,7 +787,20 @@ public:
         }
     }
 
+    void reportexception(const std::string& s)
+    {
+        ferrmsg = s;
+        fendedbyexception = true;
+    }
+    bool endedbyexception() const
+    {
+        return fendedbyexception;
+    }
 
+    const std::string& errmsg() const
+    {
+        return ferrmsg;
+    }
 protected:
     std::string fname;
     twallet fwallet;
@@ -795,6 +808,10 @@ protected:
     tvolume fblockedstocks;
     std::vector<tconsumptionevent> fconsumption;
     std::vector<tradingevent> ftrading;
+
+    bool fendedbyexception = false;
+    std::string ferrmsg;
+
 };
 
 
@@ -1400,6 +1417,19 @@ private:
         possiblylog(0,"Tick called");
     }
 
+    void reportexception(tstrategy* owner, const std::string& e)
+    {
+        try
+        {
+            auto s = findstrategy(owner);
+            if(fmarketdata)
+                fmarketdata->ftradings[s].reportexception(e);
+        }
+        catch(...)
+        {
+
+        }
+    }
 public:
 
     tmarket(tabstime maxtime, tmarketdef adef  = tmarketdef()) :
@@ -1802,10 +1832,17 @@ void tstrategy::main()
         fmarket->possiblylog(this, "main throwed chronos error");
         throw;
     }
+    catch (std::runtime_error& e)
+    {
+        fmarket->possiblylog(this, "main throwed error", e.what());
+        fmarket->reportexception(this,e.what());
+        return;
+    }
     catch (...)
     {
         fmarket->possiblylog(this, "main throwed unknown error");
-        throw;
+        fmarket->reportexception(this,"unknown error");
+        return;
     }
 }
 
@@ -1860,10 +1897,16 @@ inline tstrategy::trequestresult tstrategy::request(const trequest& request, tab
         fmarket->possiblylog(this, "settle throwed chronos error", e.what());
         throw;
     }
+    catch (std::runtime_error& e)
+    {
+        fmarket->possiblylog(this, "settle throwed error", e.what());
+        throw marketsimerror(e.what());
+    }
+
     catch (...)
     {
         fmarket->possiblylog(this, "settle throwed unknown error");
-        throw;
+        throw marketsimerror( "settle throwed unknown error");
     }
 }
 
@@ -1878,48 +1921,116 @@ tmarketinfo tstrategy::getinfo()
         fmarket->possiblylog(this,"getinfo called");
         return ret;
     }
-    catch (...)
+    catch (chronos::error& e)
     {
-        fmarket->possiblylog(this,"getinfo throwed exception");
-        throw "unkonwn error in chronos, cought in getinfo.";
+        fmarket->possiblylog(this,"getinfo throwed chronos error",e.what());
+        throw;
     }
+    catch (std::runtime_error& e)
+    {
+        fmarket->possiblylog(this,"getinfo throwed error",e.what());
+        throw marketsimerror(e.what());
+    }
+    catch(...)
+    {
+        fmarket->possiblylog(this,"getinfo throwed unknown error");
+        throw marketsimerror("getinfo throwed unknown error");
+    }
+
 }
 
 inline void tstrategy::sleepfor(tabstime t)
 {
-    if(fmarket->islogging())
+    try
     {
-        std::ostringstream s;
-        s << "sleepfor(" << t << ") called";
-        fmarket->possiblylog(this, s.str());
+        if(fmarket->islogging())
+        {
+            std::ostringstream s;
+            s << "sleepfor(" << t << ") called";
+            fmarket->possiblylog(this, s.str());
+        }
+        sleep_until(fmarket->get_time() + t/fmarket->def().chronos2abstime);
+        fmarket->possiblylog(this, "sleepfor finished");
     }
-    sleep_until(fmarket->get_time() + t/fmarket->def().chronos2abstime);
-    fmarket->possiblylog(this, "sleepfor finished");
+    catch (chronos::error& e)
+    {
+        fmarket->possiblylog(this,"sleepfor throwed chronos error",e.what());
+        throw;
+    }
+    catch (std::runtime_error& e)
+    {
+        fmarket->possiblylog(this,"sleepfor throwed error",e.what());
+        throw marketsimerror(e.what());
+    }
+    catch(...)
+    {
+        fmarket->possiblylog(this,"sleepfor throwed unknown error");
+        throw marketsimerror("getinfo throwed unknown error");
+    }
+
 }
 
 inline void tstrategy::sleepuntil(tabstime t)
 {
-    if(fmarket->islogging())
+    try
     {
-        std::ostringstream s;
-        s << "sleepuntil(" << t << ") called";
-        fmarket->possiblylog(this, s.str());
+        if(fmarket->islogging())
+        {
+            std::ostringstream s;
+            s << "sleepuntil(" << t << ") called";
+            fmarket->possiblylog(this, s.str());
+        }
+        sleep_until(t/fmarket->def().chronos2abstime);
+        fmarket->possiblylog(this, "sleepuntil finished");
     }
-    sleep_until(t/fmarket->def().chronos2abstime);
-    fmarket->possiblylog(this, "sleepuntil finished");
+    catch (chronos::error& e)
+    {
+        fmarket->possiblylog(this,"sleepuntil throwed chronos error",e.what());
+        throw;
+    }
+    catch (std::runtime_error& e)
+    {
+        fmarket->possiblylog(this,"sleepuntil throwed error",e.what());
+        throw marketsimerror(e.what());
+    }
+    catch(...)
+    {
+        fmarket->possiblylog(this,"sleepuntil throwed unknown error");
+        throw marketsimerror("getinfo throwed unknown error");
+    }
+
 }
 
 inline tabstime tstrategy::abstime()
 {
-    auto result = fmarket->get_time();
-    tabstime at = result * fmarket->def().chronos2abstime;
-    if(fmarket->islogging())
+    try
     {
-        std::ostringstream s;
-        s << "abstime called returning " << at;
-        fmarket->possiblylog(this, s.str());
+        auto result = fmarket->get_time();
+        tabstime at = result * fmarket->def().chronos2abstime;
+        if(fmarket->islogging())
+        {
+            std::ostringstream s;
+            s << "abstime called returning " << at;
+            fmarket->possiblylog(this, s.str());
+        }
+        return at;
     }
-    return at;
+    catch (chronos::error& e)
+    {
+        fmarket->possiblylog(this,"abstime throwed chronos error",e.what());
+        throw;
+    }
+    catch (std::runtime_error& e)
+    {
+        fmarket->possiblylog(this,"abstime throwed error",e.what());
+        throw marketsimerror(e.what());
+    }
+    catch(...)
+    {
+        fmarket->possiblylog(this,"abstime throwed unknown error");
+        throw marketsimerror("getinfo throwed unknown error");
+    }
+
 }
 
 

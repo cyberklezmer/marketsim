@@ -55,7 +55,6 @@ public:
        {
            bool buy = uniform() > 0.5;
            tprice lprice = 1+uniform()*fmaxprice;
-
            tpreorderprofile pp;
            if(buy)
            {
@@ -189,6 +188,8 @@ void test()
         {
             cout << i << ": ";
             r->ftradings[i].wallet().output(cout);
+            if(r->ftradings[i].endedbyexception())
+                cout << " (ended by exception: " << r->ftradings[i].errmsg() << ")";
             cout << endl;
         }
         std::cout << r->frunstat.fextraduration.average() << " out of "
@@ -211,9 +212,9 @@ int main()
 {
     try
     {
-        int d = findduration(100);
-        cout << "Calibrate gave result " << d << endl;
-        return 0;
+//        int d = findduration(100);
+//        cout << "Calibrate gave result " << d << endl;
+//        return 0;
         test<true>(); // with chronos
 //        test<false>(); // without chronos
         return 0;
