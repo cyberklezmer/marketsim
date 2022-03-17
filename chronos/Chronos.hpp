@@ -152,8 +152,8 @@ namespace chronos {
           int index = get_thread_index();
 
           async_tasks.push_and_action([t, this, index]() {
-                                          (*t)();
                                           worker_lock(index);
+                                          (*t)();
                                       }, [this, index]() {
                                           worker_unlock(index);
                                       }
