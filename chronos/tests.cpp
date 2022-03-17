@@ -141,7 +141,6 @@ TEST(Chronos, SingleActive) {
   EXPECT_LT(god.ticks, 120);
 }
 
-
 TEST(Chronos, SingleActiveMock) {
   TestChronos god;
   MockPassive w1(100);
@@ -201,7 +200,7 @@ TEST(Chronos, TimesGoesOn) {
   workers_list workers = {&w1};
   god.run(workers);
   EXPECT_EQ(god.ticks, g_max_time + 1);
-  god.wait();
+  god.wait(workers);
   EXPECT_EQ(w1.counter, 2 * g_max_time);
 }
 
@@ -212,7 +211,7 @@ TEST(Chronos, TestWorkerPassiveSlave) {
   workers_list workers = {&w1};
   god.run(workers);
   EXPECT_EQ(god.ticks, g_max_time + 1);
-  EXPECT_NO_FATAL_FAILURE(god.wait());
+  EXPECT_NO_FATAL_FAILURE(god.wait(workers));
   EXPECT_EQ(w1.ticks, g_max_time + 1);
 }
 
@@ -223,7 +222,7 @@ TEST(Chronos, TestWorkerPassiveSlaveZero) {
   workers_list workers = {&w1};
   god.run(workers);
   EXPECT_EQ(god.ticks, g_max_time + 1);
-  EXPECT_NO_FATAL_FAILURE(god.wait());
+  EXPECT_NO_FATAL_FAILURE(god.wait(workers));
   EXPECT_EQ(w1.ticks, g_max_time + 1);
 }
 
@@ -271,8 +270,33 @@ TEST(Chronos, TestWorkerAsyncCallEnd) {
   workers_list workers = {&w1};
   god.run(workers);
   EXPECT_EQ(god.ticks, g_max_time + 1);
-  EXPECT_NO_FATAL_FAILURE(god.wait());
+  EXPECT_NO_FATAL_FAILURE(god.wait(workers));
   EXPECT_EQ(w1.counter, g_max_time + 1);
+}
+
+TEST(Chronos, SingleActiveNoWait) {
+  TestChronosTime god(10);
+  TestWorkerActive w1(50);
+  workers_list workers = {&w1};
+  god.run(workers);
+  EXPECT_EQ(god.ticks, 11);
+  EXPECT_EQ(w1.still_running(), true);
+  std::this_thread::sleep_for(50 * tick_length);
+  EXPECT_EQ(w1.still_running(), false);
+}
+
+TEST(Chronos, SingleActiveNoWaitDestructing) {
+  TestChronosTime god(1);
+  TestWorkerActive* w1= new TestWorkerActive(50);
+  workers_list workers = {w1};
+  god.run(workers);
+  EXPECT_EQ(god.ticks, 2);
+  EXPECT_EQ(w1->still_running(), true);
+  auto t1 = std::chrono::steady_clock::now();
+  delete w1;
+  auto t2 = std::chrono::steady_clock::now();
+  auto duration = t2-t1;
+  EXPECT_GT(((double)duration.count())/TICK_LEN , 30);
 }
 
 
