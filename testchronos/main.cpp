@@ -11,6 +11,19 @@
 using namespace marketsim;
 using namespace std;
 
+class selfishstrategy : public tstrategy
+{
+public:
+    selfishstrategy() : tstrategy() {}
+    virtual void trade(twallet) override
+    {
+        for(;;)
+            ;
+    }
+};
+
+
+
 class calibratingstrategy : public tstrategy
 {
 public:
@@ -40,12 +53,12 @@ public:
     }
 };
 
-class luckockstrategy: public eventdrivenstrategy
+class luckockstrategy: public teventdrivenstrategy
 {
        tprice fmaxprice;
 public:
        luckockstrategy(tprice maxprice=100, double meantime=1)
-           : eventdrivenstrategy(meantime,true),
+           : teventdrivenstrategy(meantime,true),
              fmaxprice(maxprice)
        {
        }
@@ -71,11 +84,11 @@ public:
 };
 
 
-class naivemmstrategy: public eventdrivenstrategy
+class naivemmstrategy: public teventdrivenstrategy
 {
 public:
        naivemmstrategy(double interval=1)
-           : eventdrivenstrategy(interval, false)
+           : teventdrivenstrategy(interval, false)
        {
        }
 
@@ -121,9 +134,10 @@ public:
 };
 
 
-
+template <bool logging>
 int findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
 {
+    std::vector<tstrategy*> garbage;
     cout << "Finding duration for " << nstrategies << " agents on this PC." << endl;
     int d = 10;
     for(unsigned i=0; i<10; i++,d*= 10)
@@ -131,8 +145,13 @@ int findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
         tmarketdef df =def;
         df.chronosduration = chronos::app_duration(d);
         tmarket m(1000*df.chronos2abstime,df);
-//        m.setlogging(cout);
-//        m.setdirectlogging(true);
+        std::ofstream o("xxxlogxxx.log");
+        if constexpr(logging)
+        {
+            if(!o)
+                throw marketsimerror("Cannot create temporary log");
+            m.setlogging(o);
+        }
 
         vector<twallet> e(nstrategies,
                           twallet(numeric_limits<tprice>::max()/2, numeric_limits<tvolume>::max()/2));
@@ -142,7 +161,9 @@ int findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
             s.push_back(&c);
         try {
             cout << "d = " << d << endl;
-            m.run(s,e);
+            m.run(s,e,garbage);
+            if(garbage.size())
+                throw marketsimerror("Internal error: calibrating strategy unterminated.");
             double rem = m.results()->frunstat.fextraduration.average();
             cout << "remaining = " << rem << endl;
             if(rem > 0)
@@ -162,15 +183,14 @@ int findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
 }
 
 
-template <bool chronos>
+template <bool chronos, bool directlog>
 void test()
 {
     tmarket m(10);
 
-//    ofstream o("log.csv");
-//    m.setlogging(o);
-
     m.setlogging(cout);
+
+    m.setdirectlogging(directlog);
 
     twallet e(5000,100);
 
@@ -178,9 +198,12 @@ void test()
 
     competitor<luckockstrategy,chronos> cl;
     competitor<naivemmstrategy,chronos> cn;
+    competitor<selfishstrategy,chronos> cs;
+    std::vector<tstrategy*> garbage;
     try
     {
-        m.run<chronos>({&cl,&cn,&cn},{e,e,e});
+        if(!m.run<chronos>({&cl,&cl,&cn,&cs},{e,e,e,e},garbage))
+            cout << "Selfish stretegy!" << endl;
 
         auto r = m.results();
         for(unsigned i=0; i<r->n(); i++)
@@ -210,12 +233,25 @@ void test()
 template <bool chronos>
 void comp()
 {
+
     twallet e(5000,100);
 
+    competitor<selfishstrategy,chronos> cs;
     competitor<luckockstrategy,chronos> cl;
     competitor<naivemmstrategy,chronos> cn;
+    std::vector<competitorbase<chronos>*> competitors = {&cl,&cl,&cl,&cn,&cn,&cs};
+
+
+    tmarketdef def;
+    if(chronos)
+    {
+        def.chronosduration = chronos::app_duration(findduration<false>(competitors.size(),def));
+    }
+
     tcompetition comp;
-    auto res = comp.run<chronos,true>({&cl,&cl,&cn},e,1000,10,cout);
+
+    std::vector<tstrategy*> garbage;
+    auto res = comp.run<chronos,true>(competitors,e,1000,100,garbage,cout,def);
     cout << "Results:" << endl;
     for(unsigned i=0;i<res.size();i++)
     {
@@ -231,10 +267,10 @@ int main()
 //        int d = findduration(100);
 //        cout << "Calibrate gave result " << d << endl;
 //        return 0;
-//        test<true>(); // with chronos
-//        test<false>(); // without chronos
-//        comp<true>();
+//        test<true,false>(); // with chronos
+//        test<false,false>(); // without chronos
         comp<true>();
+//        comp<false>();
         return 0;
     }
     catch (std::exception& e) {

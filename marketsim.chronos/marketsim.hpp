@@ -838,6 +838,7 @@ class tstrategy: private chronos::Worker
 private:
     friend class tmarket;
     friend class tmarketdata;
+    friend class teventdrivenstrategy;
     virtual void main() override;
 
     static tstrategyid newid()
@@ -902,12 +903,12 @@ private:
 template <bool chronos>
 struct selectstragegybase;
 
-class eventdrivenstrategy;
+class teventdrivenstrategy;
 
 template<>
 struct selectstragegybase<false>
 {
-    using basetype = eventdrivenstrategy;
+    using basetype = teventdrivenstrategy;
 };
 
 template<>
@@ -952,14 +953,14 @@ public:
 /// struct defining market behavior
 struct tmarketdef
 {
-    /// mean of (exponential) interval wotj which the market checks new requests
-//    double flattency = 0.01;
-    /// minimuim time after which the stretegy can be called again
-    double minupdateinterval = 0.001;
     /// \p chronos duration
     chronos::app_duration chronosduration = chronos::app_duration(100000);
-    /// tbd
-    double chronos2abstime = 0.01;
+    /// constant converting tick time to simulated time in seconds
+    double chronos2abstime = 0.05;
+    /// magnitude of "noise" added to the waiting times when working in non-hrohos model
+    double epsilon = 0.0000001;
+
+    unsigned tickstowait = 100;
 };
 
 class torderbook
@@ -1267,9 +1268,9 @@ class tmarketinfo
     snapshot_shared_ptr fdata;
 public:
     tmarketinfo(const // std::shared_ptr<tmarketdata>
-             snapshot_shared_ptr data, unsigned id, tabstime at):
+             snapshot_shared_ptr data, unsigned id):
         fdata(data), history(data->fhistory),orderbook(data->forderbook.obprofile()),
-        myprofile(data->forderbook.profile(id)), myid(id), t(at)
+        myprofile(data->forderbook.profile(id)), myid(id)
     {
     }
 
@@ -1281,8 +1282,6 @@ public:
     const torderprofile& myprofile;
     /// id of the target strategy in the markat's list (corresponds to marketsim::torder::owner)
     unsigned myid;
-    /// current time
-    tabstime t;
 
     tprice a() const { return orderbook.A.minprice(); }
     tprice b() const { return orderbook.B.maxprice(); }
@@ -1304,13 +1303,13 @@ public:
 };
 
 
-class eventdrivenstrategy : public tstrategy
+class teventdrivenstrategy : public tstrategy
 {
     friend class tmarket;
 
 
 public:
-    eventdrivenstrategy(double interval, bool random = false) :
+    teventdrivenstrategy(double interval, bool random = false) :
         tstrategy(),
         finterval(interval), frandom(random), fnu(interval) {}
     virtual trequest event(const tmarketinfo& info) = 0;
@@ -1319,18 +1318,14 @@ public:
         while(!endoftrading())
         {
             tmarketinfo info = this->getinfo<true>();
+            tabstime t = abstime();
             request<true>(event(info));
-            double t = frandom ? fnu(fengine) : finterval;
-            sleepuntil(info.t+t);
+            double dt = frandom ? fnu(fengine) : finterval;
+            sleepuntil(t+dt);
         }
     }
 
-    tabstime step(tabstime t)
-    {
-        auto info = getinfo<false>();
-        request<false>(event(info),t);
-        return t + (frandom ? fnu(fengine) : finterval + uniform() * finterval/100000);
-    }
+    tabstime step(tabstime t);
 private:
     double finterval;
     bool frandom;
@@ -1342,7 +1337,27 @@ private:
 /// (has to be only single one in program, however)
 class tmarket : private chronos::Chronos
 {
-
+public:
+    struct tloggingfilter
+    {
+        tloggingfilter()
+        {
+            frequest = true;
+            fsettle = true;
+fsleep = true;
+            fgetinfo = false;
+            fmarketdata = false;
+            ftick = false;
+            fabstime = false;
+        }
+        bool frequest;
+        bool fsettle;
+        bool fsleep;
+        bool fgetinfo;
+        bool fmarketdata;
+        bool ftick;
+        bool fabstime;
+    };
 private:
     friend class tstrategy;
     friend class tcompetition;
@@ -1363,13 +1378,12 @@ private:
         throw marketsimerror("Internal error: cannot assign owner");
     }
 
-    tmarketinfo getinfo(tstrategyid id, tabstime t)
+    tmarketinfo getinfo(tstrategyid id)
     {
         int owner = findstrategy(id);
         snapshot_shared_ptr ssht = atomic_load(&fmarketsnapshot);
         assert(ssht);
-        return tmarketinfo(ssht,owner,t);
-
+        return tmarketinfo(ssht,owner);
     }
 
     template <bool chronos>
@@ -1386,7 +1400,7 @@ private:
             std::ostringstream s2;
             s2 << "request: ";
                request.output(s2);
-            possiblylog(0,s.str(),s2.str());
+            possiblylog(floggingfilter.fsettle,0,s.str(),s2.str());
         }
         auto& ob = fmarketdata->forderbook;
         auto st = chronos ? t : getabstime();
@@ -1402,22 +1416,22 @@ private:
             {
                 std::ostringstream s;
                 s << "Settle by " << owner << " finished -updating history";
-                possiblylog(0,s.str());
+                possiblylog(floggingfilter.fsettle,0,s.str());
             }
             fmarketdata->fhistory.add({ob.b(),ob.a(),st});
-            possiblylog(0,"History Updated");
+            possiblylog(floggingfilter.fsettle,0,"History Updated");
             return errs;
 
         }
         catch(std::runtime_error& e)
         {
-            possiblylog(0,"settle throwed exception",e.what());
+            possiblylog(true, 0,"settle throwed exception",e.what());
             throw marketsimerror(e.what());
         }
 
         catch(...)
         {
-            possiblylog(0,"settle throwed unknown exception");
+            possiblylog(true, 0,"settle throwed unknown exception");
             throw marketsimerror("unknown exception during settle");;
         }
     }
@@ -1425,9 +1439,9 @@ private:
     void setsnapshot()
     {
         assert(fmarketdata);
-        possiblylog(0,"New copy of tmarketdata...");
+        possiblylog(floggingfilter.fmarketdata,0,"New copy of tmarketdata...");
         atomic_store(&fmarketsnapshot, std::make_shared<tmarketdata>(*fmarketdata));
-        possiblylog(0,"New copy of tmarketdata created");
+        possiblylog(floggingfilter.fmarketdata,0,"New copy of tmarketdata created");
     }
 
     virtual void tick() override
@@ -1436,7 +1450,7 @@ private:
         setsnapshot();
         fmarketdata->frunstat.fextraduration.add(get_remaining_time().count());
         fmarketdata->frunstat.flasttickabstime = getabstime();
-        possiblylog(0,"Tick called");
+        possiblylog(floggingfilter.ftick,0,"Tick called");
     }
 
     void reportexception(tstrategyid owner, const std::string& e)
@@ -1478,9 +1492,10 @@ public:
 
     /// if calles with \p alogging=\c true, detailed information is sent to
     /// flog during simulation
-    void setlogging(std::ostream& log)
+    void setlogging(std::ostream& log, tloggingfilter filter = tloggingfilter())
     {
         flog = &log;
+        floggingfilter = filter;
     }
 
     void resetlogging()
@@ -1511,11 +1526,15 @@ public:
 
     /// Run the simulation of \p timeofrun seconds of trading (the simulation is usually much shorter).
     template <bool chronos=true>
-    void run(std::vector<competitorbase<chronos>*> competitors,
-             std::vector<twallet> endowments, unsigned seed=0)
+    bool run(std::vector<competitorbase<chronos>*> competitors,
+             std::vector<twallet> endowments,
+             std::vector<tstrategy*>& garbage,
+             unsigned seed=0)
     {
         assert(endowments.size()==competitors.size());
-        possiblylog(0,"Starting simulation");
+        if(islogging() && isdirectlogging())
+            *flog << flogheader << std::endl;
+        possiblylog(true,0,"Starting simulation");
 
         std::vector<tstrategy*> strategies;
         std::vector<std::string> names;
@@ -1539,15 +1558,10 @@ public:
         std::string errtxt;
         try
         {
-            if(islogging() && isdirectlogging())
-                *flog << flogheader << std::endl;
 
             if constexpr(chronos)
             {
-std::cout << "Running run" << std::endl;
                 chronos::Chronos::run(wl);
-std::cout << "Returned from run" << std::endl;
-//tbd                chronos::Chronos::wait() ;
             }
             else
             {
@@ -1568,7 +1582,16 @@ std::cout << "Returned from run" << std::endl;
                     }
                     if(t >= T)
                         break;
-                    ts[first]=(static_cast<eventdrivenstrategy*>(strategies[first]))->step(t);
+
+                    teventdrivenstrategy* str = (static_cast<teventdrivenstrategy*>(strategies[first]));
+                    if(islogging())
+                    {
+                        std::ostringstream s;
+                        s << "t=" << t;
+                        possiblylog(floggingfilter.frequest,str->fid,"non-chronos request",s.str());
+                    }
+
+                    ts[first]=str->step(t);
                     setsnapshot();
                 }
             }
@@ -1595,26 +1618,42 @@ std::cout << "Returned from run" << std::endl;
         {
             *flog << flogheader << std::endl;
             for(unsigned i=0; i<strategies.size(); i++)
-                *flog << fmarketdata->fstrategyinfos[i].fsublog.str() << std::endl;
-            *flog << fmarketdata->fmarketsublog.str() << std::endl;
+                *flog << fmarketdata->fstrategyinfos[i].fsublog.str();
+            *flog << fmarketdata->fmarketsublog.str();
         }
-std::cout << "Starting to delete" << std::endl;
 
+        bool finished;
+        for(unsigned i=0; i<def().tickstowait; i++)
+        {
+            bool finished = true;
+            for(unsigned j=0; j<strategies.size(); j++)
+            {
+                if(strategies[i]->still_running())
+                {
+                     finished = false;
+                     break;
+                }
+            }
+            if(finished)
+                break;
+            std::this_thread::sleep_for(def().chronosduration);
+        }
         for(unsigned i=0; i<strategies.size(); i++)
         {
-std::cout << "Deleting " << i << std::endl;
-
-            delete strategies[i];
+            if(strategies[i]->still_running())
+                garbage.push_back(strategies[i]);
+            else
+                delete strategies[i];
         }
-std::cout << "Finished deleting" << std::endl;
-
         if(waserror)
             throw runerror(errtxt);
+        return finished;
     }
 
 
     static constexpr const char* flogheader = "what;strategyid;strategyname;chronotime;abstime;explanation;"
-                                            ";A;A;B;B;";
+                                              "timestamp;b(snap);a(snap);money;stocks;"
+                                              ";A;;B;";
 
 private:
 
@@ -1622,12 +1661,13 @@ private:
     tmarketdef fdef;
     std::ostream* flog;
     bool fdirectlogging;
+    tloggingfilter floggingfilter;
 
 
-    void possiblylog(tstrategyid owner, const std::string&
+    void possiblylog(bool doit, tstrategyid owner, const std::string&
                  shortmsg, const std::string& longmsg = "")
     {
-        if(islogging() && fmarketdata)
+        if(doit && islogging() && fmarketdata)
         {
             if(isdirectlogging() && owner != nostrategy)
                 return;
@@ -1642,25 +1682,27 @@ private:
                 o << sn << ";" << fmarketdata->fstrategyinfos[sn].name() << ";";
             else
                 o << ";marketsim;";
+
             o << get_time() << ";"
-              << getabstime() << ";" << longmsg << ";";
-            o << fmarketdata->ftimestamp << ";";
+              << getabstime() << ";";
+
+            o << longmsg << ";" << fmarketdata->ftimestamp << ";";
 
             snapshot_shared_ptr ssht = atomic_load(&fmarketsnapshot);
             if(ssht)
-               o << ssht->forderbook.a() << ";"
-                 << ssht->forderbook.b() << ";";
+               o << ssht->forderbook.b() << ";"
+                 << ssht->forderbook.a() << ";";
              else
                o << ";;";
 
-            if(owner)
+            if(owner!=nostrategy)
             {
                 twallet w = fmarketdata->fstrategyinfos[sn].wallet();
                 o << w.money() << ";" << w.stocks() << ";";
             }
             else
                 o << ";;";
-            if(!owner)
+            if(owner==nostrategy)
             {
                 const auto& p = fmarketdata->forderbook.obprofile();
                 o << "A;";
@@ -1802,7 +1844,7 @@ void tstrategy::main()
     }
     catch (chronos::error_already_finished)
     {
-        fmarket->possiblylog(fid, "stopped: already finished");
+        fmarket->possiblylog(true,fid, "stopped: already finished");
         if(fmarket->get_time() < fmarket->get_max_time()-1)
             throw;
         else
@@ -1810,23 +1852,23 @@ void tstrategy::main()
     }
     catch (marketsim::error)
     {
-        fmarket->possiblylog(fid, "main throwed marketsim error");
+        fmarket->possiblylog(true,fid, "main throwed marketsim error");
         throw;
     }
     catch (chronos::error)
     {
-        fmarket->possiblylog(fid, "main throwed chronos error");
+        fmarket->possiblylog(true, fid, "main throwed chronos error");
         throw;
     }
     catch (std::runtime_error& e)
     {
-        fmarket->possiblylog(fid, "main throwed error", e.what());
+        fmarket->possiblylog(true, fid, "main throwed error", e.what());
         fmarket->reportexception(fid,e.what());
         return;
     }
     catch (...)
     {
-        fmarket->possiblylog(fid, "main throwed unknown error");
+        fmarket->possiblylog(true, fid, "main throwed unknown error");
         fmarket->reportexception(fid,"unknown error");
         return;
     }
@@ -1846,7 +1888,7 @@ inline tstrategy::trequestresult tstrategy::request(const trequest& request, tab
             {
                 std::ostringstream s;
                 request.output(s);
-                fmarket->possiblylog(fid,"request called",s.str());
+                fmarket->possiblylog(fmarket->floggingfilter.frequest,fid,"request called",s.str());
             }
 
             if constexpr(chronos)
@@ -1868,30 +1910,30 @@ inline tstrategy::trequestresult tstrategy::request(const trequest& request, tab
                     for(unsigned i=0; i<ret.results.size(); i++)
                         s << ret.results[i].text << ",";
                 // tbd return wallet...
-                fmarket->possiblylog(fid, "settle returned", s.str());
+                fmarket->possiblylog(fmarket->floggingfilter.frequest,fid, "settle returned", s.str());
             }
         }
         return ret;
     }
     catch (chronos::error_already_finished)
     {
-        fmarket->possiblylog(fid, "settle throwed already finished");
+        fmarket->possiblylog(true,fid, "settle throwed already finished");
         throw;
     }
     catch (chronos::error& e)
     {
-        fmarket->possiblylog(fid, "settle throwed chronos error", e.what());
+        fmarket->possiblylog(true,fid, "settle throwed chronos error", e.what());
         throw;
     }
     catch (std::runtime_error& e)
     {
-        fmarket->possiblylog(fid, "settle throwed error", e.what());
+        fmarket->possiblylog(true,fid, "settle throwed error", e.what());
         throw marketsimerror(e.what());
     }
 
     catch (...)
     {
-        fmarket->possiblylog(fid, "settle throwed unknown error");
+        fmarket->possiblylog(true,fid, "settle throwed unknown error");
         throw marketsimerror( "settle throwed unknown error");
     }
 }
@@ -1902,24 +1944,24 @@ tmarketinfo tstrategy::getinfo()
     assert(fmarket);
     try
     {
-        fmarket->possiblylog(fid,"Calling getinfo");
-        auto ret =  this->fmarket->getinfo(fid, 0);
-        fmarket->possiblylog(fid,"getinfo called");
+        fmarket->possiblylog(fmarket->floggingfilter.fgetinfo, fid,"Calling getinfo");
+        auto ret =  this->fmarket->getinfo(fid);
+        fmarket->possiblylog(fmarket->floggingfilter.fgetinfo, fid,"getinfo called");
         return ret;
     }
     catch (chronos::error& e)
     {
-        fmarket->possiblylog(fid,"getinfo throwed chronos error",e.what());
+        fmarket->possiblylog(true,fid,"getinfo throwed chronos error",e.what());
         throw;
     }
     catch (std::runtime_error& e)
     {
-        fmarket->possiblylog(fid,"getinfo throwed error",e.what());
+        fmarket->possiblylog(true, fid,"getinfo throwed error",e.what());
         throw marketsimerror(e.what());
     }
     catch(...)
     {
-        fmarket->possiblylog(fid,"getinfo throwed unknown error");
+        fmarket->possiblylog(true, fid,"getinfo throwed unknown error");
         throw marketsimerror("getinfo throwed unknown error");
     }
 
@@ -1933,24 +1975,24 @@ inline void tstrategy::sleepfor(tabstime t)
         {
             std::ostringstream s;
             s << "sleepfor(" << t << ") called";
-            fmarket->possiblylog(fid, s.str());
+            fmarket->possiblylog(fmarket->floggingfilter.fsleep, fid, s.str());
         }
         sleep_until(fmarket->get_time() + t/fmarket->def().chronos2abstime);
-        fmarket->possiblylog(fid, "sleepfor finished");
+        fmarket->possiblylog(fmarket->floggingfilter.fsleep,fid, "sleepfor finished");
     }
     catch (chronos::error& e)
     {
-        fmarket->possiblylog(fid,"sleepfor throwed chronos error",e.what());
+        fmarket->possiblylog(true,fid,"sleepfor throwed chronos error",e.what());
         throw;
     }
     catch (std::runtime_error& e)
     {
-        fmarket->possiblylog(fid,"sleepfor throwed error",e.what());
+        fmarket->possiblylog(true, fid,"sleepfor throwed error",e.what());
         throw marketsimerror(e.what());
     }
     catch(...)
     {
-        fmarket->possiblylog(fid,"sleepfor throwed unknown error");
+        fmarket->possiblylog(true, fid,"sleepfor throwed unknown error");
         throw marketsimerror("getinfo throwed unknown error");
     }
 
@@ -1964,24 +2006,24 @@ inline void tstrategy::sleepuntil(tabstime t)
         {
             std::ostringstream s;
             s << "sleepuntil(" << t << ") called";
-            fmarket->possiblylog(fid, s.str());
+            fmarket->possiblylog(fmarket->floggingfilter.fsleep,fid, s.str());
         }
         sleep_until(t/fmarket->def().chronos2abstime);
-        fmarket->possiblylog(fid, "sleepuntil finished");
+        fmarket->possiblylog(fmarket->floggingfilter.fsleep,fid, "sleepuntil finished");
     }
     catch (chronos::error& e)
     {
-        fmarket->possiblylog(fid,"sleepuntil throwed chronos error",e.what());
+        fmarket->possiblylog(true,fid,"sleepuntil throwed chronos error",e.what());
         throw;
     }
     catch (std::runtime_error& e)
     {
-        fmarket->possiblylog(fid,"sleepuntil throwed error",e.what());
+        fmarket->possiblylog(true,fid,"sleepuntil throwed error",e.what());
         throw marketsimerror(e.what());
     }
     catch(...)
     {
-        fmarket->possiblylog(fid,"sleepuntil throwed unknown error");
+        fmarket->possiblylog(true,fid,"sleepuntil throwed unknown error");
         throw marketsimerror("getinfo throwed unknown error");
     }
 
@@ -1997,27 +2039,36 @@ inline tabstime tstrategy::abstime()
         {
             std::ostringstream s;
             s << "abstime called returning " << at;
-            fmarket->possiblylog(fid, s.str());
+            fmarket->possiblylog(fmarket->floggingfilter.fabstime,fid, s.str());
         }
         return at;
     }
     catch (chronos::error& e)
     {
-        fmarket->possiblylog(fid,"abstime throwed chronos error",e.what());
+        fmarket->possiblylog(true,fid,"abstime throwed chronos error",e.what());
         throw;
     }
     catch (std::runtime_error& e)
     {
-        fmarket->possiblylog(fid,"abstime throwed error",e.what());
+        fmarket->possiblylog(true,fid,"abstime throwed error",e.what());
         throw marketsimerror(e.what());
     }
     catch(...)
     {
-        fmarket->possiblylog(fid,"abstime throwed unknown error");
+        fmarket->possiblylog(true,fid,"abstime throwed unknown error");
         throw marketsimerror("getinfo throwed unknown error");
     }
 
 }
+
+inline tabstime teventdrivenstrategy::step(tabstime t)
+{
+    auto info = getinfo<false>();
+    request<false>(event(info),t);
+    return t + (frandom ? fnu(fengine) : finterval
+                          + uniform() * finterval * fmarket->def().epsilon);
+}
+
 
 
 inline bool tstrategy::endoftrading()
@@ -2049,39 +2100,47 @@ public:
     /// For each strtategy it returns mean value of its profit (comparison to the "hold" strategy,
     /// i.e. doing nothing) and the standard deviation.
 
-    template <bool chronos=true, bool countremainingstocks=false>
+    template <bool chronos=true, bool countremainingstocks=false, bool logging = false>
     std::vector<statcounter>
             run(std::vector<competitorbase<chronos>*> competitors,
-                        twallet endowment, unsigned nruns, tabstime timeofrun,
-                        std::ostream& o = std::cout)
+                        twallet endowment, unsigned desiredobs, tabstime timeofrun,
+                        std::vector<tstrategy*> &garbage,
+                        std::ostream& o = std::cout,
+                        tmarketdef def = tmarketdef())
     {
         auto n = competitors.size();
         std::vector<statcounter> ress(n);
 
         unsigned nobs = 0;
-        for(unsigned i=0; i<nruns; i++)
+        for(unsigned i=0; nobs<desiredobs && i<desiredobs * 2; i++)
         {
             o << i << ",";
 
-            tmarket m(timeofrun);
+            tmarket m(timeofrun,def);
 
-//            ostringstream os;
-//            os << "log" << i << ".csv";
-//            ofstream log(os.str);
-//            m.setlogging(log);
+            std::ostringstream os;
+            os << "log" << i << ".csv";
+            std::ofstream log(os.str());
+            if(logging)
+                m.setlogging(log);
+//m.setdirectlogging(true);
             std::vector<twallet> es(n,endowment);
             try
             {
-//                m.setlogging(std::cout);
-//                m.setdirectlogging(true);
-                m.run<chronos>(competitors,es,33+i*22);
+                m.setlogging(log);
+//tbd hlasit                m.setdirectlogging(true);
+                if(m.run<chronos>(competitors,es,garbage,33+i*22))
+                    o << "0,";
+                else
+                    o << "1,";
+
                 auto rest = static_cast<double>(m.results()->frunstat.fextraduration.average())
                               / m.fdef.chronosduration.count();
                 if(rest < 0)
-                    o << "overflow," << rest*100 << "%,";
+                    o << "0,overflow," << rest*100 << "%,";
                 else
                 {
-                    o << "OK," << rest*100 << "%,";
+                    o << "1,OK," << rest*100 << "%,";
                     auto r = m.results();
                     double p = r->fhistory.p(std::numeric_limits<double>::max());
                     for(unsigned j=0; j<n; j++)
@@ -2104,14 +2163,13 @@ public:
             }
             catch (std::runtime_error& e)
             {
-                std::cout << "\"Error:" << e.what() << "\"," << std::endl;
+                o << "0,\"error:" << e.what() << "\"," << std::endl;
             }
             catch (...)
             {
-                std::cout << "\"Unknown error\"" << std::endl;
+                o << "0,\"Unknown error\"" << std::endl;
             }
             o << std::endl;
-
         }
         return ress;
     }
