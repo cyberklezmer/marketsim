@@ -14,7 +14,7 @@ using namespace std;
 class calibratingstrategy : public tstrategy
 {
 public:
-    calibratingstrategy() : tstrategy("calibrating") {}
+    calibratingstrategy() : tstrategy() {}
     virtual void trade(twallet) override
     {
         while(!endoftrading())
@@ -38,7 +38,6 @@ public:
 
         }
     }
-
 };
 
 class luckockstrategy: public eventdrivenstrategy
@@ -46,7 +45,7 @@ class luckockstrategy: public eventdrivenstrategy
        tprice fmaxprice;
 public:
        luckockstrategy(tprice maxprice=100, double meantime=1)
-           : eventdrivenstrategy("Luckock",meantime,true),
+           : eventdrivenstrategy(meantime,true),
              fmaxprice(maxprice)
        {
        }
@@ -76,7 +75,7 @@ class naivemmstrategy: public eventdrivenstrategy
 {
 public:
        naivemmstrategy(double interval=1)
-           : eventdrivenstrategy("Naivemm", interval, false)
+           : eventdrivenstrategy(interval, false)
        {
        }
 
@@ -168,10 +167,10 @@ void test()
 {
     tmarket m(10);
 
-    ofstream o("log.csv");
+//    ofstream o("log.csv");
+//    m.setlogging(o);
 
-    m.setlogging(o);
-//    m.setlogging(cout);
+    m.setlogging(cout);
 
     twallet e(5000,100);
 
@@ -186,10 +185,10 @@ void test()
         auto r = m.results();
         for(unsigned i=0; i<r->n(); i++)
         {
-            cout << i << ": ";
-            r->ftradings[i].wallet().output(cout);
-            if(r->ftradings[i].endedbyexception())
-                cout << " (ended by exception: " << r->ftradings[i].errmsg() << ")";
+            cout << i << " " << r->fstrategyinfos[i].name() << ": ";
+            r->fstrategyinfos[i].wallet().output(cout);
+            if(r->fstrategyinfos[i].endedbyexception())
+                cout << " (ended by exception: " << r->fstrategyinfos[i].errmsg() << ")";
             cout << endl;
         }
         std::cout << r->frunstat.fextraduration.average() << " out of "
@@ -234,6 +233,7 @@ int main()
 //        return 0;
 //        test<true>(); // with chronos
 //        test<false>(); // without chronos
+//        comp<true>();
         comp<true>();
         return 0;
     }
