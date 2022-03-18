@@ -121,7 +121,11 @@ namespace chronos {
          */
         void run(workers_list workers);
 
-        void wait();
+        /**
+         * wait for all the workers to finish
+         * @param workers
+         */
+        void wait(workers_list workers);
 
         /**
          * user function called every clock tick

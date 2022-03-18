@@ -3,6 +3,7 @@
 
 namespace chronos {
     Worker::~Worker() {
+      wait();
       assert(!running);
     }
 
@@ -33,7 +34,10 @@ namespace chronos {
     }
 
     void Worker::wait() {
-      runner->join();
+      if (runner) {
+        runner->join();
+        runner = nullptr;
+      }
     }
 
     void Worker::entry_point() {

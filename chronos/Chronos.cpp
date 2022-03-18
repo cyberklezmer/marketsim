@@ -18,9 +18,10 @@ namespace chronos {
       signal_finish();
       process_async();
       wake_workers(true);
+      this->workers.clear();
     }
 
-    void Chronos::wait() {
+    void Chronos::wait(workers_list workers) {
       for (auto worker: workers)
         worker->wait();
     }

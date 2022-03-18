@@ -23,6 +23,8 @@
 | `Worker()`                                 | Constructor                                                                                                                                                                                                           |
 | `virtual void main()`                      | Main working routine of worker <br/> may call `sleep_until` to give up CPU time <br/>runs in its own thread                                                                                                           |
 | `bool ready()`                             | `Chronos` is still running                                                                                                                                                                                            |
+| `bool still_running()`                     | This `Worker`'s thread is still running                                                                                                                                                                               |
+| `void wait()`                              | Wait for `Worker`'s thread to finish                                                                                                                                                                                  |
 | `void sleep_until(app_time alarm_par = 1)` | suspend the execution of this worker until `alarm_par` time <br/>without argument (default 1) sleep till next clock tick.<br/> If Worker is not used in any Chronos, calling of this function hangs and never returns |
 
 ## Usage

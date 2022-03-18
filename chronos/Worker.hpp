@@ -33,12 +33,16 @@ namespace chronos {
         //called by Chronos
         void start();
 
-        void wait();
-
      public:
         Worker() {};
 
         virtual ~Worker();
+
+        //this Worker has running working thread
+        inline bool still_running() { return running; };
+
+        // Wait for worker's thread to finish
+        void wait();
 
      protected:
         /**
