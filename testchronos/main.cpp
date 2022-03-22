@@ -7,6 +7,7 @@
 
 //#include "strategies.hpp"
 #include "marketsim.hpp"
+#include "competition.hpp"
 
 using namespace marketsim;
 using namespace std;
@@ -24,34 +25,6 @@ public:
 
 
 
-class calibratingstrategy : public tstrategy
-{
-public:
-    calibratingstrategy() : tstrategy() {}
-    virtual void trade(twallet) override
-    {
-        while(!endoftrading())
-        {
-            bool buy = uniform() > 0.5;
-            tprice lprice = 1+uniform()*100;
-
-            tpreorderprofile pp;
-            if(buy)
-            {
-                tpreorder p(lprice,1);
-                pp.B.add(p);
-            }
-            else
-            {
-                tpreorder o(lprice,1);
-                pp.A.add(o);
-            }
-
-            request({pp,trequest::teraserequest(true),0});
-
-        }
-    }
-};
 
 class luckockstrategy: public teventdrivenstrategy
 {
@@ -97,10 +70,15 @@ public:
            tprice alpha = info.alpha();
            tprice beta = info.beta();
 
+
            if(alpha != khundefprice && beta != klundefprice)
            {
-               tprice mya = info.myprofile.a();
-               tprice myb = info.myprofile.b();
+               double p = (alpha + beta)/2;
+               tprice c = 0;
+               if(info.mywallet().money() > 5*p)
+                    c = info.mywallet().money()-5*p;
+               tprice mya = info.myorderprofile.a();
+               tprice myb = info.myorderprofile.b();
 
                tprice proposeda = mya;
                if(alpha <= mya)
@@ -126,61 +104,12 @@ public:
 
 //cout << beta << "(" << proposedb << ") - " << alpha << "(" << proposeda << ")" << endl;
 
-                  return {pp,trequest::teraserequest(true),0};
+                  return {pp,trequest::teraserequest(true),c};
                }
            }
            return trequest();
        }
 };
-
-
-template <bool logging>
-int findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
-{
-    std::vector<tstrategy*> garbage;
-    cout << "Finding duration for " << nstrategies << " agents on this PC." << endl;
-    int d = 10;
-    for(unsigned i=0; i<10; i++,d*= 10)
-    {
-        tmarketdef df =def;
-        df.chronosduration = chronos::app_duration(d);
-        tmarket m(1000*df.chronos2abstime,df);
-        std::ofstream o("xxxlogxxx.log");
-        if constexpr(logging)
-        {
-            if(!o)
-                throw marketsimerror("Cannot create temporary log");
-            m.setlogging(o);
-        }
-
-        vector<twallet> e(nstrategies,
-                          twallet(numeric_limits<tprice>::max()/2, numeric_limits<tvolume>::max()/2));
-        competitor<calibratingstrategy> c;
-        std::vector<competitorbase<true>*> s;
-        for(unsigned j=0; j<nstrategies; j++)
-            s.push_back(&c);
-        try {
-            cout << "d = " << d << endl;
-            m.run(s,e,garbage);
-            if(garbage.size())
-                throw marketsimerror("Internal error: calibrating strategy unterminated.");
-            double rem = m.results()->frunstat.fextraduration.average();
-            cout << "remaining = " << rem << endl;
-            if(rem > 0)
-                break;
-        }
-        catch (std::runtime_error& e)
-        {
-            std::cout << "Error:" << e.what() << std::endl;
-        }
-        catch (...)
-        {
-            std::cout << "Unknown error" << std::endl;
-        }
-    }
-    cout << d << " found suitable " << endl;
-    return d;
-}
 
 
 template <bool chronos, bool directlog>
@@ -199,10 +128,11 @@ void test()
     competitor<luckockstrategy,chronos> cl;
     competitor<naivemmstrategy,chronos> cn;
     competitor<selfishstrategy,chronos> cs;
+    competitor<maslovstrategy,chronos,true> cm;
     std::vector<tstrategy*> garbage;
     try
     {
-        if(!m.run<chronos>({&cl,&cl,&cn,&cs},{e,e,e,e},garbage))
+        if(!m.run<chronos>({&cn,&cm},{e,e},garbage))
             cout << "Selfish stretegy!" << endl;
 
         auto r = m.results();
@@ -236,27 +166,12 @@ void comp()
 
     twallet e(5000,100);
 
-    competitor<selfishstrategy,chronos> cs;
-    competitor<luckockstrategy,chronos> cl;
-    competitor<naivemmstrategy,chronos> cn;
-    std::vector<competitorbase<chronos>*> competitors = {&cl,&cl,&cl,&cn,&cn,&cs};
+    competitor<selfishstrategy,chronos> cs("selfish");
+    competitor<luckockstrategy,chronos> cl("luckock");
+    competitor<naivemmstrategy,chronos> cn("naive");
+    std::vector<competitorbase<chronos>*> competitors = {&cn,&cl,&cn};
 
-
-    tmarketdef def;
-    if(chronos)
-    {
-        def.chronosduration = chronos::app_duration(findduration<false>(competitors.size(),def));
-    }
-
-    tcompetition comp;
-
-    std::vector<tstrategy*> garbage;
-    auto res = comp.run<chronos,true>(competitors,e,1000,100,garbage,cout,def);
-    cout << "Results:" << endl;
-    for(unsigned i=0;i<res.size();i++)
-    {
-        cout << res[i].average() << " (" << sqrt(res[i].var()) << ")" << endl;
-    }
+    competition<chronos>(competitors, std::clog);
 }
 
 

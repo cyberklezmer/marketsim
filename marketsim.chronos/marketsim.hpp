@@ -78,6 +78,13 @@ inline std::string p2str(tprice p)
 class twallet
 {
 public:
+    static twallet infinitewallet()
+    {
+        return twallet(std::numeric_limits<tprice>::max()/2,
+                       std::numeric_limits<tvolume>::max()/2);
+    }
+
+
     twallet() : fmoney(0), fstocks(0) {}
 
     /// constructs new instance with \p amoney of cash and \p astocks of stocks
@@ -105,7 +112,8 @@ private:
 struct tsettleerror
 {
     /// possible warnings, which can be returned back when settling the request
-    enum eresult { OK /* never used */ , ecrossedorders, enotenoughmoneytobuy, enotenoughstockstosell,
+    enum eresult { OK /* never used */ ,enotenoughmoneytoconsume,
+                   ecrossedorders, enotenoughmoneytobuy, enotenoughstockstosell,
                     enotenoughmoneytoput, enotenoughstockstoput,
                     enumresults};
     eresult w;
@@ -556,7 +564,8 @@ public:
     static std::string warninglabel(tsettleerror::eresult w)
     {
         static std::vector<std::string> lbls =
-        { "OK" , "crossed orders", "not enough money to buy",
+        { "OK" , "not enough money to consume",
+          "crossed orders", "not enough money to buy",
           "not enough stocks to sell", "not enough money to put",
           "not enough stocks to put" };
         return lbls[w];
@@ -730,7 +739,8 @@ public:
         fid(src.fid), fname(src.fname), fwallet(src.fwallet), fblockedmoney(src.fblockedmoney),
         fblockedstocks(src.fblockedstocks),
         fconsumption(src.fconsumption), ftrading(src.ftrading),fsublog(src.fsublog.str()),
-        fendedbyexception(src.fendedbyexception), ferrmsg(src.ferrmsg)
+        fendedbyexception(src.fendedbyexception), ferrmsg(src.ferrmsg),
+        foverrun(src.foverrun)
     {}
     /// accessor
     void addconsumption(tprice c, tabstime t)
@@ -804,6 +814,16 @@ public:
         return fendedbyexception;
     }
 
+    void reportoverrun()
+    {
+        foverrun = true;
+    }
+
+    bool overrun() const
+    {
+        return foverrun;
+    }
+
     const std::string& errmsg() const
     {
         return ferrmsg;
@@ -824,7 +844,7 @@ protected:
     std::ostringstream fsublog;
     bool fendedbyexception = false;
     std::string ferrmsg;
-
+    bool foverrun = false;
 };
 
 
@@ -836,6 +856,8 @@ class tmarketinfo;
 class tstrategy: private chronos::Worker
 {
 private:
+    template<typename S, bool builtin, bool chronos>
+    friend class competitor;
     friend class tmarket;
     friend class tmarketdata;
     friend class teventdrivenstrategy;
@@ -860,7 +882,7 @@ public:
     }
 protected:
     /// constructor, \p name is recommended to be unique to each instance
-    tstrategy() : fmarket(0), fid(newid())
+    tstrategy() : fid(newid()), fmarket(0), fbuiltin(false)
     {
         fengine.seed(0);
     }
@@ -897,6 +919,7 @@ private:
     /// is set by (friend) class tmarket
     twallet fendowment;
     tmarket* fmarket;
+    bool fbuiltin;
 };
 
 
@@ -924,17 +947,24 @@ class competitorbase
 public:
     virtual typename selectstragegybase<chronos>::basetype* create() = 0;
     virtual std::string name() const = 0;
+    virtual bool isbuiltin() const = 0;
 };
 
-template<typename S, bool chronos = true>
+template<typename S, bool chronos = true, bool builtin = false>
 class competitor : public competitorbase<chronos>
 {
+    const std::string fname;
 public:
+    competitor<S,chronos,builtin>(const std::string& aname = typeid(S).name()) : fname(aname) {}
     virtual typename selectstragegybase<chronos>::basetype* create()
     {
-        return new(S);
+        S* s;
+        s= new S;
+        s->fbuiltin = builtin;
+        return s;
     }
-    virtual std::string name() const { return typeid(S).name(); }
+    virtual std::string name() const { return fname; }
+    virtual bool isbuiltin() const { return builtin; }
 };
 
 
@@ -960,7 +990,11 @@ struct tmarketdef
     /// magnitude of "noise" added to the waiting times when working in non-hrohos model
     double epsilon = 0.0000001;
 
-    unsigned tickstowait = 100;
+    tabstime warmup = 1;
+
+    unsigned tickstowait = 1000;
+
+    bool directlogging = false;
 };
 
 class torderbook
@@ -1014,6 +1048,23 @@ public:
     {
         std::vector<tsettleerror> ret;
         assert(owner < numstrategies());
+        auto bm = profiles[owner].blockedmoney();
+        auto c = arequest.consumption();
+        if(c > bm)
+        {
+            std::ostringstream es;
+            es << "Not enough money to consume " << c << " stocks. Only "
+               << bm << " available";
+            ret.push_back({tsettleerror::enotenoughmoneytoconsume,es.str()});
+            c=bm;
+        }
+        if(c > 0)
+        {
+            auto& r = profiles[owner];
+            r.wallet().money() -= c;
+            r.addconsumption(c,at);
+        }
+
         const tpreorderprofile& request = arequest.orderrequest();
         if(!request.check())
         {
@@ -1213,8 +1264,8 @@ struct statcounter
     double sumsq = 0.0;
     unsigned num = 0;
     void add(double x) { sum += x; sumsq += x*x; num++;}
-    double average() { return sum / num; }
-    double var() { return sumsq/num - average()*average(); }
+    double average() const { return sum / num; }
+    double var() const { return sumsq/num - average()*average(); }
 };
 
 struct trunstat
@@ -1266,11 +1317,13 @@ public:
 class tmarketinfo
 {
     snapshot_shared_ptr fdata;
+
 public:
-    tmarketinfo(const // std::shared_ptr<tmarketdata>
-             snapshot_shared_ptr data, unsigned id):
+    tmarketinfo(const snapshot_shared_ptr data, unsigned myindex):
         fdata(data), history(data->fhistory),orderbook(data->forderbook.obprofile()),
-        myprofile(data->forderbook.profile(id)), myid(id)
+        myorderprofile(data->forderbook.profile(myindex)),
+        myinfo(data->fstrategyinfos[myindex]),
+        fmyindex(myindex)
     {
     }
 
@@ -1279,16 +1332,18 @@ public:
     /// current state of the order book
     const torderptrprofile orderbook;
     /// the profile belonging to the target strategy
-    const torderprofile& myprofile;
-    /// id of the target strategy in the markat's list (corresponds to marketsim::torder::owner)
-    unsigned myid;
+    const torderprofile& myorderprofile;
 
+    ///
+    const tstrategyinfo& myinfo;
+
+    const twallet& mywallet() const { return myinfo.wallet(); }
     tprice a() const { return orderbook.A.minprice(); }
     tprice b() const { return orderbook.B.maxprice(); }
     tprice alpha() const
     {
        for(unsigned i=0; i<orderbook.A.size(); i++)
-            if(orderbook.A[i].owner != myid)
+            if(orderbook.A[i].owner != fmyindex)
                 return orderbook.A[i].price;
        return khundefprice;
     }
@@ -1296,10 +1351,12 @@ public:
     tprice beta() const
     {
        for(unsigned i=0; i<orderbook.B.size(); i++)
-            if(orderbook.B[i].owner != myid)
+            if(orderbook.B[i].owner != fmyindex)
                 return orderbook.B[i].price;
        return klundefprice;
     }
+private:
+    unsigned fmyindex;
 };
 
 
@@ -1325,8 +1382,11 @@ public:
         }
     }
 
-    tabstime step(tabstime t);
+    double interval() const { return finterval; }
+
 private:
+    tabstime step(tabstime t);
+
     double finterval;
     bool frandom;
     std::exponential_distribution<> fnu;
@@ -1535,7 +1595,8 @@ public:
         if(islogging() && isdirectlogging())
             *flog << flogheader << std::endl;
         possiblylog(true,0,"Starting simulation");
-
+        if(fdirectlogging)
+            possiblylog(true,0,"Direct logging","Only entries by fmarket are logged due to thread safety.");
         std::vector<tstrategy*> strategies;
         std::vector<std::string> names;
         for(unsigned i=0; i<competitors.size(); i++)
@@ -1558,7 +1619,6 @@ public:
         std::string errtxt;
         try
         {
-
             if constexpr(chronos)
             {
                 chronos::Chronos::run(wl);
@@ -1625,10 +1685,10 @@ public:
         bool finished;
         for(unsigned i=0; i<def().tickstowait; i++)
         {
-            bool finished = true;
+            finished = true;
             for(unsigned j=0; j<strategies.size(); j++)
             {
-                if(strategies[i]->still_running())
+                if(strategies[j]->still_running())
                 {
                      finished = false;
                      break;
@@ -1641,7 +1701,10 @@ public:
         for(unsigned i=0; i<strategies.size(); i++)
         {
             if(strategies[i]->still_running())
+            {
+                fmarketdata->fstrategyinfos[i].reportoverrun();
                 garbage.push_back(strategies[i]);
+            }
             else
                 delete strategies[i];
         }
@@ -1837,9 +1900,12 @@ private:
 };
 
 */
-void tstrategy::main()
+inline void tstrategy::main()
 {
     try {
+        if(!fbuiltin)
+            sleepfor(fmarket->def().warmup);
+
         trade(fendowment);
     }
     catch (chronos::error_already_finished)
@@ -2076,106 +2142,6 @@ inline bool tstrategy::endoftrading()
     return !ready();
 }
 
-class tcompetition
-{
-public:
-
-//    ~tcompetition() { forciblydestroy(); }
-/*    void forciblydestroy()
-    {
-        for(unsigned i=0; i<fms.size(); i++)
-        {
-            try
-            {
-                delete fms[i];
-            }
-            catch (...)
-            {
-            }
-        }
-        fms.clear();
-    }
-*/
-    /// Evaluates the current strategies by running \p nruns simulation of length \p timeofrun.
-    /// For each strtategy it returns mean value of its profit (comparison to the "hold" strategy,
-    /// i.e. doing nothing) and the standard deviation.
-
-    template <bool chronos=true, bool countremainingstocks=false, bool logging = false>
-    std::vector<statcounter>
-            run(std::vector<competitorbase<chronos>*> competitors,
-                        twallet endowment, unsigned desiredobs, tabstime timeofrun,
-                        std::vector<tstrategy*> &garbage,
-                        std::ostream& o = std::cout,
-                        tmarketdef def = tmarketdef())
-    {
-        auto n = competitors.size();
-        std::vector<statcounter> ress(n);
-
-        unsigned nobs = 0;
-        for(unsigned i=0; nobs<desiredobs && i<desiredobs * 2; i++)
-        {
-            o << i << ",";
-
-            tmarket m(timeofrun,def);
-
-            std::ostringstream os;
-            os << "log" << i << ".csv";
-            std::ofstream log(os.str());
-            if(logging)
-                m.setlogging(log);
-//m.setdirectlogging(true);
-            std::vector<twallet> es(n,endowment);
-            try
-            {
-                m.setlogging(log);
-//tbd hlasit                m.setdirectlogging(true);
-                if(m.run<chronos>(competitors,es,garbage,33+i*22))
-                    o << "0,";
-                else
-                    o << "1,";
-
-                auto rest = static_cast<double>(m.results()->frunstat.fextraduration.average())
-                              / m.fdef.chronosduration.count();
-                if(rest < 0)
-                    o << "0,overflow," << rest*100 << "%,";
-                else
-                {
-                    o << "1,OK," << rest*100 << "%,";
-                    auto r = m.results();
-                    double p = r->fhistory.p(std::numeric_limits<double>::max());
-                    for(unsigned j=0; j<n; j++)
-                    {
-                        auto& tr= r->fstrategyinfos[j];
-                        auto& e = es[j];
-                        double v = (tr.wallet().money() - e.money());
-                        for(unsigned k=0; k<tr.consumption().size(); k++)
-                            v += tr.consumption()[k].famount;
-                        if(countremainingstocks)
-                        {
-                            if(!isnan(p))
-                                  v += p * (tr.wallet().stocks() - e.stocks());
-                        }
-                        o << v << ",";
-                        ress[j].add(v);
-                    }
-                    nobs++;
-                }
-            }
-            catch (std::runtime_error& e)
-            {
-                o << "0,\"error:" << e.what() << "\"," << std::endl;
-            }
-            catch (...)
-            {
-                o << "0,\"Unknown error\"" << std::endl;
-            }
-            o << std::endl;
-        }
-        return ress;
-    }
-private:
-    std::vector<tmarket*> fms;
-};
 
 } // namespace
 
