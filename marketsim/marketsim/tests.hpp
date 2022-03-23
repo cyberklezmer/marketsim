@@ -62,6 +62,14 @@ inline void testcompete(tabstime runningtime = 100)
     test<chronos,logging>({&s,&m},runningtime);
 }
 
+template <typename S, bool chronos, bool logging>
+inline void testsingle(tabstime runningtime = 100)
+{
+    competitor<S,chronos> s;
+    test<chronos,logging>({&s},runningtime);
+}
+
+
 
 template <typename S, bool chronos>
 void competesingle()
