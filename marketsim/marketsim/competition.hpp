@@ -2,7 +2,7 @@
 #define COMPETITION_HPP
 
 #include "calibrate.hpp"
-#include "maslovstrategy.hpp"
+#include "msstrategies/maslovstrategy.hpp"
 
 namespace marketsim
 {
