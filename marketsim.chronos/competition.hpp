@@ -83,9 +83,8 @@ inline std::vector<competitionresult>
                     auto& tr= r->fstrategyinfos[j];
 //                    auto& e = es[j];
 //                    double m = (tr.wallet().money() - e.money());
-                    double c = 0;
-                    for(unsigned k=0; k<tr.consumption().size(); k++)
-                        c += tr.consumption()[k].famount;
+                    double c = tr.totalconsumption();
+
 //                    double v = c + m;
 //                    if(!isnan(p))
 //                          v += p * (tr.wallet().stocks() - e.stocks());

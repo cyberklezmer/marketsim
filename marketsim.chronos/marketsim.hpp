@@ -210,7 +210,7 @@ inline std::ostream& operator << (std::ostream& o, const torder& r)
             o << r.price;
     }
 
-    o << "," << r.volume << "," << r.abstime << "," << r.owner << ")";
+    o << "," << r.volume << "," << r.abstime << "," << r.timestamp << "," << r.owner << ")";
     return o;
 }
 
@@ -589,6 +589,13 @@ public:
         forderrequest(), feraserequest(false) {}
     /// accessor
     tprice consumption() const { return fconsumption; }
+    void setconsumption(tprice c) { fconsumption = c; }
+    void addselllimit(tprice p, tvolume v) { forderrequest.A.add(tpreorder(p,v));  }
+    void addbuylimit(tprice p, tvolume v) { forderrequest.B.add(tpreorder(p,v));  }
+    void addsellmarket(tvolume v) { forderrequest.A.add(tpreorder::marketorder<true>(v)); }
+    void addbuymarket(tvolume v) { forderrequest.B.add(tpreorder::marketorder<false>(v)); }
+    void seteraseall(bool b) { feraserequest = teraserequest(b); }
+
     /// accessor
     const tpreorderprofile& orderrequest() const { return forderrequest; }
     /// accessor
@@ -765,6 +772,15 @@ public:
 
     /// accessor
     const std::vector<tconsumptionevent>& consumption() const { return fconsumption; }
+
+    tprice totalconsumption() const
+    {
+        tprice c = 0;
+        for(unsigned k=0; k<fconsumption.size(); k++)
+            c += fconsumption[k].famount;
+        return c;
+    }
+
     /// returns the amount of money blocked by market (to secure active orders)
     const tprice& blockedmoney() const { return fblockedmoney; }
     /// \see blockedmoney
@@ -1065,30 +1081,71 @@ public:
             r.addconsumption(c,at);
         }
 
-        const tpreorderprofile& request = arequest.orderrequest();
+        tpreorderprofile request = arequest.orderrequest();
         if(!request.check())
         {
             ret.push_back({tsettleerror::ecrossedorders,"Crossed orders."});
             return ret;
         }
         const trequest::teraserequest& eraserequest = arequest.eraserequest();
+
         if(eraserequest.possiblyerase())
         {
             std::vector<bool> afilter, bfilter;
+            auto& A = fbook[owner].A;
+            auto& B = fbook[owner].B;
+
             if(!eraserequest.all)
             {
                 afilter = eraserequest.a;
                 bfilter = eraserequest.b;
             }
-            if(eraserequest.all || afilter.size())
+            else
             {
-                profiles[owner].blockedstocks() -= fbook[owner].A.volume(bfilter);
-                fbook[owner].A.clear(afilter);
+                afilter = std::vector<bool>(A.size(),true);
+                bfilter = std::vector<bool>(B.size(),true);
+            }
+            if(afilter.size())
+            {
+                for(unsigned i=0; i<A.size();i++)
+                    if(i<afilter.size() && afilter[i])
+                    {
+                        for(unsigned j=0; j<request.A.size(); j++)
+                        {
+                            if(request.A[j].price == A[i].price )
+                            {
+                                if(A[i].volume >= request.A[j].volume)
+                                {
+                                    afilter[i] = false;
+                                    request.A[j].volume -= A[i].volume;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                profiles[owner].blockedstocks() -= fbook[owner].A.volume(afilter);
+                A.clear(afilter);
                 makequeue<true>();
             }
-            if(eraserequest.all || bfilter.size())
+            if(bfilter.size())
             {
-                profiles[owner].blockedmoney() -= fbook[owner].B.value(afilter);
+                for(unsigned i=0; i<B.size();i++)
+                    if(i<bfilter.size() && bfilter[i])
+                    {
+                        for(unsigned j=0; j<request.B.size(); j++)
+                        {
+                            if(request.B[j].price == B[i].price )
+                            {
+                                if(B[i].volume >= request.B[j].volume)
+                                {
+                                    bfilter[i] = false;
+                                    request.B[j].volume -= B[i].volume;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                profiles[owner].blockedmoney() -= fbook[owner].B.value(bfilter);
                 fbook[owner].B.clear(bfilter);
                 makequeue<false>();
             }
@@ -1363,20 +1420,20 @@ private:
 class teventdrivenstrategy : public tstrategy
 {
     friend class tmarket;
-
-
 public:
     teventdrivenstrategy(double interval, bool random = false) :
         tstrategy(),
         finterval(interval), frandom(random), fnu(interval) {}
-    virtual trequest event(const tmarketinfo& info) = 0;
+    virtual trequest event(const tmarketinfo& info, tabstime t, bool firstcall) = 0;
     virtual void trade(twallet) override
     {
+        bool firsttime = true;
         while(!endoftrading())
         {
             tmarketinfo info = this->getinfo<true>();
             tabstime t = abstime();
-            request<true>(event(info));
+            request<true>(event(info,t,firsttime));
+            firsttime = false;
             double dt = frandom ? fnu(fengine) : finterval;
             sleepuntil(t+dt);
         }
@@ -1385,7 +1442,7 @@ public:
     double interval() const { return finterval; }
 
 private:
-    tabstime step(tabstime t);
+    tabstime step(tabstime t, bool firsttime);
 
     double finterval;
     bool frandom;
@@ -1402,12 +1459,11 @@ public:
     {
         tloggingfilter()
         {
-            frequest = true;
             fsettle = true;
-fsleep = true;
-            fgetinfo = false;
-            fmarketdata = false;
+            fsleep = true;
             ftick = false;
+            fgetinfo = false;
+            frequest = true;
             fabstime = false;
         }
         bool frequest;
@@ -1463,7 +1519,7 @@ private:
             possiblylog(floggingfilter.fsettle,0,s.str(),s2.str());
         }
         auto& ob = fmarketdata->forderbook;
-        auto st = chronos ? t : getabstime();
+        auto st = chronos ? getabstime() : t;
         try
         {
             std::vector<tsettleerror> errs = ob.settle(
@@ -1626,8 +1682,12 @@ public:
             else
             {
                 auto n = strategies.size();
+                std::vector<bool> firsttime(n,true);
+
                 tabstime T = get_max_time() * def().chronos2abstime;
-                std::vector<tabstime> ts(n,0);
+                std::vector<tabstime> ts;
+                for(unsigned i=0; i<n; i++)
+                    ts.push_back(strategies[i]->fbuiltin ? 0 : fdef.warmup);
                 for(;;)
                 {
                     unsigned first;
@@ -1651,7 +1711,8 @@ public:
                         possiblylog(floggingfilter.frequest,str->fid,"non-chronos request",s.str());
                     }
 
-                    ts[first]=str->step(t);
+                    ts[first]=str->step(t,firsttime[first]);
+                    firsttime[first] = false;
                     setsnapshot();
                 }
             }
@@ -1785,8 +1846,8 @@ private:
 
 };
 
-
 /*
+
 /// Simplified version of \ref tstrategy. The simplifiaction consists in once forever
 /// set interval of update (can be however zero, which means instanteneous update) and
 /// that only four orders can be sent to the market at a time (two market-- and two limit ones,
@@ -1795,7 +1856,7 @@ class tsimplestrategy : public tstrategy
 {
 public:
     /// struct that should be sent to the market
-    struct tsimpleorderprofile
+    struct tsimplerequest
     {
         tpreorder b = tpreorder(klundefprice,0);
         tpreorder a = tpreorder(khundefprice,0);
@@ -2127,10 +2188,10 @@ inline tabstime tstrategy::abstime()
 
 }
 
-inline tabstime teventdrivenstrategy::step(tabstime t)
+inline tabstime teventdrivenstrategy::step(tabstime t,bool firsttime)
 {
     auto info = getinfo<false>();
-    request<false>(event(info),t);
+    request<false>(event(info,t,firsttime),t);
     return t + (frandom ? fnu(fengine) : finterval
                           + uniform() * finterval * fmarket->def().epsilon);
 }
