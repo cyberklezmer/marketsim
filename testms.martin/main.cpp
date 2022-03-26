@@ -1,3 +1,4 @@
+#pragma warning(disable : 4996)
 #include <vector>
 #include <iostream>
 #include <limits>
