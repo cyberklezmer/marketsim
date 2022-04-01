@@ -34,12 +34,11 @@ namespace marketsim
 	private:
 		virtual trequest event(const tmarketinfo& mi, tabstime t, bool firsttime)
 		{
-			//initializations
+                        //initializations
 			tprice alpha = mi.alpha();
 			tprice beta = mi.beta();
 			double p = alpha != khundefprice && beta != klundefprice
 				? (alpha + beta) / 2 : finitprice;
-
 			if (firsttime)
 			{
 				//initialize W
@@ -145,6 +144,7 @@ namespace marketsim
 			ord.addbuylimit(b_best, fofferedvolume);
 			ord.addselllimit(a_best, fofferedvolume);
 			ord.setconsumption(cash_best);
+
                         return ord;
 		}
 
