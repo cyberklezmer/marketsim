@@ -14,7 +14,7 @@ inline void test(std::vector<competitorbase<chronos>*> competitors, tabstime run
 
     if(logging)
         m.setlogging(std::cout);
-
+//m.setdirectlogging(true);
     auto n = competitors.size();
 
     std::vector<twallet> es(n, twallet(5000,100));
@@ -62,13 +62,22 @@ inline void testcompete(tabstime runningtime = 100)
     test<chronos,logging>({&s,&m},runningtime);
 }
 
+template <typename S, typename T, bool chronos, bool logging>
+inline void testcompetetwo(tabstime runningtime = 100)
+{
+    competitor<S,chronos> s;
+    competitor<T,chronos> t;
+    competitor<maslovstrategy,chronos> m;
+    test<chronos,logging>({&s,&t,&m},runningtime);
+}
+
+
 template <typename S, bool chronos, bool logging>
 inline void testsingle(tabstime runningtime = 100)
 {
     competitor<S,chronos> s;
     test<chronos,logging>({&s},runningtime);
 }
-
 
 
 template <typename S, bool chronos>
@@ -79,6 +88,17 @@ void competesingle()
     competitor<S,chronos> cs;
 
     competition<chronos>({&cs}, std::clog);
+}
+
+template <typename S, typename T, bool chronos>
+void competetwo()
+{
+    twallet e(5000,100);
+
+    competitor<S,chronos> cs;
+    competitor<T,chronos> ct;
+
+    competition<chronos>({&cs,&ct}, std::clog);
 }
 
 

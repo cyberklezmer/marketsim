@@ -19,9 +19,11 @@ int main()
 {
     try
     {
-        testsingle<tadpmarketmaker,false,false>(); // without chronos
-//        testcompete<naivemmstrategy,false,true>(10);
-//        competesingle<naivemmstrategy,true>();
+        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,true>(1000);
+
+//        testsingle<tadpmarketmaker,false,false>(); // without chronos
+//        testcompete<tadpmarketmaker,false,true>(10);
+//        competesingle<tadpmarketmaker,true>();
         return 0;
     }
     catch (std::exception& e) {

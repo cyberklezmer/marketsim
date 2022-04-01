@@ -1348,7 +1348,8 @@ public:
                 const std::vector<std::string>& names)
        :  fstrategyinfos(maketradings(endowments,strategies,names)),
           forderbook(endowments.size()),
-          ftimestamp(0)
+          ftimestamp(0),
+          fstartclocktime(time(0))
     {}
 
     /// copy constructor, does not copy llog
@@ -1358,13 +1359,15 @@ public:
         forderbook(src.forderbook.duplicate()),
         ftimestamp(src.ftimestamp),
         fmarketsublog(src.fmarketsublog.str()),
-        frunstat(src.frunstat)
+        frunstat(src.frunstat),
+        fstartclocktime(src.fstartclocktime)
     {
     }
     std::vector<tstrategyinfo> fstrategyinfos;
     tmarkethistory fhistory;
     torderbook forderbook;
     ttimestamp ftimestamp;
+    double fstartclocktime;
     std::ostringstream fmarketsublog;
     trunstat frunstat;
     unsigned n() const { return fstrategyinfos.size(); }
@@ -1775,7 +1778,7 @@ public:
     }
 
 
-    static constexpr const char* flogheader = "what;strategyid;strategyname;chronotime;abstime;explanation;"
+    static constexpr const char* flogheader = "what;strategyid;strategyname;chronotime;abstime;clocktime;explanation;"
                                               "timestamp;b(snap);a(snap);money;stocks;"
                                               ";A;;B;";
 
@@ -1808,7 +1811,8 @@ private:
                 o << ";marketsim;";
 
             o << get_time() << ";"
-              << getabstime() << ";";
+              << getabstime() << ";"
+              << time(0) - fmarketdata->fstartclocktime << ";";
 
             o << longmsg << ";" << fmarketdata->ftimestamp << ";";
 

@@ -35,7 +35,6 @@ namespace marketsim
 		virtual trequest event(const tmarketinfo& mi, tabstime t, bool firsttime)
 		{
 			//initializations
-
 			tprice alpha = mi.alpha();
 			tprice beta = mi.beta();
 			double p = alpha != khundefprice && beta != klundefprice
@@ -68,7 +67,6 @@ namespace marketsim
 				m = mi.mywallet().money();
 				n = mi.mywallet().stocks();
 			}
-
 
 
 			//update bid and ask (alpha, beta)
@@ -108,7 +106,6 @@ namespace marketsim
 			double v = 0.0;
 			tprice money = mi.mywallet().money(); int s = mi.mywallet().stocks();
 			tprice a_best = alpha; tprice b_best = (money - beta >= 0) ? beta : money; tprice cash_best = 0;
-
 			for (tprice cash = 0; cash <= 1; cash++)
 				for (tprice b = alpha - fudelta; (b > 0) && (b <= alpha + fldelta) && (money - cash - b >= 0); b++)
 					for (tprice a = beta - fldelta; (a > b) && (a <= beta + fudelta) && (money - cash - b + a < fbndmoney); a++)
@@ -148,7 +145,7 @@ namespace marketsim
 			ord.addbuylimit(b_best, fofferedvolume);
 			ord.addselllimit(a_best, fofferedvolume);
 			ord.setconsumption(cash_best);
-			return ord;
+                        return ord;
 		}
 
 		tprice finitprice;
@@ -165,6 +162,8 @@ namespace marketsim
 		T2vec W;
 		T4vec N, P;
 		tprice last_bid, last_ask;
+
+
 	};
 
 } // namespace
