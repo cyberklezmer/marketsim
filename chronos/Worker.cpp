@@ -36,6 +36,7 @@ namespace chronos {
     void Worker::wait() {
       if (runner) {
         runner->join();
+        delete runner;
         runner = nullptr;
       }
     }
