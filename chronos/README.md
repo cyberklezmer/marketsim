@@ -53,7 +53,7 @@ class MyWorker : public Worker {
   public:
     void main() override {
       //implement main working routine of the worker
-      while i_should_be_running() {
+      while ready() && i_should_be_running() {
         //maybe sometimes give up CPU
         //wait for next tick()
         sleep_until();

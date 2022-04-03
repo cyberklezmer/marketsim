@@ -6,12 +6,24 @@
 #include <future>
 #include "ThreadsafeQueue.hpp"
 
+/** @file */
+
+/**
+ * namespace chronos
+ */
 namespace chronos {
     class Worker;
 
+    /**
+     * Base class for Chronos exceptions
+     */
     class error : public std::runtime_error {
      public:
-        error(const std::string &what = "") : std::runtime_error(what) {}
+        /**
+         * constructor
+         * @param what message of exception
+         */
+        explicit error(const std::string &what = "") : std::runtime_error(what) {}
     };
 
     /**
@@ -24,7 +36,7 @@ namespace chronos {
 
     /**
      *  chronos has already finished
-     *  from Workers you should check eather
+     *  from Workers you should check either
      *  Chronos::running()        [should be true]
      *  Chronos::get_max_time()   [should be > Chronos::get_time()]
      */
@@ -33,18 +45,35 @@ namespace chronos {
         error_already_finished() : error("Already finished") {}
     };
 
+    /** application time (in number of ticks since startup) */
     using app_time = unsigned long long;
+
+    /**  duration system dependant type for defining time interval */
     using app_duration = std::chrono::steady_clock::duration;
+
+    /** system dependant type for defining point in the time */
     using app_time_point = std::chrono::steady_clock::time_point;
+
+    /** lock guard of mutex (used internally by Chronos and Worker */
     using guard = std::lock_guard<std::mutex>;
+
+    /** list of workers_ */
     using workers_list = std::vector<Worker *>;
 
+    /**
+     * Main Chronos class. Orchestrates all its workers_ and handles inter process communication.
+     *
+     * Should be constructed in the main thread of the application together with all the workers_ that are passed into
+     * the @ref run method.
+     *
+     * Destruction may be done as soon as @ref run returns.
+     */
     class Chronos {
      private:
         std::atomic<app_time> clock_time;
         std::atomic<bool> finished = false;
-        app_time max_time;
-        workers_list workers;
+        app_time max_time_;
+        workers_list workers_;
         app_duration last_tick_duration;
         app_time_point tick_start;
         app_duration tick_duration;
@@ -68,7 +97,7 @@ namespace chronos {
 
         void tick_started();
 
-        unsigned long format_time();
+        [[maybe_unused]] static unsigned long format_time();
 
         void worker_unlock(int index);
 
@@ -79,22 +108,38 @@ namespace chronos {
      public:
         /**
          * Constructs a Chronos
-         * @param duration of one tick
+         *
+         * @param duration  - duration of one tick
+         * @param max_time  - maximum number of ticks to run
          */
-        Chronos(app_duration duration, app_time max_time = 0);
+        explicit Chronos(app_duration duration, app_time max_time = 0);
 
         /**
-         * current global time (number of ticks since start)
-         * @return app_time (unsigned long long)
+         * Returns current global time (number of ticks since start)
+         *
+         * may be called by workers_
+         * @return app_time
          */
         inline app_time get_time() {
           return clock_time;
         };
 
-        inline app_time get_max_time() {
-          return max_time;
+        /**
+         * Returns the max time (number of tick) to run this chronos. Parameter `max_time` set in constructor Chronos::Chronos
+         *
+         * may be called by workers_
+         * @return max_time
+         */
+        [[maybe_unused]] inline app_time get_max_time() const {
+          return max_time_;
         };
 
+        /**
+         * returns true if chronos is still running
+         *
+         * may be called by workers_
+         * @return bool
+         */
         inline bool running() {
           return !finished;
         }
@@ -112,7 +157,7 @@ namespace chronos {
          * get last tick duration
          * @return app_duration
          */
-        inline app_duration get_last_tick_duration() {
+        [[maybe_unused]] inline app_duration get_last_tick_duration() {
           return last_tick_duration;
         };
 
@@ -122,13 +167,14 @@ namespace chronos {
         void run(workers_list workers);
 
         /**
-         * wait for all the workers to finish
+         * wait for all the workers_ to finish
          * @param workers
          */
-        void wait(workers_list workers);
+        [[maybe_unused]] static void wait(const workers_list &workers);
 
         /**
-         * user function called every clock tick
+         * user function called in every clock tick
+         *
          * overridden in descendants
          */
         virtual void tick() = 0;
@@ -139,7 +185,7 @@ namespace chronos {
          * returns same type as the Functor
          *
          * @tparam Functor
-         * @param function returning ret type
+         * @param functor function returning ret type
          * @return ret
          */
         template<typename Functor>

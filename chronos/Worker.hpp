@@ -7,7 +7,17 @@
 
 #include "Chronos.hpp"
 
+/** @file */
+
 namespace chronos {
+
+    /**
+     * Worker class
+     *
+     * implements behaviour of single worker
+     *
+     * descendants should override the @ref main method
+     */
     class Worker {
         friend Chronos;
      private:
@@ -30,39 +40,52 @@ namespace chronos {
 
         void entry_point();
 
-        //called by Chronos
         void start();
 
      public:
-        Worker() {};
+        Worker() = default;
 
         virtual ~Worker();
 
-        //this Worker has running working thread
+        /**
+         * This Worker has running working thread
+         * @return bool
+         */
         inline bool still_running() { return running; };
 
-        // Wait for worker's thread to finish
+        /**
+         * Waits for corresponding working thread to finish.
+         * May block the caller.
+         * Must be called from the main thread NOT from the context of the working thread itself
+         */
         void wait();
 
      protected:
         /**
-         * suspend the execution of this worker until <alarm_par> time
-         * without argument sleep till next clock tick
-         * may block the caller
+         * suspend the execution of this worker until `alarm_par` time
+         *
+         * without argument (default 1) or when the `alarm_par` already passed
+         * then it sleeps till next clock tick
+         * blocks the caller
+         * @param alarm_par global tick count to sleep until
          */
         void sleep_until(app_time alarm_par = 1);
 
         /**
-         * Main working routine of worker
-         * may call sleep_until to give up CPU time
-         * may call get_time to see global clock
-         * runs in own thread
-         * returns when done computing
+         * Main working routine of worker, may call:
+         * - @ref sleep_until to give up CPU time
+         * - Chronos::get_time to see global clock
+         * - @ref ready to see if chronos is still running
+         *
+         * runs in its own thread \n
+         * called by Chronos::run \n
+         * should return when done computing
          */
         virtual void main() = 0;
 
         /**
-         * Chronos is still running
+         * Check if Chronos is still running
+         * @return bool Chronos is not finished yet
          */
         inline bool ready() {
           return !finished;

@@ -1,5 +1,7 @@
-#include <assert.h>
+#include <cassert>
 #include "Worker.hpp"
+
+/** @file */
 
 namespace chronos {
     Worker::~Worker() {
@@ -23,6 +25,10 @@ namespace chronos {
       waker.unlock();   //ready for next round
     }
 
+    /**
+     * Start thread for this worker
+     * called by Chronos in Chronos::start_workers
+     */
     void Worker::start() {
       assert(!running); //same worker used multiple times?
       assert(!runner);
@@ -50,7 +56,8 @@ namespace chronos {
         main();
       }
       catch (...) {
-      };
+        // all exception from main are silently ignored
+      }
       running = false;
       working.unlock();
     }
