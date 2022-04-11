@@ -18,7 +18,6 @@ public:
            tprice alpha = info.alpha();
            tprice beta = info.beta();
 
-
            if(alpha != khundefprice && beta != klundefprice)
            {
                double p = (alpha + beta)/2;
@@ -49,9 +48,7 @@ public:
 
                   pp.B.add(tpreorder(proposedb,1));
                   pp.A.add(tpreorder(proposeda,1));
-
 //cout << beta << "(" << proposedb << ") - " << alpha << "(" << proposeda << ")" << endl;
-
                   return {pp,trequest::teraserequest(true),c};
                }
            }
