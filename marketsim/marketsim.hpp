@@ -1445,7 +1445,7 @@ public:
     double interval() const { return finterval; }
 
 private:
-    tabstime step(tabstime t, bool firsttime);
+//    tabstime step(tabstime t, bool firsttime);
 
     double finterval;
     bool frandom;
@@ -1691,9 +1691,12 @@ public:
                 std::vector<tabstime> ts;
                 for(unsigned i=0; i<n; i++)
                     ts.push_back(strategies[i]->fbuiltin ? 0 : fdef.warmup);
+                std::vector<tabstime> rts(n,std::numeric_limits<tabstime>::max());
+                std::vector<trequest> rs(n);
                 for(;;)
                 {
                     unsigned first;
+                    bool isevent;
                     tabstime t = std::numeric_limits<tabstime>::max();
                     for(unsigned i=0; i<n; i++)
                     {
@@ -1701,22 +1704,57 @@ public:
                         {
                             t = ts[i];
                             first = i;
+                            isevent = true;
+                        }
+                        if(rts[i] <= t)
+                        {
+                            t = rts[i];
+                            first = i;
+                            isevent = false;
                         }
                     }
                     if(t >= T)
                         break;
 
                     teventdrivenstrategy* str = (static_cast<teventdrivenstrategy*>(strategies[first]));
-                    if(islogging())
+
+
+                    if(isevent)
                     {
-                        std::ostringstream s;
-                        s << "t=" << t;
-                        possiblylog(floggingfilter.frequest,str->fid,"non-chronos request",s.str());
+                       double startt = clock();
+                       auto info = str->getinfo<false>();
+                       rs[first] = str->event(info,t,firsttime[first]);
+
+                       double endt = ::clock();
+                       double dt = (endt-startt) / CLOCKS_PER_SEC;
+
+                       ts[first] = t + dt + (str->frandom ? str->fnu(str->fengine) : str->finterval
+                                          + str->uniform() * str->finterval * def().epsilon);
+                       rts[first] = t + dt;
+//std::cout << " strategy " << first << std::fixed << " t=" << t  << " dt=" << dt << std::endl;
+                       if(islogging())
+                       {
+                           std::ostringstream s;
+                           s << "t=" << t << " dt=" << dt;
+                           possiblylog(floggingfilter.frequest,str->fid,"event (non-chronos)",s.str());
+                       }
+
+                       firsttime[first] = false;
+                    }
+                    else
+                    {
+                        if(islogging())
+                        {
+                            std::ostringstream s;
+                            s << "t=" << t;
+                            possiblylog(floggingfilter.frequest,str->fid,"non-chronos request",s.str());
+                        }
+
+                       str->request<false>(rs[first],t);
+                       rts[first] = std::numeric_limits<tabstime>::max();
+                       setsnapshot();
                     }
 
-                    ts[first]=str->step(t,firsttime[first]);
-                    firsttime[first] = false;
-                    setsnapshot();
                 }
             }
             waserror = false;
@@ -2192,13 +2230,15 @@ inline tabstime tstrategy::abstime()
 
 }
 
-inline tabstime teventdrivenstrategy::step(tabstime t,bool firsttime)
+/* inline tabstime teventdrivenstrategy::step(tabstime t,bool firsttime)
 {
     auto info = getinfo<false>();
+    double startt=time(0);
+    xxx
     request<false>(event(info,t,firsttime),t);
     return t + (frandom ? fnu(fengine) : finterval
                           + uniform() * finterval * fmarket->def().epsilon);
-}
+}*/
 
 
 
