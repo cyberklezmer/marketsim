@@ -141,8 +141,8 @@ namespace marketsim
 				W[m][s_ind] = (s_ind < n) ? std::min(W[m][s_ind], w) : std::max(W[m][s_ind], w);
 
 			trequest ord;
-			std::cout << " price is " << mi.history.p(t) << " current wallet: " << m << " _ " << n <<
-				"buy _ sell orders at " << b_best << " _ " << a_best << " consuming " << cash_best << std::endl;
+//			std::cout << " price is " << mi.history.p(t) << " current wallet: " << m << " _ " << n <<
+//				"buy _ sell orders at " << b_best << " _ " << a_best << " consuming " << cash_best << std::endl;
 			ord.addbuylimit(b_best, fofferedvolume);
 			ord.addselllimit(a_best, fofferedvolume);
 			ord.setconsumption(cash_best);

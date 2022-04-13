@@ -1721,8 +1721,12 @@ public:
 
                     if(isevent)
                     {
-                       double startt = clock();
+double starttinfo = clock();
                        auto info = str->getinfo<false>();
+                       double startt = clock();
+std::cout << " calling info by strategy " << first << std::fixed << " at " << t  << " s took "
+          << (startt-starttinfo) / CLOCKS_PER_SEC << "s" << std::endl;
+
                        rs[first] = str->event(info,t,firsttime[first]);
 
                        double endt = ::clock();
@@ -1731,7 +1735,7 @@ public:
                        ts[first] = t + dt + (str->frandom ? str->fnu(str->fengine) : str->finterval
                                           + str->uniform() * str->finterval * def().epsilon);
                        rts[first] = t + dt;
-//std::cout << " strategy " << first << std::fixed << " t=" << t  << " dt=" << dt << std::endl;
+std::cout << " calling event of strategy " << first << std::fixed << " at " << t  << "s took " << dt << "s" << std::endl;
                        if(islogging())
                        {
                            std::ostringstream s;

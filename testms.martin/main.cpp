@@ -19,7 +19,12 @@ int main()
 {
     try
     {
-        testcompetetwo<tadpmarketmaker,naivemmstrategy,false,false>(1000);
+std::cout << "Without chronos: " << std::endl;
+        testcompetetwo<tadpmarketmaker,naivemmstrategy,false,false>(10);
+
+std::cout << std::endl <<"With chronos: " << std::endl;
+        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,true>(10);
+
 
 //        testsingle<tadpmarketmaker,false,false>(); // without chronos
 //        testcompete<tadpmarketmaker,false,true>(10);
