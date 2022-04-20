@@ -905,11 +905,10 @@ protected:
 //    ~tstrategy() {}
     virtual void trade(twallet /* endowment */) = 0;
 
-    tstrategy(const tstrategy&) = delete;
-    tstrategy& operator=(tstrategy&) = delete;
+//    tstrategy(const tstrategy&) = delete;
+//    tstrategy& operator=(tstrategy&) = delete;
 
 public:
-
 
     struct trequestresult
     {
@@ -1002,7 +1001,7 @@ struct tmarketdef
     /// \p chronos duration
     chronos::app_duration chronosduration = chronos::app_duration(100000);
     /// constant converting tick time to simulated time in seconds
-    double chronos2abstime = 0.05;
+    double chronos2abstime = 0.005;
     /// magnitude of "noise" added to the waiting times when working in non-hrohos model
     double epsilon = 0.0000001;
 
@@ -1443,6 +1442,11 @@ public:
     }
 
     double interval() const { return finterval; }
+    void setinterval(double ainterval)
+    {
+        assert(!random);
+        finterval = interval;
+    }
 
 private:
 //    tabstime step(tabstime t, bool firsttime);

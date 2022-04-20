@@ -81,7 +81,7 @@ inline void testsingle(tabstime runningtime = 100)
 
 
 template <typename S, bool chronos>
-void competesingle()
+inline void competesingle()
 {
     twallet e(5000,100);
 

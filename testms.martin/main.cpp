@@ -23,7 +23,7 @@ std::cout << "Without chronos: " << std::endl;
         testcompetetwo<tadpmarketmaker,naivemmstrategy,false,false>(10);
 
 std::cout << std::endl <<"With chronos: " << std::endl;
-        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,true>(10);
+        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,false>(1000);
 
 
 //        testsingle<tadpmarketmaker,false,false>(); // without chronos
