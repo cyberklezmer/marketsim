@@ -10,6 +10,7 @@
 #include "marketsim/competition.hpp"
 #include "marketsim/tests.hpp"
 #include "msstrategies/naivemmstrategy.hpp"
+#include "msstrategies/tadpmarketmaker.hpp"
 
 using namespace marketsim;
 
@@ -22,7 +23,7 @@ int main()
         calibrate<false>(def,10);
         throw;
 
-//        testsingle<naivemmstrategy,false,false>(); // without chronos
+        testsingle<tadpmarketmaker,false,false>(); // without chronos
         competesingle<naivemmstrategy,false>();
 
 //        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,false>(1000);

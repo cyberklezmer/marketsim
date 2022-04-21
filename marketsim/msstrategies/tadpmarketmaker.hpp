@@ -32,8 +32,9 @@ namespace marketsim
 
 		}
 	private:
-		virtual trequest event(const tmarketinfo& mi, tabstime t, bool firsttime)
+                virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult)
 		{
+                        bool firsttime = lastresult == 0;
 			//initializations
 			tprice alpha = mi.alpha();
 			tprice beta = mi.beta();

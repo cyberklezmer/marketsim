@@ -1008,6 +1008,8 @@ struct tmarketdef
 
     bool directlogging = false;
 
+    tabstime warmup = 1;
+
     /// returns constatn converting tick time to simulated time in seconds
     double ticktime() const
     {
@@ -1431,15 +1433,16 @@ public:
     teventdrivenstrategy(double interval, bool random = false) :
         tstrategy(),
         finterval(interval), frandom(random), fnu(interval) {}
-    virtual trequest event(const tmarketinfo& info, tabstime t, bool firstcall) = 0;
+    virtual trequest event(const tmarketinfo& info, tabstime t, trequestresult* resultoflast) = 0;
     virtual void trade(twallet) override
     {
         bool firsttime = true;
         while(!endoftrading())
         {
+            trequestresult rr;
             tmarketinfo info = this->getinfo<true>();
             tabstime t = abstime();
-            request<true>(event(info,t,firsttime));
+            rr = request<true>(event(info,t,firsttime ? 0 : &rr));
             firsttime = false;
             double dt = frandom ? fnu(fengine) : finterval;
             sleepuntil(t+dt);
@@ -1695,6 +1698,7 @@ public:
             {
                 auto n = strategies.size();
                 std::vector<bool> firsttime(n,true);
+                std::vector<tstrategy::trequestresult> results(n);
 
                 tabstime T = get_max_time() * def().ticktime();
                 std::vector<tabstime> ts;
@@ -1732,10 +1736,8 @@ public:
                     {
                        auto info = str->getinfo<false>();
                        double startt = clock();
-// std::cout << " calling info by strategy " << first << std::fixed << " at " << t  << " s took "
-//          << (startt-starttinfo) / CLOCKS_PER_SEC << "s" << std::endl;
 
-                       rs[first] = str->event(info,t,firsttime[first]);
+                       rs[first] = str->event(info,t,firsttime[first] ? 0 : &(results[first]));
 
                        double endt = ::clock();
                        double dt = (endt-startt) / CLOCKS_PER_SEC;
@@ -1762,7 +1764,7 @@ public:
                             possiblylog(floggingfilter.frequest,str->fid,"non-chronos request",s.str());
                         }
 
-                       str->request<false>(rs[first],t);
+                       results[first]=str->request<false>(rs[first],t);
                        rts[first] = std::numeric_limits<tabstime>::max();
                        setsnapshot();
                     }

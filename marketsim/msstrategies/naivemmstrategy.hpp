@@ -13,7 +13,7 @@ public:
        {
        }
 
-       virtual trequest event(const tmarketinfo& info, tabstime, bool)
+       virtual trequest event(const tmarketinfo& info, tabstime, trequestresult* )
        {
            tprice alpha = info.alpha();
            tprice beta = info.beta();

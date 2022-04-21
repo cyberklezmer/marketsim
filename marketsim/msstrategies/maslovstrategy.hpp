@@ -17,7 +17,7 @@ public:
            flogfair = 2+3 * uniform();
        }
 
-       virtual trequest event(const tmarketinfo&, tabstime, bool)
+       virtual trequest event(const tmarketinfo&, tabstime, trequestresult*)
        {
            flogfair += w(fengine) * fsigma;
            double logprice = flogfair
