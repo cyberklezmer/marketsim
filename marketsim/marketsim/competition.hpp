@@ -19,20 +19,30 @@ struct competitionresult
    unsigned noverruns = 0;
 };
 
+struct tcompetitiondef
+{
+    twallet endowment;
+    unsigned samplesize;
+    tabstime timeofrun;
+    //
+    tabstime warmup = 1;
+    tmarketdef marketdef = tmarketdef();
+};
+
+
+
+
 template <bool chronos=true, bool logging = false>
 inline std::vector<competitionresult>
         compete(std::vector<competitorbase<chronos>*> competitors,
-                    twallet endowment, unsigned desiredobs,
-                    tabstime timeofrun,
+                    const tcompetitiondef& compdef,
                     std::ostream& rescsv,
                     std::vector<tstrategy*> &garbage,
-                    std::ostream& o = std::cout,
-                    tmarketdef adef = tmarketdef())
+                    std::ostream& o = std::cout
+                    )
 {
     auto n = competitors.size();
-    tmarketdef def = adef;
-    if(chronos)
-        def.chronosduration = chronos::app_duration(findduration<logging>(n,def));
+    const tmarketdef& def = compdef.marketdef;
 
     std::vector<competitionresult> ress(n);
 
@@ -44,11 +54,11 @@ inline std::vector<competitionresult>
     rescsv << "turn,id,c,m,s,lastp" << std::endl;
 
     unsigned nobs = 0;
-    for(unsigned i=0; nobs<desiredobs && i<desiredobs * 2; i++)
+    for(unsigned i=0; nobs<compdef.samplesize && i<compdef.samplesize * 2; i++)
     {
         o << i << ",";
 
-        tmarket m(timeofrun,def);
+        tmarket m(compdef.timeofrun,compdef.marketdef);
 
         std::ostringstream os;
         os << "log" << i << ".csv";
@@ -61,7 +71,9 @@ inline std::vector<competitionresult>
         }
         std::vector<twallet> es;
         for(unsigned j=0; j<n;j++)
-            es.push_back(competitors[j]->isbuiltin() ? twallet::infinitewallet() : endowment);
+            es.push_back(competitors[j]->isbuiltin()
+                         ? twallet::infinitewallet()
+                         : compdef.endowment);
         try
         {
             if(m.run<chronos>(competitors,es,garbage,33+i*22))
@@ -130,7 +142,6 @@ inline void competition(std::vector<competitorbase<chronos>*> acompetitors,
 
    twallet endowment(5000,100);
 
-   unsigned nruns = 100;
 
    std::vector<competitorbase<chronos>*> competitors = acompetitors;
 
@@ -142,7 +153,12 @@ inline void competition(std::vector<competitorbase<chronos>*> acompetitors,
    if(!rescsv)
        throw std::runtime_error("Cannot open res.csv");
 
-   auto res = compete<chronos,false>(competitors,endowment,nruns,1000,rescsv,garbage,std::clog);
+   tcompetitiondef cd;
+   cd.endowment = endowment;
+   cd.samplesize = 100;
+   cd.timeofrun = 1000;
+
+   auto res = compete<chronos,false>(competitors,cd,rescsv,garbage,std::clog);
 
    protocol << "Protocol of competition." << std::endl;
    for(unsigned i=0;i<res.size();i++)

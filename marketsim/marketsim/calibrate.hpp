@@ -50,8 +50,8 @@ inline int findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
     {
         tmarketdef df =def;
         df.chronosduration = chronos::app_duration(d);
-        tmarket m(1000*df.chronos2abstime,df);
-        std::ofstream o("xxxlogxxx.log");
+        tmarket m(1000*df.ticktime(),df);
+        std::ofstream o("finddurationtestlog.log");
         if constexpr(logging)
         {
             if(!o)
@@ -93,6 +93,16 @@ inline int findduration(unsigned nstrategies, tmarketdef def = tmarketdef())
     std::clog << d << " found suitable " << std::endl;
     return d;
 }
+
+
+template <bool logging = false>
+inline void calibrate(tmarketdef& def, unsigned ncompetitors)
+{
+    std::clog << "Calibrating for " << ncompetitors << " competitors." << std::endl;
+    def.chronosduration = chronos::app_duration(findduration<logging>(ncompetitors,def));
+    std::clog << "ticktime() = " << def.ticktime() << std::endl;
+}
+
 
 } // namespace
 #endif // CALIBRATE_HPP

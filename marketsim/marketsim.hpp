@@ -998,18 +998,23 @@ public:
 /// struct defining market behavior
 struct tmarketdef
 {
-    /// \p chronos duration
+    /// \p chronos duration (number of (chronos::app_duration units one chronos tick takes)
     chronos::app_duration chronosduration = chronos::app_duration(100000);
-    /// constant converting tick time to simulated time in seconds
-    double chronos2abstime = 0.005;
     /// magnitude of "noise" added to the waiting times when working in non-hrohos model
     double epsilon = 0.0000001;
 
-    tabstime warmup = 1;
 
     unsigned tickstowait = 1000;
 
     bool directlogging = false;
+
+    /// returns constatn converting tick time to simulated time in seconds
+    double ticktime() const
+    {
+        double tl = static_cast<double>(chronos::app_duration::period::num)
+            /static_cast<double>(chronos::app_duration::period::den);
+        return chronosduration.count() * tl;
+    }
 };
 
 class torderbook
@@ -1444,8 +1449,8 @@ public:
     double interval() const { return finterval; }
     void setinterval(double ainterval)
     {
-        assert(!random);
-        finterval = interval;
+        assert(!frandom);
+        finterval = ainterval;
     }
 
 private:
@@ -1487,7 +1492,7 @@ private:
 
     tabstime getabstime()
     {
-        return this->get_time() * fdef.chronos2abstime;
+        return this->get_time() * fdef.ticktime();
     }
 
 
@@ -1593,7 +1598,7 @@ private:
 public:
 
     tmarket(tabstime maxtime, tmarketdef adef  = tmarketdef()) :
-        chronos::Chronos(adef.chronosduration, maxtime / adef.chronos2abstime), fdef(adef),
+        chronos::Chronos(adef.chronosduration, maxtime / adef.ticktime()), fdef(adef),
         flog(0), fdirectlogging(false)
     {
     }
@@ -1691,7 +1696,7 @@ public:
                 auto n = strategies.size();
                 std::vector<bool> firsttime(n,true);
 
-                tabstime T = get_max_time() * def().chronos2abstime;
+                tabstime T = get_max_time() * def().ticktime();
                 std::vector<tabstime> ts;
                 for(unsigned i=0; i<n; i++)
                     ts.push_back(strategies[i]->fbuiltin ? 0 : fdef.warmup);
@@ -1725,11 +1730,10 @@ public:
 
                     if(isevent)
                     {
-double starttinfo = clock();
                        auto info = str->getinfo<false>();
                        double startt = clock();
-std::cout << " calling info by strategy " << first << std::fixed << " at " << t  << " s took "
-          << (startt-starttinfo) / CLOCKS_PER_SEC << "s" << std::endl;
+// std::cout << " calling info by strategy " << first << std::fixed << " at " << t  << " s took "
+//          << (startt-starttinfo) / CLOCKS_PER_SEC << "s" << std::endl;
 
                        rs[first] = str->event(info,t,firsttime[first]);
 
@@ -1739,7 +1743,7 @@ std::cout << " calling info by strategy " << first << std::fixed << " at " << t 
                        ts[first] = t + dt + (str->frandom ? str->fnu(str->fengine) : str->finterval
                                           + str->uniform() * str->finterval * def().epsilon);
                        rts[first] = t + dt;
-std::cout << " calling event of strategy " << first << std::fixed << " at " << t  << "s took " << dt << "s" << std::endl;
+// std::cout << " calling event of strategy " << first << std::fixed << " at " << t  << "s took " << dt << "s" << std::endl;
                        if(islogging())
                        {
                            std::ostringstream s;
@@ -2154,7 +2158,7 @@ inline void tstrategy::sleepfor(tabstime t)
             s << "sleepfor(" << t << ") called";
             fmarket->possiblylog(fmarket->floggingfilter.fsleep, fid, s.str());
         }
-        sleep_until(fmarket->get_time() + t/fmarket->def().chronos2abstime);
+        sleep_until(fmarket->get_time() + t/fmarket->def().ticktime());
         fmarket->possiblylog(fmarket->floggingfilter.fsleep,fid, "sleepfor finished");
     }
     catch (chronos::error& e)
@@ -2185,7 +2189,7 @@ inline void tstrategy::sleepuntil(tabstime t)
             s << "sleepuntil(" << t << ") called";
             fmarket->possiblylog(fmarket->floggingfilter.fsleep,fid, s.str());
         }
-        sleep_until(t/fmarket->def().chronos2abstime);
+        sleep_until(t/fmarket->def().ticktime());
         fmarket->possiblylog(fmarket->floggingfilter.fsleep,fid, "sleepuntil finished");
     }
     catch (chronos::error& e)
@@ -2211,7 +2215,7 @@ inline tabstime tstrategy::abstime()
     try
     {
         auto result = fmarket->get_time();
-        tabstime at = result * fmarket->def().chronos2abstime;
+        tabstime at = result * fmarket->def().ticktime();
         if(fmarket->islogging())
         {
             std::ostringstream s;
