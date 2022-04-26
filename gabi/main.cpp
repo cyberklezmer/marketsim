@@ -9,6 +9,7 @@
 #include "marketsim/competition.hpp"
 #include "marketsim/tests.hpp"
 #include "msstrategies/naivemmstrategy.hpp"
+#include "msstrategies/tadpmarketmaker.hpp"
 
 using namespace marketsim;
 
