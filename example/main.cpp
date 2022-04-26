@@ -35,8 +35,8 @@ int main()
 
         // change accordingly but note that with chronos==true the streategies must be
         // descentants of marketsim::teventdrivenstrategy
-        using testedstrategy = naivemmstrategy;
-        using secondtestedstrategy = naivemmstrategy;
+        using testedstrategy = naivemmstrategy<1>;
+        using secondtestedstrategy = naivemmstrategy<1>;
 
 
         enum ewhattodo { esinglerunsinglestrategy,

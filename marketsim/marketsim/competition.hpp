@@ -161,6 +161,43 @@ inline std::vector<competitionresult>
     return ress;
 }
 
+template <bool chronos=true, bool calibrate = true, bool logging = false>
+inline void competition(std::vector<competitorbase<chronos>*> competitors,
+                                  tabstime timeofrun,
+                                  twallet endowment,
+                                  const tmarketdef& adef,
+                                  std::ostream& protocol)
+{
+   std::vector<tstrategy*> garbage;
+
+   std::ofstream rescsv("competition.csv");
+   if(!rescsv)
+       throw std::runtime_error("Cannot open competitio.csv");
+
+   tcompetitiondef cd;
+   cd.endowment = endowment;
+   cd.samplesize = 100;
+   cd.timeofrun = timeofrun;
+   cd.marketdef = adef;
+
+   auto res = compete<chronos,calibrate,logging>(competitors,cd,rescsv,garbage,std::clog);
+
+   protocol << "Protocol of competition." << std::endl;
+   for(unsigned i=0;i<res.size();i++)
+   {
+      const statcounter& c = res[i].consumption;
+      protocol << competitors[i]->name() << " " << c.average()
+         << " (" << sqrt(c.var() / c.num ) << ")"
+         << " [" << res[i].nruns << " runs, " << res[i].nexcepts << " exceptions, "
+         << res[i].noverruns << " overruns]"
+         << std::endl;
+   }
+   if(garbage.size())
+        std::clog << garbage.size()
+            << " overrun strategies in garbage, sorry for memory leaks." << std::endl;
+}
+
+
 } // namespace
 
 #endif // COMPETITION_HPP

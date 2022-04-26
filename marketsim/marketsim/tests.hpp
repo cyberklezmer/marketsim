@@ -15,39 +15,13 @@ inline void competitionwithmaslov(std::vector<competitorbase<chronos>*> acompeti
                                   const tmarketdef& adef,
                                   std::ostream& protocol)
 {
-   std::vector<tstrategy*> garbage;
-
    std::vector<competitorbase<chronos>*> competitors = acompetitors;
 
    competitor<maslovstrategy,chronos,true> cm("maslov(internal)");
 
    competitors.push_back(&cm);
 
-   std::ofstream rescsv("competitionwithmalsov.csv");
-   if(!rescsv)
-       throw std::runtime_error("Cannot open competitionwithmalsov.csv");
-
-   tcompetitiondef cd;
-   cd.endowment = endowment;
-   cd.samplesize = 100;
-   cd.timeofrun = timeofrun;
-   cd.marketdef = adef;
-
-   auto res = compete<chronos,calibrate,logging>(competitors,cd,rescsv,garbage,std::clog);
-
-   protocol << "Protocol of competition." << std::endl;
-   for(unsigned i=0;i<res.size();i++)
-   {
-      const statcounter& c = res[i].consumption;
-      protocol << competitors[i]->name() << " " << c.average()
-         << " (" << sqrt(c.var() / c.num ) << ")"
-         << " [" << res[i].nruns << " runs, " << res[i].nexcepts << " exceptions, "
-         << res[i].noverruns << " overruns]"
-         << std::endl;
-   }
-   if(garbage.size())
-        std::clog << garbage.size()
-            << " overrun strategies in garbage, sorry for memory leaks." << std::endl;
+   competition<chronos,calibrate,logging>(competitors,timeofrun,endowment,adef,protocol);
 }
 
 
@@ -68,7 +42,11 @@ inline void test(std::vector<competitorbase<chronos>*> competitors,
     if(logging)
         m.setlogging(std::cout,m.def().loggingfilter);
 
-    std::vector<twallet> es(n, endowment);
+    std::vector<twallet> es;
+    for(unsigned i=0; i<n; i++)
+        es.push_back(competitors[i]->isbuiltin()
+                     ? twallet::infinitewallet()
+                     : endowment);
 
     std::clog << "running " << n << " strategies" << std::endl;
 

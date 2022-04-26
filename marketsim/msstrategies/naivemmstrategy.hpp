@@ -5,6 +5,7 @@
 
 namespace marketsim {
 
+template <int volume = 1>
 class naivemmstrategy: public teventdrivenstrategy
 {
 public:
@@ -46,8 +47,8 @@ public:
                   }
                   tpreorderprofile pp;
 
-                  pp.B.add(tpreorder(proposedb,1));
-                  pp.A.add(tpreorder(proposeda,1));
+                  pp.B.add(tpreorder(proposedb,volume));
+                  pp.A.add(tpreorder(proposeda,volume));
 //cout << beta << "(" << proposedb << ") - " << alpha << "(" << proposeda << ")" << endl;
                   return {pp,trequest::teraserequest(true),c};
                }
