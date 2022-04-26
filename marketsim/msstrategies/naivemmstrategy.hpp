@@ -24,8 +24,8 @@ public:
                tprice c = 0;
                if(info.mywallet().money() > 5*p)
                     c = info.mywallet().money()-5*p;
-               tprice mya = info.myorderprofile.a();
-               tprice myb = info.myorderprofile.b();
+               tprice mya = info.myorderprofile().a();
+               tprice myb = info.myorderprofile().b();
 
                tprice proposeda = mya;
                if(alpha <= mya)

@@ -1,48 +1,68 @@
 #ifndef COMPETITION_HPP
 #define COMPETITION_HPP
 
-#include "calibrate.hpp"
-#include "msstrategies/maslovstrategy.hpp"
+#include "marketsim.hpp"
 
 namespace marketsim
 {
 
-/// Evaluates the current strategies by running \p nruns simulation of length \p timeofrun.
-/// For each strtategy it returns mean value of its profit (comparison to the "hold" strategy,
-/// i.e. doing nothing) and the standard deviation.
 
-struct competitionresult
-{
-   statcounter consumption;
-   unsigned nruns = 0;
-   unsigned nexcepts = 0;
-   unsigned noverruns = 0;
-};
-
+/// competition parameters
 struct tcompetitiondef
 {
+    /// endowment each competing (not built-in) strategy gets
     twallet endowment;
+    /// number of runs within the competition
     unsigned samplesize;
+    /// duration of a single run
     tabstime timeofrun;
-    //
+    /// warmup time (competing strategies are activavated as late as at this time)
     tabstime warmup = 1;
+    /// market parameters
     tmarketdef marketdef = tmarketdef();
 };
 
+/// result of a single strategy within the competition
+struct competitionresult
+{
+    /// total (raw) consumption achieved
+    statcounter consumption;
+    /// number of runs
+    unsigned nruns = 0;
+    /// number of runs ended by exception
+    unsigned nexcepts = 0;
+    /// number of runs in which the strategy failed to release control
+    unsigned noverruns = 0;
+};
 
 
 
-template <bool chronos=true, bool logging = false>
+/// Evaluates the current repeatedly running strategies corresponding to
+/// \p competitors. The parameters of the competition oar in
+/// \p compdef (note that calibration of marketsim::tmarketdef is not done within procedure),
+/// results of individual runs are output to \p rescsv.
+/// \p garbage is necessary to provide to store strategies which failed
+/// to release control (which can happen only if \c chronos==true).
+/// The running results are printed to \p o.
+/// \return - vector of marketsim::competitionresult's corresponding to indiviudal strategies
+/// \tparam chronos - RT (\c true) or ED (\c false)
+/// \tparam logging - if \c true then logging is done according to
+/// For each strtategy it returns mean value of its profit (comparison to the "hold" strategy,
+/// i.e. doing nothing) and the standard deviation.
+template <bool chronos=true, bool calibrate=true, bool logging = false>
 inline std::vector<competitionresult>
         compete(std::vector<competitorbase<chronos>*> competitors,
                     const tcompetitiondef& compdef,
                     std::ostream& rescsv,
                     std::vector<tstrategy*> &garbage,
-                    std::ostream& o = std::cout
+                    std::ostream& o = std::clog
                     )
 {
     auto n = competitors.size();
-    const tmarketdef& def = compdef.marketdef;
+    tmarketdef def = compdef.marketdef;
+    if constexpr(chronos && calibrate)
+            def.calibrate(n,o);
+
 
     std::vector<competitionresult> ress(n);
 
@@ -65,7 +85,7 @@ inline std::vector<competitionresult>
         std::ofstream log(os.str());
         if(logging)
         {
-            m.setlogging(log);
+            m.setlogging(log,m.def().loggingfilter);
             if(def.directlogging)
                m.setdirectlogging(true);
         }
@@ -76,12 +96,20 @@ inline std::vector<competitionresult>
                          : compdef.endowment);
         try
         {
-            if(m.run<chronos>(competitors,es,garbage,33+i*22))
+            auto res = m.run<chronos>(competitors,es,garbage,33+i*22);
+            bool overflow = false;
+            for(unsigned i=0; i<res.size(); i++)
+                if(res[i])
+                {
+                    overflow = true;
+                    break;
+                }
+            if(overflow)
                 o << "1,";
             else
                 o << "0,";
 
-            auto rest = static_cast<double>(m.results()->frunstat.fextraduration.average())
+            auto rest = static_cast<double>(m.results()->fextraduration.average())
                           / m.def().chronosduration.count();
             if(rest < 0)
                 o << "0,overflow," << rest*100 << "%,";
@@ -112,9 +140,9 @@ inline std::vector<competitionresult>
                     }
                     ress[j].consumption.add(c);
                     ress[j].nruns++;
-                    if(tr.endedbyexception())
+                    if(tr.isendedbyexception())
                         ress[j].nexcepts++;
-                    if(tr.overrun())
+                    if(tr.isoverrun())
                         ress[j].noverruns++;
                 }
                 nobs++;
@@ -131,48 +159,6 @@ inline std::vector<competitionresult>
         o << std::endl;
     }
     return ress;
-}
-
-
-template <bool chronos=true, bool logging = false>
-inline void competition(std::vector<competitorbase<chronos>*> acompetitors,
-                        std::ostream& protocol)
-{
-   std::vector<tstrategy*> garbage;
-
-   twallet endowment(5000,100);
-
-
-   std::vector<competitorbase<chronos>*> competitors = acompetitors;
-
-   competitor<maslovstrategy,chronos,true> cm("maslov(internal)");
-
-   competitors.push_back(&cm);
-
-   std::ofstream rescsv("res.csv");
-   if(!rescsv)
-       throw std::runtime_error("Cannot open res.csv");
-
-   tcompetitiondef cd;
-   cd.endowment = endowment;
-   cd.samplesize = 100;
-   cd.timeofrun = 1000;
-
-   auto res = compete<chronos,false>(competitors,cd,rescsv,garbage,std::clog);
-
-   protocol << "Protocol of competition." << std::endl;
-   for(unsigned i=0;i<res.size();i++)
-   {
-      const statcounter& c = res[i].consumption;
-      protocol << competitors[i]->name() << " " << c.average()
-         << " (" << sqrt(c.var() / c.num ) << ")"
-         << " [" << res[i].nruns << " runs, " << res[i].nexcepts << " exceptions, "
-         << res[i].noverruns << " overruns]"
-         << std::endl;
-   }
-   if(garbage.size())
-        std::clog << garbage.size()
-            << " overrun strategies in garbage, sorry for memory leaks." << std::endl;
 }
 
 } // namespace

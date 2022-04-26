@@ -34,8 +34,8 @@ public:
 };
 
 
-class tmarketdata;
-using snapshot_shared_ptr = std::shared_ptr<tmarketdata>;
+//class tmarketdata;
+
 
 
 using tprice = int;
@@ -74,17 +74,12 @@ inline std::string p2str(tprice p)
 }
 
 
-/// class describing the strategies holdings
+/// class describing the strategy's holdings
 class twallet
 {
 public:
-    static twallet infinitewallet()
-    {
-        return twallet(std::numeric_limits<tprice>::max()/2,
-                       std::numeric_limits<tvolume>::max()/2);
-    }
 
-
+    /// constructs an empty wallet
     twallet() : fmoney(0), fstocks(0) {}
 
     /// constructs new instance with \p amoney of cash and \p astocks of stocks
@@ -99,25 +94,45 @@ public:
     /// accessor
     const tvolume& stocks() const { return fstocks; }
 
+    /// stream output
     void output(std::ostream& o) const
     {
         o << "m=" << fmoney << ", s=" << fstocks;
     }
+
+    // contructs virtually unlimited wallet
+    static twallet infinitewallet()
+    {
+        return twallet(std::numeric_limits<tprice>::max()/2,
+                       std::numeric_limits<tvolume>::max()/2);
+    }
+
 private:
     tprice fmoney;
     tvolume fstocks;
 };
 
-
+/// an item of marketsim::trequestresult
 struct tsettleerror
 {
-    /// possible warnings, which can be returned back when settling the request
+    /// possible warnings/errors, which can be returned back when settling the request
     enum eresult { OK /* never used */ ,enotenoughmoneytoconsume,
                    ecrossedorders, enotenoughmoneytobuy, enotenoughstockstosell,
                     enotenoughmoneytoput, enotenoughstockstoput,
                     enumresults};
     eresult w;
     std::string text;
+    /// text version of the warnings, \sa eresult (TBD - not used anywhere!)
+    static std::string warninglabel(eresult w)
+    {
+        static std::vector<std::string> lbls =
+        { "OK" , "not enough money to consume",
+          "crossed orders", "not enough money to buy",
+          "not enough stocks to sell", "not enough money to put",
+          "not enough stocks to put" };
+        return lbls[w];
+    }
+
 };
 
 
@@ -214,12 +229,12 @@ inline std::ostream& operator << (std::ostream& o, const torder& r)
     return o;
 }
 
-/// Container of pointers to \p O (have to be compatible with marketsim::tpreorder)
+/// Container of pointers to \p O (which has to be compatible with marketsim::tpreorder)
 template <typename O>
 class torderptrcontainer
 {
 public:
-    torderptrcontainer(const std::vector<torder*>* ax) : fx(ax) {}
+    torderptrcontainer(const std::vector<O*>* ax) : fx(ax) {}
     torderptrcontainer() : fx(0) {}
     const O& operator[] (unsigned i) const
     {
@@ -356,7 +371,6 @@ public:
 
 private:
     std::vector<O> fx;
-
 };
 
 /// An preorder/order list of type \p ask, \p C is either marketsim::torderptrcontainer
@@ -410,7 +424,7 @@ public:
         }
     }
 
-    /// computes the value (sum of prices times volumes) of the order of in the list
+    /// computes the value (sum of prices times volumes) of the orders of in the list
     /// -- if \p filter is empty, then all orders are processed, otherwise only those
     /// with \c true in corresponding positions of \p filter
     tprice value(std::vector<bool> filter = std::vector<bool>()) const
@@ -424,6 +438,9 @@ public:
         return s;
     }
 
+    /// computes the volume (sum of volumes) of the orders of in the list
+    /// -- if \p filter is empty, then all orders are processed, otherwise only those
+    /// with \c true in corresponding positions of \p filter
     tvolume volume(std::vector<bool> filter = std::vector<bool>()) const
     {
         double s = 0.0;
@@ -435,6 +452,7 @@ public:
         return s;
     }
 
+    /// output to a stream
     void output(std::ostream& o) const
     {
         for(unsigned i=0; i<this->size(); i++)
@@ -508,6 +526,7 @@ public:
                 (bp == klundefprice && ap==klundefprice);
     }
 
+    /// output to a stream
     void output(std::ostream& o) const
     {
         o << " ";
@@ -543,7 +562,7 @@ public:
         /// constructor
         teraserequest(bool aall) : all(aall) {}
 
-        /// \c true if all orders have to be eradsd, regardless of \c a and \c b,
+        /// \c true if all orders have to be eraded, regardless of \c a and \c b,
         /// \c false if \c a and \c b are to be taken into account
         bool all;
         /// \c true if a corresponding order shuld be removed from the \c A list of the profile
@@ -560,22 +579,10 @@ public:
     };
 
 
-    /// text version of the warnings, \sa eresult
-    static std::string warninglabel(tsettleerror::eresult w)
-    {
-        static std::vector<std::string> lbls =
-        { "OK" , "not enough money to consume",
-          "crossed orders", "not enough money to buy",
-          "not enough stocks to sell", "not enough money to put",
-          "not enough stocks to put" };
-        return lbls[w];
-    }
 
     /// \brief constructor
     /// \param orderrequest orders to be inserted
     /// \param eraserequest which order have to be removed from the existing profile
-    /// \param nextupdate after which time the strategy should be called again
-    /// (as soon as possible if equal to zero, according to marketsim::tmarkedef::minupdateinterval)
     /// \param consumption amount of money to be consumed
     trequest(const tpreorderprofile& orderrequest,
              const teraserequest& eraserequest = teraserequest(true),
@@ -589,18 +596,25 @@ public:
         forderrequest(), feraserequest(false) {}
     /// accessor
     tprice consumption() const { return fconsumption; }
+    /// accessor
     void setconsumption(tprice c) { fconsumption = c; }
+    /// accessor
     void addselllimit(tprice p, tvolume v) { forderrequest.A.add(tpreorder(p,v));  }
+    /// accessor
     void addbuylimit(tprice p, tvolume v) { forderrequest.B.add(tpreorder(p,v));  }
+    /// accessor
     void addsellmarket(tvolume v) { forderrequest.A.add(tpreorder::marketorder<true>(v)); }
+    /// accessor
     void addbuymarket(tvolume v) { forderrequest.B.add(tpreorder::marketorder<false>(v)); }
-    void seteraseall(bool b) { feraserequest = teraserequest(b); }
+    /// accessor
+    void seteraseall() { feraserequest = teraserequest(true); }
 
     /// accessor
     const tpreorderprofile& orderrequest() const { return forderrequest; }
     /// accessor
     const teraserequest& eraserequest() const { return feraserequest; }
 
+    /// if true then the request would certainly have no effect
     bool empty() const
     {
         return !feraserequest.possiblyerase()
@@ -608,6 +622,7 @@ public:
                 && forderrequest.A.size() == 0;
     }
 
+    /// output to a stream
     void output(std::ostream& o) const
     {
         o << "erase ";
@@ -642,7 +657,7 @@ public:
         tprice a;
         /// time of the snapshot
         tabstime t;
-        /// computec the midpoint price -- if \c b or \c a are undefined, it returns \c nan
+        /// computes the midpoint price -- if \c b or \c a are undefined, it returns \c nan
         /// (the return value should be thus checked by \c isnan() )
         double p() const
         {
@@ -707,11 +722,10 @@ public:
     }
 private:
     std::vector<tsnapshot> fx;
-
 };
 
 
-/// Collects state/history of the strategy's activity. Also holds information about
+/// Stores the state of the wallet and the history of the strategy's activity. Also holds information about
 /// cash and stocks blocked by market.
 class tstrategyinfo
 {
@@ -739,9 +753,12 @@ public:
         unsigned partner;
     };
 
-    /// constructor, \p name is the name of the strategy, \p wallet is the initial endowment
-    tstrategyinfo(const twallet& wallet, tstrategyid id, const std::string& name) :
-        fid(id), fname(name), fwallet(wallet), fblockedmoney(0), fblockedstocks(0) {}
+    /// constructor, \p endowment is the initial state of the wallet,
+    /// \p id is the (unique) identification of the strategy,
+    /// \p name is a (possibly non-unique) text description of the strategy
+    tstrategyinfo(const twallet& endowment, tstrategyid id, const std::string& name) :
+        fid(id), fname(name), fwallet(endowment), fblockedmoney(0), fblockedstocks(0) {}
+    /// copy constructor
     tstrategyinfo(const tstrategyinfo& src) :
         fid(src.fid), fname(src.fname), fwallet(src.fwallet), fblockedmoney(src.fblockedmoney),
         fblockedstocks(src.fblockedstocks),
@@ -769,10 +786,10 @@ public:
     const twallet& wallet() const { return fwallet; }
     /// accessor
     twallet& wallet() { return fwallet; }
-
     /// accessor
     const std::vector<tconsumptionevent>& consumption() const { return fconsumption; }
 
+    /// computes the sum of all consumptions
     tprice totalconsumption() const
     {
         tprice c = 0;
@@ -794,7 +811,7 @@ public:
     /// avaliable (not blocked) amount of stocks
     tvolume availablevolume() { return fwallet.stocks() - fblockedstocks;}
     /// returns trading history
-    const std::vector<tradingevent>& trading() const { return ftrading; }
+    const std::vector<tradingevent>& tradinghistory() const { return ftrading; }
 //    /// returns the name of the strategy
     tstrategyid strategyid() const { return fid; }
 
@@ -814,36 +831,49 @@ public:
         if(level >= etrades)
         {
             o << "Trades:"  << std::endl;
-            for(auto tr: trading())
+            for(auto tr: tradinghistory())
                 o << tr.ftime << "s: " << tr.fmoneydelta << "$, "
                   << tr.fstockdelta << " with " << tr.partner << std::endl;
         }
     }
 
+private:
+    /// tells the class that the strategy run has been prematurely ended by exception with
+    /// error text \p s (used by marketsim::tmarket)
     void reportexception(const std::string& s)
     {
         ferrmsg = s;
         fendedbyexception = true;
     }
-    bool endedbyexception() const
-    {
-        return fendedbyexception;
-    }
 
+    /// tells the class that the strategy exceeded the lemit marketsim::tmarketdef::tickstowait upon
+    /// the end of the simulation (used by marketsim::tmarket)
     void reportoverrun()
     {
         foverrun = true;
     }
 
-    bool overrun() const
+public:
+
+    /// accessor, \see reportexception
+    bool isendedbyexception() const
     {
-        return foverrun;
+        return fendedbyexception;
     }
 
+    /// accessor, \see reportexception
     const std::string& errmsg() const
     {
         return ferrmsg;
     }
+
+    /// accessor, \see reportoverrun
+    bool isoverrun() const
+    {
+        return foverrun;
+    }
+
+    /// accessor
     const std::string& name() const
     {
         return fname;
@@ -867,7 +897,6 @@ protected:
 class tmarket;
 class tmarketinfo;
 
-
 /// General base class for strategies
 class tstrategy: private chronos::Worker
 {
@@ -877,21 +906,31 @@ private:
     friend class tmarket;
     friend class tmarketdata;
     friend class teventdrivenstrategy;
+
+    /// implements a mandatory method of Chronos::Worker
     virtual void main() override;
 
+    /// assigns an unique (within run of the application) id to a strategy
     static tstrategyid newid()
     {
         static int currid = 1;
         return currid++;
     }
 protected:
+
+    /// used for randomized strategies as well as for small perturbation
+    /// in marketsim::teventdrivenstrategy
     std::default_random_engine fengine;
+
+    /// basic random generator
     std::uniform_real_distribution<double> funiform;
+
+    /// returns an uniform random variable
     double uniform()
     {
         return funiform(fengine);
     }
-public:
+    /// seeds a random generator. Called by marketsim::tmarket to distinguish individual runs
     void seed(unsigned i)
     {
         fengine.seed(i+1);
@@ -903,30 +942,54 @@ protected:
         fengine.seed(0);
     }
 //    ~tstrategy() {}
+    /// need to be implemented by descenants
     virtual void trade(twallet /* endowment */) = 0;
 
-//    tstrategy(const tstrategy&) = delete;
-//    tstrategy& operator=(tstrategy&) = delete;
 
 public:
-
+    /// return value of marketsim::tstragegy::request. On complete success, the vector is empty,
+    /// otherwise it contains individual warnings.
     struct trequestresult
     {
         std::vector<tsettleerror> results;
         // tbd be more specific
     };
 
+private:
+    // With RT it is directly called by marketsim::tstrategy::request,
+    // with ED, it is called by marketsim::teventstragegy::trade d
+    template <bool chronos>
+    trequestresult internalrequest(const trequest& request, tabstime t=0);
+
+    template <bool chronos = true>
+    tmarketinfo internalgetinfo();
 
 protected:
-    template <bool chronos = true>
-    trequestresult request(const trequest& request, tabstime t=0);
 
-    template <bool chronos = true>
+    /// Sends a request \p request to the market (RT interface).
+    trequestresult request(const trequest& request)
+    {
+        return internalrequest<true>(request);
+    }
+
+    /// Returns a state of the market as of the time the method is called (RT interface).
     tmarketinfo getinfo();
 
+    /// Get curreint time (RT interface).
     tabstime abstime();
+
+    /// Pauses own excecution for \p t units of time (wannabe seconds) (RT interface).
     void sleepfor(tabstime t);
+
+    /// Pauses own excecution until time \p t (RT interface)
     void sleepuntil(tabstime t);
+
+    /// Tests whether trading stopped (RT interface). Should be called within marketsim::tstrategy::trade
+    /// regularly in the order of seconds (if the execution does not stop after
+    /// marketsim::tmarketdef::timeowaitafterend "seconds", then the strategy is put to a
+    /// "garbage" and possibly block a computer's resources while the competition possibly
+    /// continues; thus such strategy can be possibly manually blacklisted by the one who implements
+    /// the competition).
     bool endoftrading();
 
 private:
@@ -955,22 +1018,36 @@ struct selectstragegybase<true>
     using basetype = tstrategy;
 };
 
-
+/// Base class for various "competitor" classes, serving solely for constructing strategies
+/// "on demand" of the simulator.
 template <bool chronos>
 class competitorbase
 {
 public:
+    /// Intended to create a pointer to a strategy.
+    /// In dependence on \p chronos template parameter, the pointer is of type
+    /// marketsim::tstrategy (when chronos==true) or marketsim::teventdrivenstrategy.
     virtual typename selectstragegybase<chronos>::basetype* create() = 0;
+    /// Intended to provide a string identification of a strategy
     virtual std::string name() const = 0;
+    /// Intended to tell whether the resulting strategy is a built-in one or the competing one.
     virtual bool isbuiltin() const = 0;
 };
 
+
+/// Actual competitor strategy constructing a \p cronos version of strategy \p S, which
+/// is or is not \p builtin. \p S have to dispose of a default constructor.
+/// (I wonder now why this definition is two-stage one,
+/// maybe for some other versions of competitor class.s...).
 template<typename S, bool chronos = true, bool builtin = false>
 class competitor : public competitorbase<chronos>
 {
     const std::string fname;
 public:
+    /// constructor
     competitor<S,chronos,builtin>(const std::string& aname = typeid(S).name()) : fname(aname) {}
+
+    /// actual \c create method (why it has a pure parent?)
     virtual typename selectstragegybase<chronos>::basetype* create()
     {
         S* s;
@@ -978,10 +1055,11 @@ public:
         s->fbuiltin = builtin;
         return s;
     }
+    /// accessor
     virtual std::string name() const { return fname; }
+    /// accessor
     virtual bool isbuiltin() const { return builtin; }
 };
-
 
 
 /// Results of the simulation
@@ -990,27 +1068,119 @@ class tmarketresult
 public:
     /// history of the market
     const tmarkethistory& history;
-    /// trading histories of individual strategies
-    const std::vector<tstrategyinfo>& tradinghistory;
+    /// infos of individual strategies
+    const std::vector<tstrategyinfo>& strategyinfos;
+};
+
+/// if logging is set, an instance of this class determines what to log
+struct tloggingfilter
+{
+    tloggingfilter()
+    {
+        fsettle = true;
+        fsleep = true;
+        ftick = false;
+        fgetinfo = false;
+        frequest = true;
+        fabstime = false;
+    }
+    bool frequest;
+    bool fsettle;
+    bool fsleep;
+    bool fgetinfo;
+    bool fmarketdata;
+    bool ftick;
+    bool fabstime;
 };
 
 
 /// struct defining market behavior
 struct tmarketdef
 {
-    /// \p chronos duration (number of (chronos::app_duration units one chronos tick takes)
+private:
+    /// custom error class
+    class calibrateerror: public error
+    {
+    public:
+       calibrateerror(const std::string &what = "") : error(what) {}
+    };
+
+    /// used for calibration only: puts (quite nonsensial) orders as frequently as possible
+    class calibratingstrategy : public tstrategy
+    {
+    public:
+        calibratingstrategy() : tstrategy() {}
+        virtual void trade(twallet) override
+        {
+            while(!endoftrading())
+            {
+                bool buy = uniform() > 0.5;
+                tprice lprice = 1+uniform()*100;
+
+                tpreorderprofile pp;
+                if(buy)
+                {
+                    tpreorder p(lprice,1);
+                    pp.B.add(p);
+                }
+                else
+                {
+                    tpreorder o(lprice,1);
+                    pp.A.add(o);
+                }
+                request({pp,trequest::teraserequest(true),0});
+            }
+        }
+    };
+
+    /// estimated duration of one Chronos given that \p numstrategies are competing.
+    /// and the market parameters (save tmarketdef::chronosduration) are as \p def
+    /// the template parameter \p logging should be set analogously to \c logging parameter
+    /// used in marketsim::tmarket::run.
+    template <bool logging>
+    static int findduration(unsigned nstrategies, const tmarketdef& def, std::ostream& log = std::clog);
+public:
+
+    /// calibrates \p def, namely sets  marketsim::tmarketdef::chronosduration
+    /// do that it is minimal but hign enogh for the simulator to server one
+    /// request per strategy within a single Chronos tick. \p logging
+    /// has to be saved the same way as in further simulations.
+    template <bool logging = false>
+    void calibrate(unsigned ncompetitors, std::ostream& log = std::clog)
+    {
+        log << "Calibrating for " << ncompetitors << " competitors." << std::endl;
+        chronosduration = chronos::app_duration(findduration<logging>(ncompetitors,*this,log));
+        log << "ticktime() = " << ticktime() << std::endl;
+    }
+
+
+
+
+    /// \p chronos duration (number of chronos::app_duration units one chronos tick takes)
+    /// Best is to use marketsim::calibrate to set it in run-time.
     chronos::app_duration chronosduration = chronos::app_duration(100000);
-    /// magnitude of "noise" added to the waiting times when working in non-hrohos model
+
+    /// magnitude of "noise" added to the waiting times given ED
     double epsilon = 0.0000001;
 
+    /// time the simulator waits for marketsim::tstrategy::trade to finish after
+    /// time horizon was reached
+    tabstime timeowaitafterend = 10;
 
-    unsigned tickstowait = 1000;
-
+    /// if \c false and logging is used then the logging is done to std::ostringstream's first and then written,
+    /// if true and logging is used, then the log entries are written immediately on logging,
+    /// in which case, however, only marketsim::tmarket entries are logged, not the strategies'ones,
+    /// for thread safety.
     bool directlogging = false;
 
+    /// time for which the non-built-in strategies are delayed in simulations
     tabstime warmup = 1;
 
-    /// returns constatn converting tick time to simulated time in seconds
+    /// logging filter
+    tloggingfilter loggingfilter = tloggingfilter();
+
+
+    /// returns constant converting a duration of the chrnonos tick to time in seconds
     double ticktime() const
     {
         double tl = static_cast<double>(chronos::app_duration::period::num)
@@ -1019,14 +1189,16 @@ struct tmarketdef
     }
 };
 
+/// a collection of all the pending orders on the market
 class torderbook
 {
 public:
+    /// constructor. \p n is the number of strategies
     torderbook(unsigned n) : fbook(n)
     {
     }
 
-
+    /// used when creating shapshots
     torderbook duplicate() const
     {
         auto ret(*this);
@@ -1034,15 +1206,18 @@ public:
         return ret;
     }
 
+    /// orders that marketsim::torderbook::fa (if \p ask is true) or marketsim::torderbook::fb
+    /// according to FIFO priority (probably could be implemented more efficiently)
     template <bool ask>
-     void makequeue()
-     {
+    void makequeue()
+    {
          std::vector<torder*>& dst = ask ? fa : fb;
          dst.clear();
+         /// here we newly make pointers to all the orders
          for(unsigned j=0; j<numagents(); j++)
          {
              torderlist<ask>* src;
-             if constexpr(ask )
+             if constexpr(ask)
                  src = &fbook[j].A;
              else
                  src = &fbook[j].B;
@@ -1051,8 +1226,9 @@ public:
              for(unsigned i=0; i<s; i++)
                  dst.push_back(&((*src)[i]));
          }
-         std::stable_sort(dst.begin(), dst.end(), cmp<ask> );
-     }
+         /// and sort them
+         std::stable_sort(dst.begin(), dst.end(), cmp<ask>);
+    }
 
     void sort()
     {
@@ -1060,7 +1236,15 @@ public:
         makequeue<false>();
     }
 
-
+    /// settles the request \p arequest with the existing orders, updates \p profiles. Here,
+    /// \p owner is the index of the strategy issuing \p arequest, \ts is a current timestamp
+    /// and \p at is the current absolute time.
+    /// First the consumption request is fulfilled. If there is not enough money to fulfill it,
+    /// maximum possible is done and warning is sent via the return value. Then the settlement
+    /// is done according to FIFO altorithm. If there is not enough mony or stocks to buy, sell,
+    /// respectively, the request (for a single particular order) is not fulfilled and a
+    /// warning is issued. Same with insufficiency of money/stocks needed to be blocked when
+    /// limit order is sissued.
     std::vector<tsettleerror> settle(
                        const trequest& arequest,
                        std::vector<tstrategyinfo>& profiles,
@@ -1267,19 +1451,16 @@ public:
         return ret;
     }
 
+    /// accessor to the number of strategies
     unsigned numstrategies() const { return fbook.size(); }
 
+    /// returns the profile of pending orders of strategy \p i
     const torderprofile& profile(unsigned i) const
     {
         return fbook[i];
     }
 
-
-
-//    const torderlist<torder>& aprofile(unsigned i) const { return profile(i).A; }
-//    const torderlist<torder>& bprofile(unsigned i) const { return profile(i).B; }
-
-
+    /// returns the best ask (assumes marketsim::torderbook::fa is ordered)
     tprice a() const
     {
         if(fa.size())
@@ -1287,6 +1468,8 @@ public:
         else
             return khundefprice;
     }
+
+    /// returns the best bid (assumes marketsim::torderbook::fb is ordered)
     tprice b() const
     {
         if(fb.size())
@@ -1295,7 +1478,7 @@ public:
             return klundefprice;
     }
 
-
+    /// returns ptrs to the orderbook (TBD cancel)
     torderptrprofile obprofile()
     {
         torderptrprofile ret;
@@ -1305,22 +1488,32 @@ public:
         return ret;
     }
 
-    std::vector<torderprofile> fbook;
     unsigned numagents() const
     {
         return fbook.size();
     }
 
-    std::vector<torder*> fa;
-    std::vector<torder*> fb;
 
+    /// used for sorting the ptrs
     template <bool ask>
     static bool cmp(const torder *a, const torder *b)
     {
         return tsortedordercontainer<torder,ask>::cmp(*a,*b);
     }
+
+    /// here, the pending orders are actually stored
+    std::vector<torderprofile> fbook;
+
+    /// ordered list of sell orders (the class marketsim::torderbook is responsitble
+    /// for keeping them sorted). TBD make it private
+    std::vector<torder*> fa;
+
+    /// ordered list of buy orders, \see marketsim::torderbook::fb.
+    std::vector<torder*> fb;
+
 };
 
+/// class used to collect statistical information (TBD move to orpp)
 struct statcounter
 {
     double sum = 0.0;
@@ -1331,15 +1524,11 @@ struct statcounter
     double var() const { return sumsq/num - average()*average(); }
 };
 
-struct trunstat
-{
-    statcounter fextraduration;
-    tabstime flasttickabstime = 0;
-};
-
+/// this class exclusively holds the state and the history of the market
 class tmarketdata
 {
-    static std::vector<tstrategyinfo> maketradings(const std::vector<twallet>& endowments,
+    /// used by constructor (not to raise exceptions in its body)
+    static std::vector<tstrategyinfo> makeinfos(const std::vector<twallet>& endowments,
                                               const std::vector<tstrategy*>& strategies,
                                               const std::vector<std::string>& names     )
     {
@@ -1349,10 +1538,15 @@ class tmarketdata
         return ret;
     }
 public:
+    /// constructor
+    /// \p endowments - endowments of individual strategies,
+    /// \p strategies - pointers to strategies, have to keep existing until marketsim::tmarket::run
+    /// finishes
+    /// \p names - string idenntification of strategies (uniqueness not necessary, but recommended)
     tmarketdata(const std::vector<twallet>& endowments,
                 const std::vector<tstrategy*>& strategies,
                 const std::vector<std::string>& names)
-       :  fstrategyinfos(maketradings(endowments,strategies,names)),
+       :  fstrategyinfos(makeinfos(endowments,strategies,names)),
           forderbook(endowments.size()),
           ftimestamp(0),
           fstartclocktime(time(0))
@@ -1365,99 +1559,136 @@ public:
         forderbook(src.forderbook.duplicate()),
         ftimestamp(src.ftimestamp),
         fmarketsublog(src.fmarketsublog.str()),
-        frunstat(src.frunstat),
+        fextraduration(src.fextraduration),
         fstartclocktime(src.fstartclocktime)
     {
     }
+    /// infos of strategies
     std::vector<tstrategyinfo> fstrategyinfos;
+    /// history
     tmarkethistory fhistory;
+    /// order book
     torderbook forderbook;
+
+    /// current timestamp (unique integer used for determining priority of the orders)
     ttimestamp ftimestamp;
+    /// system time in seconds at the start of simulations (trimmed to seconds)
     double fstartclocktime;
+    /// stream for log entries originated by marketsim::tmarket
     std::ostringstream fmarketsublog;
-    trunstat frunstat;
+    /// collects remaining time in ticks (used by marketsim::calibrate)
+    statcounter fextraduration;
+    /// number of strategies
     unsigned n() const { return fstrategyinfos.size(); }
 };
 
-
+/// accessor of a particular strategy to marketsim::tmarketdata (the strategy should not see
+/// all the data, especially not the situation of the competing strategy; therefore,
+/// marketsim::tmarketdata cannot be passed to them)
+/// (TBD maybe get rid of orderprofile - accessing A ane B directly is neough)
 class tmarketinfo
 {
-    snapshot_shared_ptr fdata;
 
 public:
-    tmarketinfo(const snapshot_shared_ptr data, unsigned myindex):
-        fdata(data), history(data->fhistory),orderbook(data->forderbook.obprofile()),
-        myorderprofile(data->forderbook.profile(myindex)),
-        myinfo(data->fstrategyinfos[myindex]),
+    tmarketinfo(const std::shared_ptr<tmarketdata> data, unsigned myindex):
+        fdata(data),
         fmyindex(myindex)
     {
     }
 
     /// history of the market
-    const tmarkethistory& history;
+    const tmarkethistory& history() const { return fdata->fhistory; }
     /// current state of the order book
-    const torderptrprofile orderbook;
+    torderptrprofile orderbook() const { return fdata->forderbook.obprofile(); }
     /// the profile belonging to the target strategy
-    const torderprofile& myorderprofile;
+    const torderprofile& myorderprofile() const { return fdata->forderbook.profile(fmyindex); }
 
-    ///
-    const tstrategyinfo& myinfo;
+    /// accessor to onn info
+    const tstrategyinfo& myinfo() const { return fdata->fstrategyinfos[fmyindex];}
 
-    const twallet& mywallet() const { return myinfo.wallet(); }
-    tprice a() const { return orderbook.A.minprice(); }
-    tprice b() const { return orderbook.B.maxprice(); }
+    /// accessor to onw wallet
+    const twallet& mywallet() const { return myinfo().wallet(); }
+
+    /// returns current ask
+    tprice a() const { return orderbook().A.minprice(); }
+    /// returns current bid
+    tprice b() const { return orderbook().B.maxprice(); }
+
+    /// returns current the-others-ask (see theoretical paper)
     tprice alpha() const
     {
-       for(unsigned i=0; i<orderbook.A.size(); i++)
-            if(orderbook.A[i].owner != fmyindex)
-                return orderbook.A[i].price;
+       for(unsigned i=0; i<orderbook().A.size(); i++)
+            if(orderbook().A[i].owner != fmyindex)
+                return orderbook().A[i].price;
        return khundefprice;
     }
 
+    /// returns current the-others-bid ¨(see theoretical paper)
     tprice beta() const
     {
-       for(unsigned i=0; i<orderbook.B.size(); i++)
-            if(orderbook.B[i].owner != fmyindex)
-                return orderbook.B[i].price;
+       for(unsigned i=0; i<orderbook().B.size(); i++)
+            if(orderbook().B[i].owner != fmyindex)
+                return orderbook().B[i].price;
        return klundefprice;
     }
 private:
+    std::shared_ptr<tmarketdata> fdata;
     unsigned fmyindex;
 };
 
-
+/// base class for strategies runable ED
 class teventdrivenstrategy : public tstrategy
 {
     friend class tmarket;
 public:
-    teventdrivenstrategy(double interval, bool random = false) :
+
+    /// constructor
+    /// \p interval - interval between calls to marketsim::teventdrivenstrategy::event
+    /// (may be later changed by marketsim::teventdrivenstrategy::setinterval)
+    /// \p random - if \c true then the intervals between calls to marketsim::teventdrivenstrategy::event
+    /// are random, exponentially distributed, with mean the marketsim::teventdrivenstrategy::finterval is interpreted aa
+    teventdrivenstrategy(tabstime interval, bool random = false) :
         tstrategy(),
         finterval(interval), frandom(random), fnu(interval) {}
+
+    /// has to be implemented by any descendant.
+    /// \p info is the current state of the market
+    /// \p t is the absolute time
+    /// \p resultoflast points to the result of processing of the last request
+    /// (returned by the last run of this method) being null means that this is the first call of this method.
     virtual trequest event(const tmarketinfo& info, tabstime t, trequestresult* resultoflast) = 0;
+
+protected:
+    /// accessor
+    double interval() const { return finterval; }
+    /// accessor
+    bool random() const { return frandom; }
+
+    /// may be used to change the inter-event interval (note that the delay is measured from
+    /// the end of execution of marketsim::teventdrivenstrategy::event)
+    void setinterval(double ainterval)
+    {
+        finterval = ainterval;
+    }
+
+private:
+//    tabstime step(tabstime t, bool firsttime);
+
+    /// implemented for the strategy being runable RT
     virtual void trade(twallet) override
     {
         bool firsttime = true;
         while(!endoftrading())
         {
             trequestresult rr;
-            tmarketinfo info = this->getinfo<true>();
+            tmarketinfo info = this->internalgetinfo<true>();
             tabstime t = abstime();
-            rr = request<true>(event(info,t,firsttime ? 0 : &rr));
+            rr = internalrequest<true>(event(info,t,firsttime ? 0 : &rr));
             firsttime = false;
             double dt = frandom ? fnu(fengine) : finterval;
             sleepuntil(t+dt);
         }
     }
-
-    double interval() const { return finterval; }
-    void setinterval(double ainterval)
-    {
-        assert(!frandom);
-        finterval = ainterval;
-    }
-
-private:
-//    tabstime step(tabstime t, bool firsttime);
 
     double finterval;
     bool frandom;
@@ -1465,41 +1696,13 @@ private:
 };
 
 
-/// Class performing the simulation. Need not be instantiated, all methods are static
-/// (has to be only single one in program, however)
+/// class performing the simulation.
 class tmarket : private chronos::Chronos
 {
-public:
-    struct tloggingfilter
-    {
-        tloggingfilter()
-        {
-            fsettle = true;
-            fsleep = true;
-            ftick = false;
-            fgetinfo = false;
-            frequest = true;
-            fabstime = false;
-        }
-        bool frequest;
-        bool fsettle;
-        bool fsleep;
-        bool fgetinfo;
-        bool fmarketdata;
-        bool ftick;
-        bool fabstime;
-    };
-private:
     friend class tstrategy;
     friend class tcompetition;
 
-    tabstime getabstime()
-    {
-        return this->get_time() * fdef.ticktime();
-    }
-
-
-    /// tbd add special exception, as client may misspecify its pointer;
+    /// converts a strategy \p id  to its index in marketsim::tmarketdata
     int findstrategy(const tstrategyid id)
     {
         assert(fmarketdata);
@@ -1509,14 +1712,23 @@ private:
         throw marketsimerror("Internal error: cannot assign owner");
     }
 
+    /// used by (friend class) marketsim::tstrategy
+    tabstime getabstime()
+    {
+        return this->get_time() * fdef.ticktime();
+    }
+
+    /// used by (friend class) marketsim::tstrategy
     tmarketinfo getinfo(tstrategyid id)
     {
         int owner = findstrategy(id);
-        snapshot_shared_ptr ssht = atomic_load(&fmarketsnapshot);
+        std::shared_ptr<tmarketdata> ssht = atomic_load(&fmarketsnapshot);
         assert(ssht);
         return tmarketinfo(ssht,owner);
     }
 
+    /// schedules a request \p request by strategy \p strategyid to settle. The argument
+    /// \p t is used only by ED version, telling the market the time.
     template <bool chronos>
     std::vector<tsettleerror> settle(tstrategyid strategyid,
                                      const trequest& request,
@@ -1567,6 +1779,9 @@ private:
         }
     }
 
+    /// copies the current state of the market to marketsim::tmarket::fmarketdata, which
+    /// is a shared pointer; thus, once it is passed to some strategy and another shapshot
+    /// is made meanwhile, the aparatus of shared pointers ensures proper memory management.
     void setsnapshot()
     {
         assert(fmarketdata);
@@ -1575,15 +1790,18 @@ private:
         possiblylog(floggingfilter.fmarketdata,0,"New copy of tmarketdata created");
     }
 
+    /// discendat of Chrnonos::Chronos::tick, called each time after all the Chrnonos::Workers
+    /// are served. This method makes a new snapshot of the market \see marketsim::tmarket::setsnapshot
     virtual void tick() override
     {
         assert(fmarketdata);
         setsnapshot();
-        fmarketdata->frunstat.fextraduration.add(get_remaining_time().count());
-        fmarketdata->frunstat.flasttickabstime = getabstime();
+        fmarketdata->fextraduration.add(get_remaining_time().count());
         possiblylog(floggingfilter.ftick,0,"Tick called");
     }
 
+    /// called when a strategy raises an exeption. In this case, this event is recorded to
+    /// the corresponding strategy's info and the exception is muted.
     void reportexception(tstrategyid owner, const std::string& e)
     {
         assert(owner != nostrategy);
@@ -1600,35 +1818,42 @@ private:
     }
 public:
 
-    tmarket(tabstime maxtime, tmarketdef adef  = tmarketdef()) :
+    /// constructor
+    /// \p maxtime - time of simulation in absolute time
+    /// \p adef - paremeters of market
+    tmarket(tabstime maxtime, tmarketdef adef) :
         chronos::Chronos(adef.chronosduration, maxtime / adef.ticktime()), fdef(adef),
         flog(0), fdirectlogging(false)
     {
     }
 
+    /// destructor
     virtual ~tmarket() {}
 
-    /// \p on means that logging is done to *flog directly during the execution. In this case,
-    /// no logging is done from the strategies' threads
+    /// If \p on is \c true then logging is done to *flog directly during the execution. In this case,
+    /// no logging is done from the strategies' threads. Otherwise, the logging is done via
+    /// separate std::ostrignstream's for each strategy and the simulator.
     void setdirectlogging(bool on)
     {
         fdirectlogging = on;
     }
 
+    /// accessor
     bool isdirectlogging() const
     {
         return fdirectlogging;
     }
 
 
-    /// if calles with \p alogging=\c true, detailed information is sent to
-    /// flog during simulation
-    void setlogging(std::ostream& log, tloggingfilter filter = tloggingfilter())
+    /// if called with \p log !=\c 0, executeion is logged into \p log, depending on
+    /// \p filter.
+    void setlogging(std::ostream& log, tloggingfilter filter)
     {
         flog = &log;
         floggingfilter = filter;
     }
 
+    /// stops logging
     void resetlogging()
     {
         flog = 0;
@@ -1636,16 +1861,16 @@ public:
 
     /// changes the simulation definition
 
-    /// accessor
-    const tmarketdef& def() const
-    {
-        return fdef;
-    }
-
     /// \c true if logging is on
     bool islogging() const
     {
         return flog != 0;
+    }
+
+    /// accessor
+    const tmarketdef& def() const
+    {
+        return fdef;
     }
 
 
@@ -1655,9 +1880,14 @@ public:
         return fmarketdata;
     }
 
-    /// Run the simulation of \p timeofrun seconds of trading (the simulation is usually much shorter).
+    /// Run the simulation for stregeties in RT (\tparam chronos == \c true) or ED (\tparam chronos == \c false).
+    /// The compening strategies are those associated with \p competitors,
+    /// having \p endowments. The parameter \p garbage is needed for technical reasons,
+    /// namely to store strategies, which failed to release control (\c chronos==true only).
+    /// \return vector of booleans, corresponding to individual strategies, with \c true
+    /// meaning that the corresponding strategy failed to release control.
     template <bool chronos=true>
-    bool run(std::vector<competitorbase<chronos>*> competitors,
+    std::vector<bool> run(std::vector<competitorbase<chronos>*> competitors,
              std::vector<twallet> endowments,
              std::vector<tstrategy*>& garbage,
              unsigned seed=0)
@@ -1734,7 +1964,7 @@ public:
 
                     if(isevent)
                     {
-                       auto info = str->getinfo<false>();
+                       auto info = str->internalgetinfo<false>();
                        double startt = clock();
 
                        rs[first] = str->event(info,t,firsttime[first] ? 0 : &(results[first]));
@@ -1764,7 +1994,7 @@ public:
                             possiblylog(floggingfilter.frequest,str->fid,"non-chronos request",s.str());
                         }
 
-                       results[first]=str->request<false>(rs[first],t);
+                       results[first]=str->internalrequest<false>(rs[first],t);
                        rts[first] = std::numeric_limits<tabstime>::max();
                        setsnapshot();
                     }
@@ -1799,7 +2029,8 @@ public:
         }
 
         bool finished;
-        for(unsigned i=0; i<def().tickstowait; i++)
+        unsigned tickstowait = def().timeowaitafterend / def().ticktime();
+        for(unsigned i=0; i<tickstowait; i++)
         {
             finished = true;
             for(unsigned j=0; j<strategies.size(); j++)
@@ -1814,35 +2045,47 @@ public:
                 break;
             std::this_thread::sleep_for(def().chronosduration);
         }
+        std::vector<bool> ret(strategies.size());
+
         for(unsigned i=0; i<strategies.size(); i++)
         {
             if(strategies[i]->still_running())
             {
                 fmarketdata->fstrategyinfos[i].reportoverrun();
                 garbage.push_back(strategies[i]);
+                ret[i] = true;
             }
             else
+            {
                 delete strategies[i];
+                ret[i] = false;
+            }
         }
         if(waserror)
             throw runerror(errtxt);
-        return finished;
+        return ret;
     }
 
 
+private:
+
+    /// header for log
     static constexpr const char* flogheader = "what;strategyid;strategyname;chronotime;abstime;clocktime;explanation;"
                                               "timestamp;b(snap);a(snap);money;stocks;"
                                               ";A;;B;";
 
-private:
 
-
+    /// state variable: market definition
     tmarketdef fdef;
+
+    /// state variable: pointer to log, if any
     std::ostream* flog;
+    /// state variable
     bool fdirectlogging;
+    /// state variable
     tloggingfilter floggingfilter;
 
-
+    /// method routinely called on potential logging
     void possiblylog(bool doit, tstrategyid owner, const std::string&
                  shortmsg, const std::string& longmsg = "")
     {
@@ -1868,7 +2111,7 @@ private:
 
             o << longmsg << ";" << fmarketdata->ftimestamp << ";";
 
-            snapshot_shared_ptr ssht = atomic_load(&fmarketsnapshot);
+            std::shared_ptr<tmarketdata> ssht = atomic_load(&fmarketsnapshot);
             if(ssht)
                o << ssht->forderbook.b() << ";"
                  << ssht->forderbook.a() << ";";
@@ -1896,127 +2139,12 @@ private:
         }
     }
 
+    /// all the data regarding current icmulation
     std::shared_ptr<tmarketdata> fmarketdata;
-//    std::atomic<std::shared_ptr<tmarketdata>>
-    snapshot_shared_ptr fmarketsnapshot;
-
+    /// current market snapshot
+    std::shared_ptr<tmarketdata> fmarketsnapshot;
 };
 
-/*
-
-/// Simplified version of \ref tstrategy. The simplifiaction consists in once forever
-/// set interval of update (can be however zero, which means instanteneous update) and
-/// that only four orders can be sent to the market at a time (two market-- and two limit ones,
-/// each of a different type). Existing orders are erased if the requested ones do not match them).
-class tsimplestrategy : public tstrategy
-{
-public:
-    /// struct that should be sent to the market
-    struct tsimplerequest
-    {
-        tpreorder b = tpreorder(klundefprice,0);
-        tpreorder a = tpreorder(khundefprice,0);
-        tvolume mb = 0;
-        tvolume ma = 0;
-        tprice consumption = 0;
-    };
-
-    /// returns a \ref tsimpleorderprofile corresponding to a single buy market order
-    static tsimpleorderprofile buymarket(tvolume volume)
-    {
-        tsimpleorderprofile s;
-        s.mb = volume;
-        return s;
-    }
-
-    /// returns a \ref tsimpleorderprofile corresponding to a single sell market order
-    static tsimpleorderprofile sellmarket(tvolume volume)
-    {
-        tsimpleorderprofile s;
-        s.ma = volume;
-        return s;
-    }
-
-    /// returns a \ref tsimpleorderprofile meaning that no order should be submitted (and all
-    /// existing erased)
-    static tsimpleorderprofile noorder()
-    {
-        tsimpleorderprofile s;
-        return s;
-    }
-    /// accessor
-    ttime timeinterval() const { return finterval; }
-protected:
-    /// constructor; \p name name, \p timeinterval time interval between market actions
-    /// (if zero then called asap), \p random determines, whether the next update should be
-    /// deterministit (false) or exponential with expectation \p timeinterval (hence intensity
-    /// 1/timeinterval.
-    tsimplestrategy(const std::string& name, ttime timeinterval, bool randominterval=false)
-        : tstrategy(name), finterval(timeinterval), frandom(randominterval)
-    {        assert(finterval != 0 || !frandom);
-}
-private:
-    /// event handler which has to be overriden by any accessor, \p mi reports
-    /// the state of the market, \p history the history associated with the strategy
-    virtual tsimpleorderprofile simpleevent(const tmarketinfo& mi,
-                                     const tstrategyinfo& history ) = 0;
-
-    virtual trequest event(const tmarketinfo& mi,
-                                  const tstrategyinfo& aresult )
-    {
-
-        tsimpleorderprofile r = simpleevent(mi, aresult) ;
-        trequest::teraserequest er(false);
-        tpreorderprofile pp;
-        unsigned numb = mi.myprofile.B.size();
-        assert(numb <= 1);
-        unsigned numa = mi.myprofile.A.size();
-        assert(numa <= 1);
-
-        if(r.mb > 0)
-            pp.B.add(torder::marketorder<false>(r.mb));
-        if(r.ma > 0)
-            pp.A.add(torder::marketorder<true>(r.ma));
-
-        bool keepb = false;
-        if(r.b.volume)
-        {
-            if(numb > 0
-                    && mi.myprofile.B[0].price==r.b.price
-                    && mi.myprofile.B[0].volume==r.b.volume)
-                keepb = true;
-            else
-                pp.B.add(r.b);
-        }
-        bool keepa = false;
-        if(r.a.volume)
-        {
-            if(numa > 0
-                    && mi.myprofile.A[0].price==r.a.price
-                    && mi.myprofile.A[0].volume==r.a.volume)
-                keepa = true;
-            else
-                pp.A.add(r.a);
-        }
-        if(numa && !keepa)
-            er.a.push_back(true);
-        if(numb && !keepb)
-            er.b.push_back(true);
-        ttime next;
-        if(frandom)
-        {
-            std::exponential_distribution<> nu(1.0 / finterval);
-            next = nu(orpp::sys::engine());
-        }
-        else
-            next = finterval;
-        return trequest(pp,er,next,r.consumption);
-    }
-    ttime finterval;
-    bool frandom;
-};
-
-*/
 inline void tstrategy::main()
 {
     try {
@@ -2059,7 +2187,7 @@ inline void tstrategy::main()
 
 
 template <bool chronos>
-inline tstrategy::trequestresult tstrategy::request(const trequest& request, tabstime t)
+inline tstrategy::trequestresult tstrategy::internalrequest(const trequest& request, tabstime t)
 {
     assert(fmarket);
     tstrategy::trequestresult ret;
@@ -2121,8 +2249,10 @@ inline tstrategy::trequestresult tstrategy::request(const trequest& request, tab
     }
 }
 
+
+
 template <bool chronos>
-tmarketinfo tstrategy::getinfo()
+tmarketinfo tstrategy::internalgetinfo()
 {
     assert(fmarket);
     try
@@ -2149,6 +2279,13 @@ tmarketinfo tstrategy::getinfo()
     }
 
 }
+
+
+inline tmarketinfo tstrategy::getinfo()
+{
+    return internalgetinfo<true>();
+}
+
 
 inline void tstrategy::sleepfor(tabstime t)
 {
@@ -2244,21 +2381,64 @@ inline tabstime tstrategy::abstime()
 
 }
 
-/* inline tabstime teventdrivenstrategy::step(tabstime t,bool firsttime)
-{
-    auto info = getinfo<false>();
-    double startt=time(0);
-    xxx
-    request<false>(event(info,t,firsttime),t);
-    return t + (frandom ? fnu(fengine) : finterval
-                          + uniform() * finterval * fmarket->def().epsilon);
-}*/
-
-
 
 inline bool tstrategy::endoftrading()
 {
     return !ready();
+}
+
+template <bool logging>
+inline int tmarketdef::findduration(unsigned nstrategies, const tmarketdef& def, std::ostream& log)
+{
+    std::vector<tstrategy*> garbage;
+    std::clog << "Finding duration for " << nstrategies << " agents on this PC." << std::endl;
+    int d = 1000;
+    for(unsigned i=0; i<10; i++,d*= sqrt(10))
+    {
+        tmarketdef df =def;
+        df.chronosduration = chronos::app_duration(d);
+        tmarket m(1000*df.ticktime(),df);
+        std::ofstream o("finddurationtestlog.log");
+        if constexpr(logging)
+        {
+            if(!o)
+                throw calibrateerror("Cannot create temporary log");
+            m.setlogging(o,def.loggingfilter);
+        }
+
+        // tbd create infinitywallet
+        std::vector<twallet> e(nstrategies,twallet::infinitewallet());
+        competitor<calibratingstrategy> c;
+        std::vector<competitorbase<true>*> s;
+        for(unsigned j=0; j<nstrategies; j++)
+            s.push_back(&c);
+        try {
+            log << "d = " << d << std::endl;
+            m.run(s,e,garbage);
+
+            if(garbage.size()) /// tbd speciální výjimka
+                throw marketsimerror("Internal error: calibrating strategy unterminated.");
+            double rem = m.results()->fextraduration.average();
+            log << "remaining = " << rem << std::endl;
+            if(rem > 0)
+                break;
+        }
+        catch (calibrateerror)
+        {
+            throw;
+        }
+        catch (std::runtime_error& e)
+        {
+            std::cerr << "Error:" << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            std::cerr << "Unknown error" << std::endl;
+        }
+    }
+    d *= sqrt(10);
+    log << d << " found suitable " << std::endl;
+    return d;
 }
 
 

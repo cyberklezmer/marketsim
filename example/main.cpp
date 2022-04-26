@@ -1,4 +1,3 @@
-#pragma warning(disable : 4996)
 #include <vector>
 #include <iostream>
 #include <limits>
@@ -19,18 +18,68 @@ int main()
 {
     try
     {
+        /// change accordingly (but true is still beta),
+        constexpr bool chronos = false;
+
+        /// change accordingly
+        constexpr bool logging = false;
+
+        /// change accordingly (one unit rougly corresponds to one second)
+        constexpr tabstime runningtime = 1000;
+
+        /// change accordingly
+        twallet endowment(5000,100);
+
         tmarketdef def;
-        calibrate<false>(def,10);
-        throw;
 
-        testsingle<tadpmarketmaker,false,false>(); // without chronos
-        competesingle<naivemmstrategy,false>();
+        /// you can modify def, perhaps adjust logging etc
 
-//        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,false>(1000);
+        /// change accordingly but note that with chronos==true the streategies must be
+        /// descentants of marketsim::teventdrivenstrategy
+        using testedstrategy = naivemmstrategy;
+        using secondtestedstrategy = naivemmstrategy;
 
 
-//        testcompete<tadpmarketmaker,false,true>(10);
-//        competesingle<tadpmarketmaker,false>();
+        enum ewhattodo { esinglerunsinglestrategy,
+                         esinglerunstrategyandmaslov,
+                         ecompetesinglestrategyandandmaslov,
+                         ecompetetwostrategiesandandmaslov };
+
+        /// change accordingly
+        ewhattodo whattodo = ecompetetwostrategiesandandmaslov;
+
+        switch(whattodo)
+        {
+        case esinglerunsinglestrategy:
+            {
+                competitor<testedstrategy,chronos> s;
+                test<chronos,true,logging>({&s},runningtime,endowment,def);
+            }
+            break;
+        case esinglerunstrategyandmaslov:
+            {
+                competitor<testedstrategy,chronos> s;
+                competitor<maslovstrategy,chronos> m;
+                test<chronos,true,logging>({&s,&m},runningtime,endowment,def);
+            }
+            break;
+        case ecompetesinglestrategyandandmaslov:
+            {
+                competitor<testedstrategy,chronos> s;
+                competitionwithmaslov<chronos,true,logging>({&s}, runningtime, endowment, def, std::clog);
+            }
+            break;
+        case ecompetetwostrategiesandandmaslov:
+            {
+                competitor<testedstrategy,chronos> fs;
+                competitor<secondtestedstrategy,chronos> ss;
+                competitionwithmaslov<chronos,true,logging>({&fs,&ss}, runningtime, endowment, def, std::clog);
+            }
+            break;
+        default:
+            throw "unknown option";
+        }
+        std::clog << "Done!" << std::endl;
         return 0;
     }
     catch (std::exception& e) {
