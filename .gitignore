@@ -10,3 +10,7 @@ trash/
 
 
 /.vs
+.vscode
+
+libtorch*
+tmp

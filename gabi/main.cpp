@@ -12,10 +12,15 @@
 #include "msstrategies/liquiditytakers.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
 
+#include <torch/torch.h>
+
 using namespace marketsim;
 
 int main()
 {
+    torch::Tensor tensor = torch::rand({2, 3});
+    std::cout << tensor << std::endl;
+
     try
     {
         // change accordingly (but true is still beta),
