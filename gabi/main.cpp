@@ -11,6 +11,7 @@
 #include "msstrategies/naivemmstrategy.hpp"
 #include "msstrategies/liquiditytakers.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
+#include "msstrategies/neuralnetstrategy.hpp"
 
 #include <torch/torch.h>
 
@@ -41,7 +42,8 @@ int main()
 
         // change accordingly but note that with chronos==true the streategies must be
         // descentants of marketsim::teventdrivenstrategy
-        using testedstrategy = maslovstrategy;
+        //using testedstrategy = maslovstrategy;
+        using testedstrategy = neuralnetstrategy;
           // should be the AI strategy
 
 
