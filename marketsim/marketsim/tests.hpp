@@ -10,9 +10,7 @@ namespace marketsim
 
 template <bool chronos=true, bool calibrate = true, bool logging = false>
 inline void competitionwithmaslov(std::vector<competitorbase<chronos>*> acompetitors,
-                                  tabstime timeofrun,
-                                  twallet endowment,
-                                  const tmarketdef& adef,
+                                  const tcompetitiondef& adef,
                                   std::ostream& protocol)
 {
    std::vector<competitorbase<chronos>*> competitors = acompetitors;
@@ -21,7 +19,7 @@ inline void competitionwithmaslov(std::vector<competitorbase<chronos>*> acompeti
 
    competitors.push_back(&cm);
 
-   competition<chronos,calibrate,logging>(competitors,timeofrun,endowment,adef,protocol);
+   competition<chronos,calibrate,logging>(competitors,adef,protocol);
 }
 
 

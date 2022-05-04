@@ -1716,6 +1716,9 @@ public:
     /// (returned by the last run of this method) being null means that this is the first call of this method.
     virtual trequest event(const tmarketinfo& info, tabstime t, trequestresult* resultoflast) = 0;
 
+
+    /// called by the simulator after the end of simulation
+    virtual void sequel(const tmarketinfo&) {}
 protected:
     /// accessor
     double interval() const { return finterval; }
@@ -1746,6 +1749,8 @@ private:
             double dt = frandom ? fnu(fengine) : finterval;
             sleepuntil(t+dt);
         }
+        tmarketinfo info = this->internalgetinfo<true>();
+        sequel(info);
     }
 
     double finterval;
@@ -2057,6 +2062,12 @@ public:
                        setsnapshot();
                     }
 
+                }
+                for(unsigned i=0; i<n; i++)
+                {
+                    teventdrivenstrategy* str = (static_cast<teventdrivenstrategy*>(strategies[i]));
+                    auto info = str->internalgetinfo<false>();
+                    str->sequel(info);
                 }
             }
             waserror = false;

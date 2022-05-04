@@ -6,16 +6,15 @@
 namespace marketsim
 {
 
-
 /// competition parameters
 struct tcompetitiondef
 {
     /// endowment each competing (not built-in) strategy gets
-    twallet endowment;
+    twallet endowment = twallet(5000,100);
     /// number of runs within the competition
-    unsigned samplesize;
+    unsigned samplesize = 100;
     /// duration of a single run
-    tabstime timeofrun;
+    tabstime timeofrun = 1000;
     /// warmup time (competing strategies are activavated as late as at this time)
     tabstime warmup = 1;
     /// market parameters
@@ -163,9 +162,7 @@ inline std::vector<competitionresult>
 
 template <bool chronos=true, bool calibrate = true, bool logging = false>
 inline void competition(std::vector<competitorbase<chronos>*> competitors,
-                                  tabstime timeofrun,
-                                  twallet endowment,
-                                  const tmarketdef& adef,
+                                  const tcompetitiondef& cd,
                                   std::ostream& protocol)
 {
    std::vector<tstrategy*> garbage;
@@ -174,11 +171,7 @@ inline void competition(std::vector<competitorbase<chronos>*> competitors,
    if(!rescsv)
        throw std::runtime_error("Cannot open competitio.csv");
 
-   tcompetitiondef cd;
-   cd.endowment = endowment;
-   cd.samplesize = 100;
-   cd.timeofrun = timeofrun;
-   cd.marketdef = adef;
+
 
    auto res = compete<chronos,calibrate,logging>(competitors,cd,rescsv,garbage,std::clog);
 

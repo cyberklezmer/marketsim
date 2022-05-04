@@ -64,15 +64,21 @@ int main()
             break;
         case ecompetesinglestrategyandandmaslov:
             {
+                tcompetitiondef def;
+                def.timeofrun = runningtime;
+                def.endowment = endowment;
                 competitor<testedstrategy,chronos> s;
-                competitionwithmaslov<chronos,true,logging>({&s}, runningtime, endowment, def, std::clog);
+                competitionwithmaslov<chronos,true,logging>({&s}, def, std::clog);
             }
             break;
         case ecompetetwostrategiesandandmaslov:
             {
                 competitor<testedstrategy,chronos> fs;
                 competitor<secondtestedstrategy,chronos> ss;
-                competitionwithmaslov<chronos,true,logging>({&fs,&ss}, runningtime, endowment, def, std::clog);
+                tcompetitiondef def;
+                def.timeofrun = runningtime;
+                def.endowment = endowment;
+                competitionwithmaslov<chronos,true,logging>({&fs,&ss}, def, std::clog);
             }
             break;
         default:
