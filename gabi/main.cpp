@@ -87,7 +87,13 @@ int main()
             test<chronos,true,logging>({&fss,&lts,&nmm,&ts}, runningtime, endowment, def);
             break;
         case ecompetition:
-            competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, runningtime, endowment, def, std::clog);
+        {
+            tcompetitiondef cdef;
+            cdef.timeofrun = runningtime;
+            cdef.endowment = endowment;
+            cdef.marketdef = def;
+            competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
+        }
             break;
         default:
             throw "unknown option";
