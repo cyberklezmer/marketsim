@@ -21,7 +21,7 @@ namespace marketsim
 			finitprice(100),
 			fbndmoney(0), fbndstocks(0),
 			fofferedvolume(1),
-			fldelta(100), fudelta(100),
+			fldelta(100), fudelta(200),
 			fdiscfact(0.99998), fepsparam(0.2), fKparam(3000),
             n(0),
 			W(T2vec(0, Tvec(0, 0.0))),
@@ -32,9 +32,9 @@ namespace marketsim
 
 		}
 	private:
-                virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult)
+        virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult)
 		{
-                        bool firsttime = lastresult == 0;
+            bool firsttime = lastresult == 0;
 			//initializations
 			tprice alpha = mi.alpha();
 			tprice beta = mi.beta();
@@ -73,8 +73,8 @@ namespace marketsim
 			if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
 			if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
 
-                        tprice da = std::min(std::max(mi.history().a(t) - alpha, beta - alpha - fldelta), beta - alpha + fudelta);
-                        tprice db = std::min(std::max(mi.history().b(t) - beta, alpha - beta - fudelta), alpha - beta + fldelta);
+            tprice da = std::min(std::max(mi.history().a(t) - alpha, beta - alpha - fldelta), beta - alpha + fudelta);
+            tprice db = std::min(std::max(mi.history().b(t) - beta, alpha - beta - fudelta), alpha - beta + fldelta);
 
 			//update information (c,d) about the last action of the market maker
 			int c = 0, d = 0;
@@ -104,7 +104,7 @@ namespace marketsim
 			double v = 0.0;
 			tprice m = mi.mywallet().money(); int s = mi.mywallet().stocks();
 			tprice a_best = p + 1; tprice b_best = std::min(double(m),p - 1); tprice cash_best = 0;
-                        for (tprice cash = 0; m - mi.myorderprofile().B.value() - cash >= 0 && m - b_best - cash >= 0; cash++)
+            for (tprice cash = 0; m - b_best - cash >= 0; cash++)
 				for (tprice b = alpha; (b > 0) && (m - cash - b >= 0) && (b >= alpha - fudelta); b--)
 					for (tprice a = beta; (a > b) && (a <= beta + fudelta); a++)
 					{
@@ -142,8 +142,6 @@ namespace marketsim
 				W[m][s_ind] = (s_ind < n) ? std::min(W[m][s_ind], w) : std::max(W[m][s_ind], w);
 
 			trequest ord;
-//			std::cout << " price is " << mi.history.p(t) << " current wallet: " << m << " _ " << n <<
-//				"buy _ sell orders at " << b_best << " _ " << a_best << " consuming " << cash_best << std::endl;
 			ord.addbuylimit(b_best, fofferedvolume);
 			ord.addselllimit(a_best, fofferedvolume);
 			ord.setconsumption(cash_best);
