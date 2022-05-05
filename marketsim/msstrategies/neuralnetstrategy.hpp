@@ -1,38 +1,36 @@
 #include "marketsim.hpp"
-#include <boost/math/constants/constants.hpp>
 #include "nets/actorcritic.hpp"
 
 namespace marketsim {
 
-    torch::Tensor action_log_prob(torch::Tensor mu, torch::Tensor std, torch::Tensor x) {
-        auto variance = std.pow(2);
-        auto log_scale = std.log();
-        auto subs = (-(x - mu).pow(2) / (2 * variance));
-        return subs - log_scale - std::log(std::sqrt(2 * boost::math::constants::pi<double>()));
-    }
-
+    template<typename TNet>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
-            net(std::make_unique<ActorCriticNet>()),
+            net(std::make_unique<TNet>()),
             optimizer(std::make_unique<torch::optim::SGD>(net->parameters(), /*lr=*/0.01)),
-            history() {}
+            history(),
+            gamma(0.99998) {}
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
+            auto next_state = nullptr;
+            auto reward = nullptr;
+            
             if (history.size() > 0) {
-                
+                auto state = nullptr;
+                auto action = nullptr;
+                auto returns = reward + net->predict_values(next_state).detach();
+
+                train(state, action, returns);
             }
 
-            // TODO ulož si prev state, action, spočítej reward (to je něco jako diff)
-            // one step boostrap to je jako network pred value next state
-
+            //TODO fce sample action do sítě
             
             // TODO
             //   - state dostanu jako current state (proste veci z marketu atd)
             //   - action si napredikuju
-            //   - a v tom ifu nahore si vemu posledni stav a akci, napredikuju value next_state a uz mam co potrebuju
-            //      - akorat reward je asi diff, takze neco z minulyho si asi taky ulozim
+            //   - akorat reward je diff, takze neco z minulyho si asi taky ulozim
 
             //history.push_back(std::make_pair(state, action));
 
@@ -40,26 +38,26 @@ namespace marketsim {
         }
 
         void train(torch::Tensor state, torch::Tensor actions, torch::Tensor returns) {
-            
+            optimizer->zero_grad();
 
             auto pred = net->forward(state);
-            auto action_mus = std::get<0>(pred);
-            auto action_stds = std::get<1>(pred);
-            auto state_value = std::get<2>(pred);
+            auto pred_actions = std::get<0>(pred);
+            auto state_value = std::get<1>(pred);
 
             auto advantages = (returns - state_value);
-            auto value_loss = advantages.pow(2).mean(); //TODO minus dole správně?
-            auto action_loss = -(advantages.detach() * action_log_prob(action_mus, action_stds, actions).sum()).mean();
+            auto value_loss = advantages.pow(2).mean(); 
+            auto action_probs = net->action_log_prob(actions, pred_actions);
+            auto action_loss = -(advantages.detach() * action_probs).mean(); //TODO minus správně?
             
             auto loss = value_loss + action_loss; //TODO entropy regularization
 
-            optimizer->zero_grad();
             loss.backward();
             optimizer->step();
         }
 
+        double gamma;
         std::vector<std::pair<torch::Tensor, torch::Tensor>> history;
-        std::unique_ptr<ActorCriticNet> net;
+        std::unique_ptr<TNet> net;
         std::unique_ptr<torch::optim::SGD> optimizer;
     };
 }
