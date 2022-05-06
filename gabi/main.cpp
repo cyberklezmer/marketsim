@@ -38,12 +38,14 @@ int main()
 
         tmarketdef def;
 
+        constexpr tprice reward_mult = 1000;
+
         // you can modify def, perhaps adjust logging etc
 
         // change accordingly but note that with chronos==true the streategies must be
         // descentants of marketsim::teventdrivenstrategy
         //using testedstrategy = maslovstrategy;
-        using testedstrategy = neuralnetstrategy;
+        using testedstrategy = neuralnetstrategy<ACContinuous<4, 256, 1>, reward_mult>;
           // should be the AI strategy
 
 
@@ -80,7 +82,7 @@ int main()
         competitor<testedstrategy,chronos> ts;
 
         // change accordingly
-        ewhattodo whattodo = ecompetition;
+        ewhattodo whattodo = erunall;
 
         switch(whattodo)
         {

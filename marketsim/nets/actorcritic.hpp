@@ -3,65 +3,54 @@
 
 
 namespace marketsim {
-    struct ActorCriticBase : torch::nn::Module {
-        ActorCriticBase(int state_size, int hidden_size) :
-            state_size(state_size),
-            hidden_size(hidden_size)
+    template<int state_size, int hidden_size>
+    struct ActorCriticBase : public torch::nn::Module {
+    public:
+        ActorCriticBase()
         {
-            linear = register_module("linear", torch::nn::Linear(state_size, hidden_size));
+            linear_critic = register_module("linear_critic", torch::nn::Linear(state_size, hidden_size));
+            linear_actor = register_module("linear_actor", torch::nn::Linear(state_size, hidden_size));
             critic = register_module("critic", torch::nn::Linear(hidden_size, 1));
         }
 
-        virtual std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool linear);
-        virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& x);
+        virtual ~ActorCriticBase() {}
 
-        torch::Tensor predict_linear(const torch::Tensor& x) {
-            return torch::relu(linear->forward(x));
+        virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& x) = 0;
+        virtual std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool sample) = 0;
+
+        torch::Tensor predict_values(torch::Tensor x) {
+            x = torch::relu(linear_critic->forward(x));
+            return torch::tanh(critic->forward(x));
         }
 
-        torch::Tensor predict_values(torch::Tensor x, bool linear) {
-            if (linear) {
-                x = predict_linear(x);
-            }
-            return critic->forward(x);
-        }
-
-        torch::Tensor predict_values(const torch::Tensor& x) {
-            return predict_values(x, true);
-        }
-
-        std::pair<std::vector<torch::Tensor>, torch::Tensor> forward(torch::Tensor x) {
-            x = predict_linear(x);
-            
-            auto actions = predict_actions(x, false);
-            auto state_values = predict_values(x, false);
+        std::pair<std::vector<torch::Tensor>, torch::Tensor> forward(torch::Tensor x) {            
+            auto actions = predict_actions(x);
+            auto state_values = predict_values(x);
             return std::make_pair<>(actions, state_values);
         }
 
         virtual torch::Tensor action_log_prob(const torch::Tensor& actions, const torch::Tensor& consumption,
-                                              const std::vector<torch::Tensor>& pred_actions);
+                                              const std::vector<torch::Tensor>& pred_actions) = 0;
 
-        int state_size, hidden_size;
-        torch::nn::Linear linear{nullptr}, critic{nullptr};
+        torch::nn::Linear linear_critic{nullptr}, linear_actor{nullptr}, critic{nullptr};
     };
 
     template<int state_size, int hidden_size, int action_scale>
-    struct ACContinuous : ActorCriticBase {
+    struct ACContinuous : ActorCriticBase<state_size, hidden_size> {
         ACContinuous() :
-            ActorCriticBase(state_size, hidden_size),
+            ActorCriticBase<state_size, hidden_size>(),
             action_size(2)
         {
             //TODO state_size?
-            actor_mu = register_module("actor_mu", torch::nn::Linear(hidden_size, action_size));
-            actor_std = register_module("actor_std", torch::nn::Linear(hidden_size, action_size));
-            consumption_mu = register_module("consumption_mu", torch::nn::Linear(hidden_size, 1));
-            consumption_std = register_module("consumption_std", torch::nn::Linear(hidden_size, 1));
+            actor_mu = this->register_module("actor_mu", torch::nn::Linear(hidden_size, action_size));
+            actor_std = this->register_module("actor_std", torch::nn::Linear(hidden_size, action_size));
+            consumption_mu = this->register_module("consumption_mu", torch::nn::Linear(hidden_size, 1));
+            consumption_std = this->register_module("consumption_std", torch::nn::Linear(hidden_size, 1));
         }
 
-        std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool linear, bool sample) {
-            if (linear) {
-                x = predict_linear(x);
-            }
+        std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool sample) {
+            x = torch::relu(this->linear_actor->forward(x));
+            
             auto mu = torch::tanh(actor_mu->forward(x)) * action_scale;
             auto std = torch::nn::functional::softplus(actor_std->forward(x));
 
@@ -76,12 +65,8 @@ namespace marketsim {
             return sample_actions(res);
         }
 
-        std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool linear) {
-            return predict_actions(x, linear, false);
-        }
-
         std::vector<torch::Tensor> predict_actions(const torch::Tensor& x) {
-            return predict_actions(x, true, true);
+            return predict_actions(x, false);
         }
 
         std::vector<torch::Tensor> sample_actions(std::vector<torch::Tensor> pred_actions) {
