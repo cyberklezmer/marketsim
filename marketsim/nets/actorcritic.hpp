@@ -13,9 +13,9 @@ namespace marketsim {
         }
 
         virtual std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool linear);
-        virtual std::vector<torch::Tensor> predict_actions(torch::Tensor x);
+        virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& x);
 
-        torch::Tensor predict_linear(torch::Tensor x) {
+        torch::Tensor predict_linear(const torch::Tensor& x) {
             return torch::relu(linear->forward(x));
         }
 
@@ -26,7 +26,7 @@ namespace marketsim {
             return critic->forward(x);
         }
 
-        torch::Tensor predict_values(torch::Tensor x) {
+        torch::Tensor predict_values(const torch::Tensor& x) {
             return predict_values(x, true);
         }
 
@@ -38,7 +38,7 @@ namespace marketsim {
             return std::make_pair<>(actions, state_values);
         }
 
-        virtual torch::Tensor action_log_prob(torch::Tensor actions, torch::Tensor consumption,
+        virtual torch::Tensor action_log_prob(const torch::Tensor& actions, const torch::Tensor& consumption,
                                               const std::vector<torch::Tensor>& pred_actions);
 
         int state_size, hidden_size;
@@ -58,7 +58,7 @@ namespace marketsim {
             consumption_std = register_module("consumption_std", torch::nn::Linear(hidden_size, 1));
         }
 
-        std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool linear) {
+        std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool linear, bool sample) {
             if (linear) {
                 x = predict_linear(x);
             }
@@ -67,14 +67,37 @@ namespace marketsim {
 
             auto cons_mu = torch::nn::functional::softplus(consumption_mu->forward(x));
             auto cons_std = torch::nn::functional::softplus(consumption_std->forward(x));
-            return std::vector<torch::Tensor>{mu, std, cons_mu, cons_std};
+            
+            auto res = std::vector<torch::Tensor>{mu, std, cons_mu, cons_std};
+            if (!sample) {
+                return res;
+            }
+
+            return sample_actions(res);
         }
 
-        std::vector<torch::Tensor> predict_actions(torch::Tensor x) {
-            return predict_actions(x, true);
+        std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool linear) {
+            return predict_actions(x, linear, false);
         }
 
-        torch::Tensor action_log_prob(torch::Tensor actions, torch::Tensor consumption,
+        std::vector<torch::Tensor> predict_actions(const torch::Tensor& x) {
+            return predict_actions(x, true, true);
+        }
+
+        std::vector<torch::Tensor> sample_actions(std::vector<torch::Tensor> pred_actions) {
+            auto mus = pred_actions.at(0);
+            auto stds = pred_actions.at(1);
+            
+            auto cons_mus = pred_actions.at(2);
+            auto cons_stds = pred_actions.at(3);
+
+            auto action_sample = normal_sample(mus, stds);
+            auto cons_sample = normal_sample(cons_mus, cons_stds);
+
+            return std::vector<torch::Tensor>{action_sample, cons_sample};
+        }
+
+        torch::Tensor action_log_prob(const torch::Tensor& actions, const torch::Tensor& consumption,
                                       const std::vector<torch::Tensor>& pred_actions) {
 
             auto mus = pred_actions.at(0);
