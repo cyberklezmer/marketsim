@@ -24,7 +24,7 @@ namespace marketsim {
         }
 
         std::pair<std::vector<torch::Tensor>, torch::Tensor> forward(torch::Tensor x) {            
-            auto actions = predict_actions(x);
+            auto actions = predict_actions(x, false);
             auto state_values = predict_values(x);
             return std::make_pair<>(actions, state_values);
         }
@@ -66,7 +66,7 @@ namespace marketsim {
         }
 
         std::vector<torch::Tensor> predict_actions(const torch::Tensor& x) {
-            return predict_actions(x, false);
+            return predict_actions(x, true);
         }
 
         std::vector<torch::Tensor> sample_actions(std::vector<torch::Tensor> pred_actions) {

@@ -45,7 +45,7 @@ int main()
         // change accordingly but note that with chronos==true the streategies must be
         // descentants of marketsim::teventdrivenstrategy
         //using testedstrategy = maslovstrategy;
-        using testedstrategy = neuralnetstrategy<ACContinuous<4, 256, 1>, reward_mult>;
+        using testedstrategy = neuralnetstrategy<ACContinuous<4, 256, 1>>;
           // should be the AI strategy
 
 
