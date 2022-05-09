@@ -20,7 +20,7 @@ namespace marketsim {
 
         torch::Tensor predict_values(torch::Tensor x) {
             x = torch::relu(linear_critic->forward(x));
-            return torch::tanh(critic->forward(x));
+            return critic->forward(x);
         }
 
         std::pair<std::vector<torch::Tensor>, torch::Tensor> forward(torch::Tensor x) {            

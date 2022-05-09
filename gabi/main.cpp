@@ -13,6 +13,9 @@
 #include "msstrategies/firstsecondstrategy.hpp"
 #include "msstrategies/neuralnetstrategy.hpp"
 
+#include "nets/actorcritic.hpp"
+#include "nets/trainer.hpp"
+
 #include <torch/torch.h>
 
 using namespace marketsim;
@@ -45,10 +48,13 @@ int main()
         // change accordingly but note that with chronos==true the streategies must be
         // descentants of marketsim::teventdrivenstrategy
         //using testedstrategy = maslovstrategy;
-        using testedstrategy = neuralnetstrategy<ACContinuous<4, 256, 1>>;
+
+        constexpr int n_steps = 5;
+        using network = ACContinuous<4, 256, 1>;
+        using trainer = NStepTrainer<network, n_steps>;
+
+        using testedstrategy = neuralnetstrategy<trainer>;
           // should be the AI strategy
-
-
 
         //firstsecondstrategy<10,10>;
 

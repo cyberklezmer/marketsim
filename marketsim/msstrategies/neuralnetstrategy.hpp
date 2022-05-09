@@ -1,6 +1,5 @@
 #include "marketsim.hpp"
-#include "nets/actorcritic.hpp"
-#include "nets/proba.hpp"
+#include <torch/torch.h>
 
 
 namespace marketsim {
@@ -16,8 +15,7 @@ namespace marketsim {
             history(),
 			finitprice(100),
             last_bid(klundefprice),
-            last_ask(khundefprice),
-            gamma(0.99998) {}
+            last_ask(khundefprice) {}
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
@@ -28,6 +26,8 @@ namespace marketsim {
             torch::Tensor next_action = pred_actions.at(0);
             torch::Tensor next_cons = pred_actions.at(1);
             next_cons = this->modify_consumption(mi, next_cons);
+
+            std::cout << "\nActions: " << next_action << "\nConsume: " << next_cons << std::endl;
 
             history.push_back(std::make_tuple<>(next_state, next_action, next_cons));
 
@@ -44,6 +44,8 @@ namespace marketsim {
             
             std::vector<float> state_data = std::vector<float>{float(m), float(s), float(a), float(b)};
 
+            std::cout << state_data << std::endl;
+
             auto options = torch::TensorOptions().dtype(torch::kFloat32);
             return torch::from_blob((float*)state_data.data(), {1, 4}, options);
         }
@@ -53,8 +55,9 @@ namespace marketsim {
 
             double lim = (mi.mywallet().money() - mi.myorderprofile().B.value()) / 2;
             conspred = conspred >= lim ? lim : conspred;
+            conspred = conspred < 0 ? 1.0 : conspred;
 
-            return torch::tensor({conspred});
+            return torch::tensor({conspred}).reshape({1,1});
         }
 
         virtual trequest construct_order(const tmarketinfo& mi, const torch::Tensor& actions, const torch::Tensor& cons) {
@@ -78,10 +81,7 @@ namespace marketsim {
         }
 
 		tprice last_bid, last_ask;
-
         double finitprice;
-        double gamma;
-        tprice reward_scale;
 
         TNet net;
         std::vector<std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>> history;
