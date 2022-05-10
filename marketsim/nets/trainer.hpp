@@ -29,13 +29,17 @@ namespace marketsim {
             }
 
             // get data for training
-            auto curr = history.back();
+            size_t idx = history.size() - N;
+
+            auto curr = history.at(idx);
             torch::Tensor state = std::get<0>(curr);
             torch::Tensor actions = std::get<1>(curr);
             torch::Tensor cons = std::get<2>(curr);
             torch::Tensor returns = compute_returns(history, next_state);
-            std::cout << "\nReturns " << returns.item<double>() << std::endl;
-            std::cout << "State: " << state << std::endl;
+            //std::cout << "\nReturns " << returns.item<double>() << std::endl;
+            //std::cout << "State: " << state << std::endl;
+
+            state = modify_state(state);
 
             // main loop
             optimizer->zero_grad();
@@ -64,10 +68,21 @@ namespace marketsim {
         }
     
     virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& state) {
-        return net->predict_actions(state);
+        torch::NoGradGuard no_grad;
+        torch::Tensor x = modify_state(state);
+        return net->predict_actions(x);
     }
 
     private:
+        torch::Tensor modify_state(torch::Tensor x) {
+            x[0][0] /= 1000;
+            for (int i = 1; i <= 3; ++i) {
+                x[0][i] /= 10000;
+            }
+
+            return x;
+        }
+
         torch::Tensor compute_returns(const std::vector<hist_entry>& history, const torch::Tensor& next_state) {
             double curr_gamma = 1.0;
             double returns = 0.0;
@@ -80,19 +95,22 @@ namespace marketsim {
                 double cons =  std::get<2>(entry).item<double>();
                 double rew = get_reward_diff(std::get<0>(entry), next);
 
-                std::cout << "\nConsumption: " << cons << "Reward: " << rew << std::endl;
+                //std::cout << "\nConsumption: " << cons << "Reward: " << rew << std::endl;
                 returns += curr_gamma * (cons + rew);
                 curr_gamma *= gamma;
             }
 
-            std::cout << "\n\nReturns without estimate: " << returns << "Gamma: " << curr_gamma << std::endl;
+            //std::cout << "\n\nReturns without estimate: " << returns << "Gamma: " << curr_gamma << std::endl;
 
             auto tensor_returns = torch::tensor({returns}).reshape({1,1});
-            tensor_returns += curr_gamma * net->predict_values(next_state);  //TODO preprocess state?
+            tensor_returns += curr_gamma * net->predict_values(modify_state(next_state));  //TODO preprocess state?
             return tensor_returns;
         }
 
         double get_reward_diff(const torch::Tensor& state, const torch::Tensor& next_state) {
+            //torch::Tensor state = modify_state(s);
+            //torch::Tensor next_state = modify_state(ns);
+
             double mdiff = next_state[0][0].item<double>() - state[0][0].item<double>();
             
             double next_stock = next_state[0][3].item<double>() * next_state[0][1].item<double>();

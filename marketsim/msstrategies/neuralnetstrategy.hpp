@@ -7,7 +7,7 @@ namespace marketsim {
     std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice finitprice,
                                              tprice last_bid, tprice last_ask);
 
-    template<typename TNet>
+    template<typename TNet, int cons_mult>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
@@ -22,12 +22,14 @@ namespace marketsim {
             torch::Tensor next_state = this->construct_state(mi);
             net.train(history, next_state);
 
+            //std::cout << "Tensor: " << next_state << std::endl;
+
             auto pred_actions = net.predict_actions(next_state);
             torch::Tensor next_action = pred_actions.at(0);
             torch::Tensor next_cons = pred_actions.at(1);
             next_cons = this->modify_consumption(mi, next_cons);
 
-            std::cout << "\nActions: " << next_action << "\nConsume: " << next_cons << std::endl;
+            //std::cout << "\nActions: " << next_action << "\nConsume: " << next_cons << std::endl;
 
             history.push_back(std::make_tuple<>(next_state, next_action, next_cons));
 
@@ -44,10 +46,10 @@ namespace marketsim {
             
             std::vector<float> state_data = std::vector<float>{float(m), float(s), float(a), float(b)};
 
-            std::cout << state_data << std::endl;
+            //std::cout << state_data << std::endl;  //TODO tady se děje chyba protože cplusko je děvka
 
-            auto options = torch::TensorOptions().dtype(torch::kFloat32);
-            return torch::from_blob((float*)state_data.data(), {1, 4}, options);
+            //auto options = torch::TensorOptions().dtype(torch::kFloat32);
+            return torch::tensor(state_data).reshape({1,4});
         }
 
         virtual torch::Tensor modify_consumption(const tmarketinfo& mi, const torch::Tensor& cons) {
@@ -75,7 +77,7 @@ namespace marketsim {
             trequest ord;
 			ord.addbuylimit(last_bid, 1);
 			ord.addselllimit(last_ask, 1);  //TODO u vsech resit jak presne dat na int
-			ord.setconsumption(int(conspred));
+			ord.setconsumption(int(conspred * cons_mult));
 
             return ord;
         }
@@ -99,6 +101,7 @@ namespace marketsim {
 			if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
 			if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
 
+            //std::cout << "a" << alpha << "b" << beta << std::endl;
             return std::make_pair<>(alpha, beta);
     }
 }

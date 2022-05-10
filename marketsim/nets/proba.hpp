@@ -7,8 +7,8 @@
 namespace marketsim {
 
     torch::Tensor normal_log_proba(const torch::Tensor& x, const torch::Tensor& mu, const torch::Tensor& std) {
-        std::cout << "x, mu, std" << std::endl;
-        std::cout << x << mu << std << std::endl;
+        //std::cout << "x, mu, std" << std::endl;
+        //std::cout << x << mu << std << std::endl;
 
         auto variance = std.exp().pow(2);
         auto log_std = std;
@@ -20,6 +20,7 @@ namespace marketsim {
 
     torch::Tensor normal_sample(const torch::Tensor& mus, const torch::Tensor& stds) {
         auto rand_norm = torch::randn_like(mus);
+        //std::cout << "Mus, stds: " << mus << ", " << stds << std::endl;
         //return stds * rand_norm + mus;
         return stds.exp() * rand_norm + mus;
     }

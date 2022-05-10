@@ -41,8 +41,6 @@ int main()
 
         tmarketdef def;
 
-        constexpr tprice reward_mult = 1000;
-
         // you can modify def, perhaps adjust logging etc
 
         // change accordingly but note that with chronos==true the streategies must be
@@ -50,10 +48,11 @@ int main()
         //using testedstrategy = maslovstrategy;
 
         constexpr int n_steps = 5;
+        constexpr int cons_mult = 500;
         using network = ACContinuous<4, 256, 1>;
         using trainer = NStepTrainer<network, n_steps>;
 
-        using testedstrategy = neuralnetstrategy<trainer>;
+        using testedstrategy = neuralnetstrategy<trainer, cons_mult>;
           // should be the AI strategy
 
         //firstsecondstrategy<10,10>;
@@ -88,7 +87,7 @@ int main()
         competitor<testedstrategy,chronos> ts;
 
         // change accordingly
-        ewhattodo whattodo = erunall;
+        ewhattodo whattodo = ecompetition;
 
         switch(whattodo)
         {
