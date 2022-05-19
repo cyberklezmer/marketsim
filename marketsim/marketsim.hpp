@@ -592,7 +592,7 @@ public:
         forderrequest(orderrequest),
         feraserequest(eraserequest)
     {}
-    /// constructs epmty request
+    /// constructs empty request
     trequest() : fconsumption(0),
         forderrequest(), feraserequest(false) {}
     /// accessor
@@ -2078,15 +2078,15 @@ public:
         }
         catch (marketsim::error& e)
         {
-            errtxt = std::string("ruh throwed marketsime error: ") + e.what();
+            errtxt = std::string("run throwed marketsime error: ") + e.what();
         }
         catch (chronos::error& e)
         {
-            errtxt = std::string("ruh throwed chronos error: ") + e.what();
+            errtxt = std::string("run throwed chronos error: ") + e.what();
         }
         catch (...)
         {
-            errtxt = "ruh throwed unknown error.";
+            errtxt = "run throwed unknown error.";
         }
 
         if(islogging() && !isdirectlogging())

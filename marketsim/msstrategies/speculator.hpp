@@ -1,14 +1,14 @@
-#ifndef TADPMARKETMAKER_HPP
-#define TADPMARKETMAKER_HPP
+#ifndef SPECULATOR_HPP
+#define SPECULATOR_HPP
 
 #include "marketsim.hpp"
 #include <numeric>
 namespace marketsim
 {
 
-	///  A market making strategy based on approximate dynamic programming
+	///A speculative strategy based on approximate dynamic programming
 
-	class tadpmarketmaker : public teventdrivenstrategy
+	class speculator : public teventdrivenstrategy
 	{
 		using Tvec = std::vector<double>;
 		using T2vec = std::vector<Tvec>;
@@ -16,22 +16,23 @@ namespace marketsim
 		using T4vec = std::vector<T3vec>;
 
 	public:
-		tadpmarketmaker() :teventdrivenstrategy(1)
+		speculator()
+			: teventdrivenstrategy(1)
 		{
-			finitprice = 100, fofferedvolume = 1;
+			finitprice = 100; //TBD change this to something more dynamic
+			fofferedvolume = 1;
 			fbndmoney = 0, fbndstocks = 0;
-			fldelta = finitprice, fudelta = 2 * finitprice;
+			fldelta = 100, fudelta = 200;
 			W = T2vec(fbndmoney + 1, Tvec(fbndstocks + 1, 0.0));
 			N = P = T4vec(2, T3vec(2, T2vec(fldelta + fudelta + 1, Tvec(fldelta + fudelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
 			fKparam = 3000, fepsparam = 0.2, fdiscfact = 0.99998;
 			n = 0;
 		}
-
 	private:
-        virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult)
+		virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult)
 		{
-            bool firsttime = lastresult == 0;
+			bool firsttime = lastresult == 0;
 			//initializations
 			tprice alpha = mi.alpha();
 			tprice beta = mi.beta();
@@ -44,9 +45,9 @@ namespace marketsim
 				fbndstocks = mi.mywallet().stocks() + 100;
 				for (int i = 0; i <= fbndmoney; i++)
 					for (int j = 0; j <= fbndstocks; j++)
-					{
+					{ 
 						W[i][j] = (i == 0 && i == j) ? 0 : (1.0 - pow(fdiscfact, i + j * finitprice)) / (1.0 - fdiscfact);
-						//W[i][j] = i + j * finitprice;	
+						//W[i][j] = i + j * finitprice;
 					}
 				//initialize N
 				for (int a = 0; a <= fldelta + fudelta; a++)
@@ -69,10 +70,10 @@ namespace marketsim
 			if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
 			if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
 
-            tprice da = std::min(std::max(mi.history().a(t) - alpha, beta - alpha - fldelta), beta - alpha + fudelta);
-            tprice db = std::min(std::max(mi.history().b(t) - beta, alpha - beta - fudelta), alpha - beta + fldelta);
+			tprice da = std::min(std::max(mi.history().a(t) - alpha, beta - alpha - fldelta), beta - alpha + fudelta);
+			tprice db = std::min(std::max(mi.history().b(t) - beta, alpha - beta - fudelta), alpha - beta + fldelta);
 
-			//update information (c,d) about the last action of the market maker
+			//update information (c,d) about the last action
 			int c = 0, d = 0;
 			if (mi.mywallet().stocks() < n) { c = 1; n--; }
 			if (mi.mywallet().stocks() > n) { d = 1; n++; }
@@ -99,10 +100,10 @@ namespace marketsim
 			//calculate value function
 			double v = 0.0;
 			tprice m = mi.mywallet().money(); int s = mi.mywallet().stocks();
-			tprice a_best = p + 1; tprice b_best = std::min(double(m),p - 1); tprice cash_best = 0;
-            for (tprice cash = 0; m - b_best - cash >= 0; cash++)
-				for (tprice b = alpha - fudelta; (b > 0) && (m - cash - b >= 0) && (b < alpha); b++)
-					for (tprice a = beta + fudelta; (a > b) && (a > beta); a--)
+			tprice a_best = p + 1; tprice b_best = std::min(double(m), p - 1); tprice cash_best = 0;
+			for (tprice cash = 0; m - b_best - cash >= 0; cash++)
+				for (tprice b = alpha; (b > 0) && (m - cash - b >= 0) && (b >= alpha - fudelta); b--)
+					for (tprice a = beta; (a > b) && (a <= beta + fudelta); a++)
 					{
 						tprice da = std::min(std::max(a - alpha, beta - alpha - fldelta), beta - alpha + fudelta);
 						tprice db = std::min(std::max(b - beta, alpha - beta - fudelta), alpha - beta + fldelta);
@@ -141,13 +142,18 @@ namespace marketsim
 			ord.addbuylimit(b_best, fofferedvolume);
 			ord.addselllimit(a_best, fofferedvolume);
 			ord.setconsumption(cash_best);
-            return ord;
+			return ord;
 		}
 
 		tprice finitprice;
 		tvolume fofferedvolume;
-		double fdiscfact, fepsparam;
-		int fKparam, fbndmoney, fbndstocks, fldelta, fudelta;
+		double
+			fdiscfact,
+			fepsparam;
+		int fKparam,
+			fbndmoney, fbndstocks,
+			fldelta,
+			fudelta;
 		int n;
 		T2vec W;
 		T4vec N, P;
@@ -157,4 +163,4 @@ namespace marketsim
 } // namespace
 
 
-#endif // TADPMARKETMAKER_HPP
+#endif // SPECULATOR_HPP
