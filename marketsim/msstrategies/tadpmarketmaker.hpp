@@ -2,7 +2,9 @@
 #define TADPMARKETMAKER_HPP
 
 #include "marketsim.hpp"
-#include <numeric>
+#include<fstream>
+#include<algorithm>
+
 namespace marketsim
 {
 
@@ -20,11 +22,10 @@ namespace marketsim
 		{
 			finitprice = 100, fofferedvolume = 1;
 			fbndmoney = 0, fbndstocks = 0;
-			fldelta = finitprice, fudelta = 2 * finitprice;
-			W = T2vec(0, Tvec(0, 0.0));
+			fldelta = finitprice, fudelta = finitprice;
 			N = P = T4vec(2, T3vec(2, T2vec(fldelta + fudelta + 1, Tvec(fldelta + fudelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
-			fKparam = 3000, fepsparam = 0.2, fdiscfact = 0.99998;
+			Kparam = 3000, fepsparam = 0.2, fdiscfact = 0.99998;
 			n = 0;
 		}
 
@@ -52,6 +53,7 @@ namespace marketsim
 					}
 				}
 				//initialize N
+				countKparam = Kparam;
 				for (int a = 0; a <= fldelta + fudelta; a++)
 				{
 					for (int b = 0; b <= fldelta + fudelta; b++)
@@ -59,9 +61,9 @@ namespace marketsim
 						double pra = (a < fudelta) ? 0.25 : ((a > fudelta) ? 0.0 : 1.0 / 3);
 						double prb = (b > fldelta) ? 0.25 : ((b < fldelta) ? 0.0 : 1.0 / 3);
 						N[1][1][a][b] = 0;
-						N[1][0][a][b] = fKparam * pra;
-						N[0][1][a][b] = fKparam * prb;
-						N[0][0][a][b] = fKparam - N[1][0][a][b] - N[0][1][a][b];
+						N[1][0][a][b] = Kparam * pra;
+						N[0][1][a][b] = Kparam * prb;
+						N[0][0][a][b] = Kparam - N[1][0][a][b] - N[0][1][a][b];
 					}
 				}
 				n = mi.mywallet().stocks();
@@ -82,29 +84,20 @@ namespace marketsim
 
 			//update and normalize N
 			N[c][d][da - (beta - alpha - fldelta)][db - (alpha - beta - fudelta)]++;
+			countKparam++;
 
-			for (int a = 0; a <= fudelta + fldelta; a++)
-				for (int b = 0; b <= fudelta + fldelta; b++)
-				{
-					double sum = 0.0;
+			for (int a = 0; a <= fldelta + fudelta; a++)
+				for (int b = 0; b <= fldelta + fudelta; b++)
 					for (unsigned i = 0; i < N.size(); i++)
 						for (unsigned j = 0; j < N[0].size(); j++)
-							sum += N[i][j][a][b];
-
-					if (sum > 0)
-					{
-						for (unsigned i = 0; i < N.size(); i++)
-							for (unsigned j = 0; j < N[0].size(); j++)
-								P[i][j][a][b] = N[i][j][a][b] / sum;
-					}
-				}
+							P[i][j][a][b] = N[i][j][a][b] / countKparam;
 
 			//calculate value function
 			double v = 0.0;
 			tprice m = mi.mywallet().money(); int s = mi.mywallet().stocks();
 			tprice a_best = p + 1; tprice b_best = std::min(double(m),p - 1); tprice cash_best = 0;
-            for (tprice cash = 0; m - b_best - cash >= 0; cash++)
-				for (tprice b = alpha - fudelta; (b > 0) && (m - cash - b >= 0) && (b < alpha); b++)
+            for (tprice cash = 0; cash <= m - b_best; cash++)
+				for (tprice b = std::max(alpha - fudelta, 1); (b < alpha) && (m - cash - b >= 0); b++)
 					for (tprice a = beta + fudelta; (a > b) && (a > beta); a--)
 					{
 						tprice da = std::min(std::max(a - alpha, beta - alpha - fldelta), beta - alpha + fudelta);
@@ -116,10 +109,10 @@ namespace marketsim
 						for (int C = 0; C <= 1; C++)
 							for (int D = 0; (D <= 1) && (s + D - C >= 0); D++)
 							{
-								u_best += cash_best + fdiscfact * W[m - cash_best - D * b_best + C * a_best][s + D - C]
-									* P[C][D][da_best - (beta - alpha - fldelta)][db_best - (alpha - beta - fudelta)];
-								u += cash + fdiscfact * W[m - cash - D * b + C * a][s + D - C]
-									* P[C][D][da - (beta - alpha - fldelta)][db - (alpha - beta - fudelta)];
+								u_best += cash_best + fdiscfact * W[m - cash_best - D * b_best + C * a_best][s + D - C] *
+									P[C][D][da_best - (beta - alpha - fldelta)][db_best - (alpha - beta - fudelta)];
+								u += cash + fdiscfact * W[m - cash - D * b + C * a][s + D - C] * 
+									P[C][D][da - (beta - alpha - fldelta)][db - (alpha - beta - fudelta)];
 							}
 						if (u_best < u)
 						{
@@ -135,10 +128,12 @@ namespace marketsim
 
 			//projection operator
 			double w = fepsparam * v + (1.0 - fepsparam) * W[m][s];
+			W[m][s] = w;
 			for (int m_ind = 0; m_ind < W.size(); m_ind++)
 				W[m_ind][n] = (m_ind < m) ? std::min(W[m_ind][n], w) : std::max(W[m_ind][n], w);
 			for (int s_ind = 0; s_ind < W[0].size(); s_ind++)
 				W[m][s_ind] = (s_ind < n) ? std::min(W[m][s_ind], w) : std::max(W[m][s_ind], w);
+
 
 			trequest ord;
 			ord.addbuylimit(b_best, fofferedvolume);
@@ -147,14 +142,38 @@ namespace marketsim
             return ord;
 		}
 
+		/*virtual void sequel(const tmarketinfo&)
+		{
+			std::ofstream out_valfunc, out_valfunc_init;
+			out_valfunc.open("valfunc.csv");
+			for(int i = 0; i < W.size(); i++)
+			{
+				for (int j = 0; j < W[0].size(); j++)
+					out_valfunc << W[i][j] << ",";
+				out_valfunc << "\n";
+			}
+
+			out_valfunc_init.open("valfunc_init.csv");
+			for(int i = 0; i < W.size(); i++)
+			{ 
+				for (int j = 0; j < W[0].size(); j++)
+				{ 
+					double r = (i == 0 && i == j) ? 0 : (1.0 - pow(fdiscfact, i + j * finitprice)) / (1.0 - fdiscfact);
+					out_valfunc_init << r << ",";
+				}
+				out_valfunc_init << "\n";
+			}
+		}*/
+
 		tprice finitprice;
 		tvolume fofferedvolume;
 		double fdiscfact, fepsparam;
-		int fKparam, fbndmoney, fbndstocks, fldelta, fudelta;
+		int Kparam, countKparam, fbndmoney, fbndstocks, fldelta, fudelta;
 		int n;
 		T2vec W;
 		T4vec N, P;
 		tprice last_bid, last_ask;
+
 	};
 
 } // namespace

@@ -107,7 +107,7 @@ int main()
             // has more money than five times the price, it consumes. The volume of
             // the orders is always 10
 
-            competitor<naivemmstrategy<10>,chronos> nmm;
+            competitor<naivemmstrategy<1>,chronos> nmm;
 
             // our ingenious strategy
             competitor<testedstrategy,chronos> ts;
@@ -116,6 +116,7 @@ int main()
             cdef.timeofrun = runningtime;
             cdef.endowment = endowment;
             cdef.marketdef = def;
+            cdef.samplesize = 1;
             competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
 
             }
