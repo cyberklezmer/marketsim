@@ -113,9 +113,10 @@ int main()
             competitor<testedstrategy,chronos> ts;
 
             tcompetitiondef cdef;
-            cdef.timeofrun = runningtime;
+            cdef.timeofrun = 1000;
             cdef.endowment = endowment;
             cdef.marketdef = def;
+            cdef.samplesize = 20;
             competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
 
             }

@@ -52,6 +52,8 @@ int main()
         cdef.timeofrun = runningtime;
         cdef.endowment = endowment;
         cdef.marketdef = def;
+        cdef.samplesize = 30;
+
         competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
 
 
