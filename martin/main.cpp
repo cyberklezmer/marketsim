@@ -11,6 +11,8 @@
 #include "marketsim/tests.hpp"
 #include "msstrategies/tadpmarketmaker.hpp"
 #include "msstrategies/naivemmstrategy.hpp"
+#include "msstrategies/firstsecondstrategy.hpp"
+#include "msstrategies/liquiditytakers.hpp"
 
 using namespace marketsim;
 
@@ -19,11 +21,44 @@ int main()
 {
     try
     {
-std::cout << "Without chronos: " << std::endl;
-        testcompetetwo<tadpmarketmaker,naivemmstrategy,false,false>(10);
+        constexpr bool chronos = false;
+        constexpr bool logging = false;
+        constexpr tabstime runningtime = 1000;
+        twallet endowment(5000,100);
+        tmarketdef def;
 
-std::cout << std::endl <<"With chronos: " << std::endl;
-        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,false>(1000);
+    competitor<firstsecondstrategy<40,10>,chronos,true> fss;
+
+    // this strategy simulates liquidity takers:
+    // 360 times per hour on average it puts a market order with volume 5 on average
+    competitor<liquiditytakers<360,5>,chronos,true> lts;
+
+
+    // competing strategies
+
+    // this strategy just wants to put orders into spread and when it
+    // has more money than five times the price, it consumes. The volume of
+    // the orders is always 10
+
+        competitor<naivemmstrategy<10>,chronos> nmm;
+
+
+    // our ingenious strategy
+        using testedstrategy = tadpmarketmaker;
+
+        competitor<testedstrategy,chronos> ts;
+
+        tcompetitiondef cdef;
+        cdef.timeofrun = runningtime;
+        cdef.endowment = endowment;
+        cdef.marketdef = def;
+        competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
+
+
+
+
+//std::cout << std::endl <<"With chronos: " << std::endl;
+//        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,false>(1000);
 
 
 //        testsingle<tadpmarketmaker,false,false>(); // without chronos

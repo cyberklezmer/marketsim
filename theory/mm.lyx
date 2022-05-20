@@ -141,7 +141,8 @@ where
 \begin_inset Formula $b_{t}<a_{t}$
 \end_inset
 
- so that the amount of money and stocks including reservations is non-negative.
+ so that the amount of money and stocks including those blocked by the market
+ to back limit order is non-negative.
  
 \end_layout
 
@@ -276,7 +277,7 @@ where
 \begin_inset Formula $F$
 \end_inset
 
- is a complex random function.
+ is a very complex random function.
  
 \end_layout
 
@@ -1365,7 +1366,7 @@ As for the distribution of
 \end_inset
 
 .
-  
+ 
 \end_layout
 
 \begin_layout Section*
