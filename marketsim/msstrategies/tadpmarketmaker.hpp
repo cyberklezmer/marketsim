@@ -21,7 +21,7 @@ namespace marketsim
 			finitprice = 100, fofferedvolume = 1;
 			fbndmoney = 0, fbndstocks = 0;
 			fldelta = finitprice, fudelta = 2 * finitprice;
-			W = T2vec(fbndmoney + 1, Tvec(fbndstocks + 1, 0.0));
+			W = T2vec(0, Tvec(0, 0.0));
 			N = P = T4vec(2, T3vec(2, T2vec(fldelta + fudelta + 1, Tvec(fldelta + fudelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
 			fKparam = 3000, fepsparam = 0.2, fdiscfact = 0.99998;
@@ -42,12 +42,15 @@ namespace marketsim
 				//initialize W
 				fbndmoney = mi.mywallet().money() * 10;
 				fbndstocks = mi.mywallet().stocks() + 100;
+				W = T2vec(fbndmoney + 1, Tvec(fbndstocks + 1, 0.0));
 				for (int i = 0; i <= fbndmoney; i++)
+				{
 					for (int j = 0; j <= fbndstocks; j++)
-					{
+					{ 
 						W[i][j] = (i == 0 && i == j) ? 0 : (1.0 - pow(fdiscfact, i + j * finitprice)) / (1.0 - fdiscfact);
 						//W[i][j] = i + j * finitprice;	
 					}
+				}
 				//initialize N
 				for (int a = 0; a <= fldelta + fudelta; a++)
 				{
