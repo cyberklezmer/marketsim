@@ -25,7 +25,7 @@ namespace marketsim
 			fldelta = finitprice, fudelta = finitprice;
 			N = P = T4vec(2, T3vec(2, T2vec(fldelta + fudelta + 1, Tvec(fldelta + fudelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
-			Kparam = 3000, fepsparam = 0.2, fdiscfact = 0.99998;
+			Kparam = 3000, fepsparam = 0.2, fdiscfact = 0.9998;
 			n = 0;
 		}
 
