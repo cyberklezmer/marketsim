@@ -11,7 +11,7 @@ class generalmaslovstrategy: public teventdrivenstrategy
 {
 public:
        generalmaslovstrategy()
-           : teventdrivenstrategy(std::max(1.0 / eventspersec, 1.0),true)
+           : teventdrivenstrategy(1.0 / std::max( eventspersec, 1),true)
        {
            fsigma = sqrt(pow(volatilityperc / 100,2) / ( 24 * 3600* 365 ) * interval());
            flogfair = 2+3 * uniform();
@@ -21,7 +21,7 @@ public:
        {
            flogfair += w(fengine) * fsigma;
            double logprice = flogfair
-               + static_cast<double>(windowsize) * uniform() / 2.0;
+               + static_cast<double>(windowsize) * (uniform() - 0.5)/ 2.0;
            bool buy = uniform() > 0.5;
            tprice lprice = static_cast<tprice>(exp(logprice) + 0.5);
            tpreorderprofile pp;

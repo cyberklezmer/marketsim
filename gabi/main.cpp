@@ -9,9 +9,10 @@
 #include "marketsim/competition.hpp"
 #include "marketsim/tests.hpp"
 #include "msstrategies/naivemmstrategy.hpp"
+#include "msstrategies/liquiditytakers.hpp"
+#include "msstrategies/firstsecondstrategy.hpp"
 
 using namespace marketsim;
-
 
 int main()
 {
@@ -35,17 +36,44 @@ int main()
 
         // change accordingly but note that with chronos==true the streategies must be
         // descentants of marketsim::teventdrivenstrategy
-        using testedstrategy = naivemmstrategy<1>;
-        using secondtestedstrategy = naivemmstrategy<1>;
+        using testedstrategy = maslovstrategy;
+          // should be the AI strategy
+
+
+
+        //firstsecondstrategy<10,10>;
 
 
         enum ewhattodo { esinglerunsinglestrategy,
-                         esinglerunstrategyandmaslov,
-                         ecompetesinglestrategyandandmaslov,
-                         ecompetetwostrategiesandandmaslov };
+                         erunall,
+                         ecompetition };
+
+
+
+        // built in strategies
+
+        // this strategy makes 40 random orders during the first second
+        competitor<firstsecondstrategy<40,10>,chronos,true> fss;
+
+        // this strategy simulates liquidity takers:
+        // 360 times per hour on average it puts a market order with volume 5 on average
+        competitor<liquiditytakers<360,5>,chronos,true> lts;
+
+
+        // competing strategies
+
+
+        // this strategy just wants to put orders into spread and when it
+        // has more money than five times the price, it consumes. The volume of
+        // the orders is always 10
+
+        competitor<naivemmstrategy<10>,chronos> nmm;
+
+        // our ingenious strategy
+        competitor<testedstrategy,chronos> ts;
 
         // change accordingly
-        ewhattodo whattodo = ecompetetwostrategiesandandmaslov;
+        ewhattodo whattodo = ecompetition;
 
         switch(whattodo)
         {
@@ -55,33 +83,17 @@ int main()
                 test<chronos,true,logging>({&s},runningtime,endowment,def);
             }
             break;
-        case esinglerunstrategyandmaslov:
-            {
-                competitor<testedstrategy,chronos> s;
-                competitor<maslovstrategy,chronos> m;
-                test<chronos,true,logging>({&s,&m},runningtime,endowment,def);
-            }
+        case erunall:
+            test<chronos,true,logging>({&fss,&lts,&nmm,&ts}, runningtime, endowment, def);
             break;
-        case ecompetesinglestrategyandandmaslov:
-            {
-                tcompetitiondef cdef;
-                cdef.timeofrun = runningtime;
-                cdef.endowment = endowment;
-                cdef.marketdef = def;
-                competitor<testedstrategy,chronos> s;
-                competitionwithmaslov<chronos,true,logging>({&s}, cdef, std::clog);
-            }
-            break;
-        case ecompetetwostrategiesandandmaslov:
-            {
-                competitor<testedstrategy,chronos> fs;
-                competitor<secondtestedstrategy,chronos> ss;
-                tcompetitiondef cdef;
-                cdef.timeofrun = runningtime;
-                cdef.endowment = endowment;
-                cdef.marketdef = def;                
-                competitionwithmaslov<chronos,true,logging>({&fs,&ss}, cdef, std::clog);
-            }
+        case ecompetition:
+        {
+            tcompetitiondef cdef;
+            cdef.timeofrun = runningtime;
+            cdef.endowment = endowment;
+            cdef.marketdef = def;
+            competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
+        }
             break;
         default:
             throw "unknown option";

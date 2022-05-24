@@ -141,7 +141,8 @@ where
 \begin_inset Formula $b_{t}<a_{t}$
 \end_inset
 
- so that the amount of money and stocks including reservations is non-negative.
+ so that the amount of money and stocks including those blocked by the market
+ to back limit order is non-negative.
  
 \end_layout
 
@@ -276,7 +277,7 @@ where
 \begin_inset Formula $F$
 \end_inset
 
- is a complex random function.
+ is a very complex random function.
  
 \end_layout
 
@@ -1082,41 +1083,29 @@ Optimal buyer/seller
 \end_layout
 
 \begin_layout Standard
-Finally consider an agent who only intents to buy/sell a predetermined a
- amount 
-\begin_inset Formula $h_{\infty}$
+Finally consider an agent who only intents to buy as much as possible of
+ the asset, having 
+\begin_inset Formula $m_{t}$
 \end_inset
 
-, 
-\begin_inset Formula $h_{0}$
-\end_inset
-
-, respectively of the asset.
- As he has no reason to 
-\begin_inset Quotes eld
-\end_inset
-
-keep money in the business
-\begin_inset Quotes erd
-\end_inset
-
-, we assume him to pay as late as possible (buyer) immediately consume the
- money torn (seller).
- We assume time preference, so the reward function of both is given by (
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "eq:cons"
-plural "false"
-caps "false"
-noprefix "false"
+ units of cash at his disposal.
+ We assume time preference, so the reward function is given by 
+\begin_inset Formula 
+\[
+\mathbf{\mathbb{E}}(\sum_{\tau=0}^{\infty}\gamma^{-\tau}D_{\tau})
+\]
 
 \end_inset
 
-) where 
-\begin_inset Formula $c$
+where 
+\begin_inset Formula $D_{t}$
 \end_inset
 
- is negative/positive, being the cost of the purchase/revenue from selling.
+ is the numer of stocks bought at 
+\begin_inset Formula $t$
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Subsection*
@@ -1124,10 +1113,11 @@ The maximalistic DP of a buyer
 \end_layout
 
 \begin_layout Standard
-The action space of a buyer is 
+The buyer is supposed to put only buy market orders.
+ His action space is 
 \begin_inset Formula 
 \begin{multline*}
-A_{t}=A(h_{t})=\{v_{t}\in\mathbb{N}_{0}:v_{t}\leq h_{t}\}
+A_{t}=A(m_{t},R_{t})=\{v_{t}\in\mathbb{N}_{0}:\text{\ensuremath{\pi(v_{t},} \ensuremath{R_{t})}}\leq m_{t}\}
 \end{multline*}
 
 \end_inset
@@ -1137,34 +1127,37 @@ where
 \end_inset
 
  stands for volume ordered (i.e.
- volume of market buy order put) at 
+ the volume of a market buy order he puts) at 
 \begin_inset Formula $t$
 \end_inset
 
- (we assume unlimited money resources knowing that the agent will minimize
- their usage).
- The negative cost 
-\begin_inset Formula $c_{t+1}$
+, 
+\begin_inset Formula $\pi(v,r)$
 \end_inset
 
- of such an order is equal to 
+ is the price paid for the market order with value 
+\begin_inset Formula $v$
+\end_inset
+
+ given the state of the market 
+\begin_inset Formula $r$
+\end_inset
+
+.
+ The transition equations are 
 \begin_inset Formula 
 \[
-c_{t+1}=-C_{R_{t},v_{t}},\qquad h_{t+1}=D_{R_{t},v_{t}}
+m_{t+1}=m_{t}-C_{t,R,v}
 \]
 
 \end_inset
 
 where 
-\begin_inset Formula $C_{R,v}$
+\begin_inset Formula $C_{t,R,v}$
 \end_inset
 
- and 
-\begin_inset Formula $D_{R,v}$
-\end_inset
-
- are random variables determining the total cost, number bought, respectively,
- as a result of putting the market order with volume 
+ are random variables determining the true cost, respectively, as a result
+ of putting the market order with volume 
 \begin_inset Formula $v$
 \end_inset
 
@@ -1183,12 +1176,25 @@ The Bellman equation is
 \begin_layout Standard
 \begin_inset Formula 
 \begin{equation}
-V(h,c,r)=\max_{v\in A(h)}[c+\gamma\mathbb{E}_{C,D,R}V(h+D_{R,v},-C_{R,v},R)]\label{eq:bellm-1}
+V(m,r)=\max_{h\in A(m,r)}[\text{\ensuremath{\mathbb{E}D_{r,v}}}+\gamma\mathbb{E}_{C,R}V(m-C_{r,v},F)]\label{eq:bellm-1}
 \end{equation}
 
 \end_inset
 
+where 
+\begin_inset Formula $D_{r,v}$
+\end_inset
 
+ is a random variable determining how much stocks will be actually bought
+ by a market order 
+\begin_inset Formula $v$
+\end_inset
+
+ given state of market 
+\begin_inset Formula $r$
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Subsection*
@@ -1196,24 +1202,15 @@ The minimalistic DP of a buyer
 \end_layout
 
 \begin_layout Standard
-While the simple action space needs not be further simplified (except for
- some upper bound of 
-\begin_inset Formula $v$
+Both the distributions of 
+\begin_inset Formula $C$
 \end_inset
 
-), and the distribution of 
-\begin_inset Formula $D_{R,v}$
+ and 
+\begin_inset Formula $D$
 \end_inset
 
- may, with certain license, be viewed as not depending on 
-\begin_inset Formula $R$
-\end_inset
-
-, the variable 
-\begin_inset Formula $C_{R,v}$
-\end_inset
-
- does depend on 
+ may depend non trivially on 
 \begin_inset Formula $R$
 \end_inset
 
@@ -1230,41 +1227,30 @@ While the simple action space needs not be further simplified (except for
 \end_inset
 
 ).
- Consequently, any approximation of 
-\begin_inset Formula $V$
-\end_inset
-
- has to take at least 
-\begin_inset Formula $a$
-\end_inset
-
- into account.
- Reflecting the fact that, with increasing volume, the price becomes higher,
- we can assume 
-\begin_inset Formula $C$
-\end_inset
-
- to be convex in 
-\begin_inset Formula $v$
-\end_inset
-
-, we can approximate 
+ We approximate them as follows: we assume that all the volume will be always
+ bought, so we take 
 \begin_inset Formula 
 \[
-C_{R,v}=C_{a,v}=a+f(vE)
+D_{r,v}\doteq v.
 \]
 
 \end_inset
 
-Further, we approximate 
+Further, reflecting the fact that, with increasing volume, the price becomes
+ higher, we assume 
 \begin_inset Formula 
 \[
-D_{R,v}\doteq vE.
+C_{r,v}\doteq C_{a,v}=v(a+I(v))
 \]
 
 \end_inset
 
-Here, 
+where 
+\begin_inset Formula $I$
+\end_inset
+
+ is a random function (price impact).
+ 
 \family roman
 \series medium
 \shape up
@@ -1277,30 +1263,67 @@ Here,
 \uwave off
 \noun off
 \color none
-
-\begin_inset Formula $\ensuremath{E}$
-\end_inset
-
- is random, reflecting the ratio of orders fulfilled, taking values perhaps
- in 
-\begin_inset Formula $\ensuremath{\{0,\frac{1}{2},1\}}$
-\end_inset
-
- (we can assume 
-\begin_inset Formula $\mathbb{P}[E=1]\doteq1$
-\end_inset
-
- on liquid markets).
- It would be reasonable to estimate 
-\begin_inset Formula $f$
-\end_inset
-
- by regression.
- Consequently we approximate 
+It would be reasonable to take I affine on average, i.e.
+ 
 \begin_inset Formula 
 \[
-V(h,c,r)\doteq W(h,c,a)=\max_{v\in A(h)}[c+\gamma\mathbb{E}_{A,E}W(h-vE,-a-f(vE),a+F)]
+I(x)=\mathrm{round(}\phi(x-1))+E
 \]
+
+\end_inset
+
+and estimate 
+\begin_inset Formula $ $
+\end_inset
+
+ by regression; here, 
+\begin_inset Formula $E$
+\end_inset
+
+ is a centered discrete variable.
+ 
+\end_layout
+
+\begin_layout Standard
+As we cannot evaluate 
+\begin_inset Formula $\pi$
+\end_inset
+
+ with the knowledge of only 
+\begin_inset Formula $\text{\ensuremath{a}},$
+\end_inset
+
+we have to approximate the action set as well: 
+\begin_inset Formula 
+\[
+A(m,r)\doteq A'(m,a)=\{v\in\mathbb{N}_{0}:\mathrm{round(}\phi(v-1))+\mathrm{stdev}(E)))\leq m_{t}\}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\xout off
+\uuline off
+\uwave off
+\noun off
+\color none
+Consequently, our (approximated) problem is 
+\begin_inset Formula 
+\begin{multline*}
+V(m,r)\doteq W(m,a)\\
+=\max_{v\in A'(m,r)}[v+\gamma\mathbb{E}_{E,F}W(\max(0,m-v(a+\mathrm{round(}\phi(v-1))+E)),\max(0,a+F))]
+\end{multline*}
 
 \end_inset
 
@@ -1308,12 +1331,50 @@ where
 \begin_inset Formula $F$
 \end_inset
 
- is a random variable, independent of 
+ is a (centered) random variable, independent of 
 \begin_inset Formula $E$
 \end_inset
 
 , estimating the shift of the ask.
+ Note that 
+\begin_inset Formula $W(m,\bullet)=0$
+\end_inset
+
+ for 
+\begin_inset Formula $m=0$
+\end_inset
+
+.
  
+\end_layout
+
+\begin_layout Standard
+As for the distribution of 
+\begin_inset Formula $E$
+\end_inset
+
+ and 
+\begin_inset Formula $F$
+\end_inset
+
+, we assume 
+\begin_inset Formula $E=\mathrm{round}(N(0,\sigma_{E})),$
+\end_inset
+
+
+\begin_inset Formula $F=\mathrm{round}(N(0,\sigma_{F}))$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Section*
+Optimal seller
+\end_layout
+
+\begin_layout Standard
+TBD
 \end_layout
 
 \begin_layout Subsection*
@@ -1321,7 +1382,7 @@ The maximalistic DP of a seller
 \end_layout
 
 \begin_layout Standard
-The action space of a seller is 
+UNDER CONSTRUCTION: The action space of a seller is 
 \begin_inset Formula 
 \begin{multline*}
 A_{t}=A(h_{t})=\{v_{t}\in\mathbb{N}_{0}:v_{t}\leq h_{t}\}
