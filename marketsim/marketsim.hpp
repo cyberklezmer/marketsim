@@ -656,8 +656,10 @@ public:
         tprice b;
         /// ask price (may be \c khundefprice)
         tprice a;
-        /// time of the snapshot
+        /// time of the snapshot        
         tabstime t;
+        /// traded volume
+        tvolume q = 0;
         /// computes the midpoint price -- if \c b or \c a are undefined, it returns \c nan
         /// (the return value should be thus checked by \c isnan() )
         double p() const
@@ -675,16 +677,38 @@ private:
     }
 public:
     /// constructor
-    tmarkethistory() : fx({{klundefprice,khundefprice,0}}) {}
+    tmarkethistory() : fx({{klundefprice,khundefprice,0,0}}) {}
 
     /// returns the state of the bid and ask at a given time (\p at can be any positive number)
     tsnapshot operator () (tabstime at) const
     {
-        tsnapshot val={0,0,at};
+        assert(fx.size());
+        tsnapshot val={0,0,at,0};
         auto it = std::lower_bound(fx.begin(),fx.end(),val,cmp);
         if(it==fx.end())
              it--;
         return *it;
+    }
+
+    tvolume sumq(tabstime astart,tabstime aend) const
+    {
+        assert(fx.size());
+        tvolume ret = 0;
+        tsnapshot val={0,0,aend,0};
+        auto it = std::lower_bound(fx.begin(),fx.end(),val,cmp);
+        if(it==fx.end())
+             it--;
+        for(;;)
+        {
+            if(it->t >= astart)
+                ret += it->q;
+            else
+                break;
+            if(it==fx.begin())
+                break;
+            it--;
+        }
+        return ret;
     }
 
     /// returns the bid at \p at
@@ -698,6 +722,7 @@ public:
     {
         return (*this)(at).a;
     }
+
 
     /// returns the minpoint price at \p at (caution, may be \c nan)
     double p(tabstime at) const
@@ -714,11 +739,13 @@ public:
     /// displays the history to stream \p o by intervals \p interval
     void output(std::ostream& o, tabstime interval) const
     {
-        o << "t,b,a,p" << std::endl;
+        o << "t,b,a,p,q" << std::endl;
         for(tabstime t = 0; t < (fx.end()-1)->t + interval; t+= interval )
         {
             auto s = (*this)(t);
-            o << t << "," << p2str(s.b) << "," << p2str(s.a) << "," << s.p() << "," << std::endl;
+            auto q = t==0 ? 0 : sumq(t-interval+std::numeric_limits<tabstime>::epsilon(),t);
+            o << t << "," << p2str(s.b) << "," << p2str(s.a) << "," << s.p() << ","
+              << q << std::endl;
         }
     }
 private:
@@ -894,6 +921,15 @@ protected:
     bool foverrun = false;
 };
 
+/// result of setlement
+struct trequestresult
+{
+    /// volume traded
+    tvolume q = 0;
+    /// errors encountered
+    std::vector<tsettleerror> errs;
+};
+
 
 class tmarket;
 class tmarketinfo;
@@ -947,14 +983,6 @@ protected:
     virtual void trade(twallet /* endowment */) = 0;
 
 
-public:
-    /// return value of marketsim::tstragegy::request. On complete success, the vector is empty,
-    /// otherwise it contains individual warnings.
-    struct trequestresult
-    {
-        std::vector<tsettleerror> results;
-        // tbd be more specific
-    };
 
 private:
     // With RT it is directly called by marketsim::tstrategy::request,
@@ -1190,6 +1218,9 @@ public:
     }
 };
 
+
+
+
 /// a collection of all the pending orders on the market
 class torderbook
 {
@@ -1296,7 +1327,7 @@ public:
     /// respectively, the request (for a single particular order) is not fulfilled and a
     /// warning is issued. Same with insufficiency of money/stocks needed to be blocked when
     /// limit order is sissued.
-    std::vector<tsettleerror> settle(
+    trequestresult settle(
                        const trequest& arequest,
                        std::vector<tstrategyinfo>& profiles,
                        unsigned owner,
@@ -1304,7 +1335,7 @@ public:
                        tabstime at)
     {
         assert(consistencycheck(profiles));
-        std::vector<tsettleerror> ret;
+        trequestresult ret;
         assert(owner < numstrategies());
         auto am = profiles[owner].availablemoney();
         auto c = arequest.consumption();
@@ -1314,7 +1345,7 @@ public:
             std::ostringstream es;
             es << "Not enough money to consume " << c << " stocks. Only "
                << am << " available";
-            ret.push_back({tsettleerror::enotenoughmoneytoconsume,es.str()});
+            ret.errs.push_back({tsettleerror::enotenoughmoneytoconsume,es.str()});
             c=am;
         }
         if(c > 0)
@@ -1325,7 +1356,7 @@ public:
         tpreorderprofile request = arequest.orderrequest();
         if(!request.check())
         {
-            ret.push_back({tsettleerror::ecrossedorders,"Crossed orders."});
+            ret.errs.push_back({tsettleerror::ecrossedorders,"Crossed orders."});
             return ret;
         }
         const trequest::teraserequest& eraserequest = arequest.eraserequest();
@@ -1358,7 +1389,9 @@ public:
                                 if(A[i].volume >= request.A[j].volume)
                                 {
                                     afilter[i] = false;
-                                    request.A[j].volume -= A[i].volume;
+                                    A[i].volume -= request.A[j].volume;
+                                    request.A[j].volume =0;
+                                    assert(request.A[j].volume>=0);
                                 }
                                 break;
                             }
@@ -1380,7 +1413,9 @@ public:
                                 if(B[i].volume >= request.B[j].volume)
                                 {
                                     bfilter[i] = false;
-                                    request.B[j].volume -= B[i].volume;
+                                    B[i].volume -= request.B[j].volume;
+                                    request.B[j].volume = 0;
+                                    assert(request.B[j].volume>=0);
                                 }
                                 break;
                             }
@@ -1398,113 +1433,116 @@ public:
 
         unsigned j = 0;
         for(unsigned i = 0; i<request.B.size(); i++)
-        {
-            tpreorder r = request.B[i];
-            tvolume remains = r.volume;
-            if(r.price <= klundefprice)
-               ret.push_back({tsettleerror::ezeroorlessprice,"Zero or less price for buy order"});
-            else
+            if(request.B[i].volume > 0)
             {
-                assert(remains >= 0);
-                for(;remains > 0 && j < fa.size() && fa[j]->price <= r.price; j++)
+                tpreorder r = request.B[i];
+                tvolume remains = r.volume;
+                if(r.price <= klundefprice)
+                   ret.errs.push_back({tsettleerror::ezeroorlessprice,"Zero or less price for buy order"});
+                else
                 {
-                    tvolume toexec = std::min(remains, fa[j]->volume);
-                    tprice price = fa[j]->price;
-                    tvolume available = profiles[owner].availablemoney() / price;
+                    assert(remains >= 0);
+                    for(;remains > 0 && j < fa.size() && fa[j]->price <= r.price; j++)
+                    {
+                        tvolume toexec = std::min(remains, fa[j]->volume);
+                        tprice price = fa[j]->price;
+                        tvolume available = profiles[owner].availablemoney() / price;
+                        if(available < toexec)
+                        {
+                            std::ostringstream es;
+                            es << "Not enough money to buy " << r << " stocks. Only "
+                               << available << " could be bount ";
+                            ret.errs.push_back({tsettleerror::enotenoughmoneytobuy,es.str()});
+                            toexec = available;
+                        }
+                        if(toexec > 0)
+                        {
+                            profiles[owner].addtrade(-price * toexec, toexec, at,fa[j]->owner);
+                            profiles[fa[j]->owner].addtrade(price * toexec, -toexec, at, owner);
+                            profiles[fa[j]->owner].blockedstocks() -= toexec;
+                            fa[j]->volume -= toexec;
+                            remains -= toexec;
+                            ret.q += toexec;
+                        }
+                        else
+                            break;
+                    }
+                    if(remains && !r.ismarket<false>())
+                    {
+                        tvolume available = profiles[owner].availablemoney() / r.price;
+                        tvolume toput;
+                        if(available < remains)
+                        {
+                            std::ostringstream es;
+                            es << "Not enough money to back bid " << r << ", only "
+                               << available << " could be put.";
+                            ret.errs.push_back({tsettleerror::enotenoughmoneytoput,es.str()});
+                            toput = available;
+                        }
+                        else
+                            toput = remains;
+                        fbook[owner].B.add( torder(r.price,toput,ts,at,owner) );
+                        profiles[owner].blockedmoney() += r.price * toput;
+                    }
+                    sort();
+                }
+            }
+
+        j = 0;
+        for(unsigned i = 0; i<request.A.size(); i++)
+            if(request.A[i].volume>0)
+            {
+                tpreorder r = request.A[i];
+                tvolume remains = r.volume;
+                assert(remains >= 0);
+
+                for(;remains > 0 && j < fb.size() && fb[j]->price >= r.price; j++)
+                {
+                    tvolume toexec = std::min(remains, fb[j]->volume);
+                    tprice price = fb[j]->price;
+
+                    tvolume available = profiles[owner].availablevolume();
                     if(available < toexec)
                     {
                         std::ostringstream es;
-                        es << "Not enough money to buy " << r << " stocks. Only "
-                           << available << " could be bount ";
-                        ret.push_back({tsettleerror::enotenoughmoneytobuy,es.str()});
+                        es << "Not enough stocks to execute ask of " << r
+                           << ", only " << available << " available";
+                        ret.errs.push_back({tsettleerror::enotenoughstockstosell,es.str()});
                         toexec = available;
                     }
+
                     if(toexec > 0)
                     {
-                        profiles[owner].addtrade(-price * toexec, toexec, at,fa[j]->owner);
-                        profiles[fa[j]->owner].addtrade(price * toexec, -toexec, at, owner);
-                        profiles[fa[j]->owner].blockedstocks() -= toexec;
-                        fa[j]->volume -= toexec;
+                        profiles[owner].addtrade(price * toexec, -toexec, at, fb[j]->owner);
+                        profiles[fb[j]->owner].addtrade(-price * toexec, toexec, at, owner);
+                        profiles[fb[j]->owner].blockedmoney() -= fb[j]->price * toexec;
+                        fb[j]->volume -= toexec;
                         remains -= toexec;
+                        ret.q += toexec;
                     }
                     else
                         break;
                 }
-                if(remains && !r.ismarket<false>())
+
+                if(remains && !r.ismarket<true>())
                 {
-                    tvolume available = profiles[owner].availablemoney() / r.price;
+                    tvolume available = profiles[owner].availablevolume();
                     tvolume toput;
                     if(available < remains)
                     {
                         std::ostringstream es;
-                        es << "Not enough money to back bid " << r << ", only "
-                           << available << " could be put.";
-                        ret.push_back({tsettleerror::enotenoughmoneytoput,es.str()});
+                        es << "Not enough stocks to put ask of " << r << ", only " << available << " available";
+                        ret.errs.push_back({tsettleerror::enotenoughstockstoput,es.str()});
                         toput = available;
                     }
                     else
                         toput = remains;
-                    fbook[owner].B.add( torder(r.price,toput,ts,at,owner) );
-                    profiles[owner].blockedmoney() += r.price * toput;
+                    fbook[owner].A.add( torder(r.price,toput,ts,at,owner) );
+                    profiles[owner].blockedstocks() += toput;
+                    makequeue<true>();
                 }
                 sort();
             }
-        }
-
-        j = 0;
-        for(unsigned i = 0; i<request.A.size(); i++)
-        {
-            tpreorder r = request.A[i];
-            tvolume remains = r.volume;
-            assert(remains >= 0);
-
-            for(;remains > 0 && j < fb.size() && fb[j]->price >= r.price; j++)
-            {
-                tvolume toexec = std::min(remains, fb[j]->volume);
-                tprice price = fb[j]->price;
-
-                tvolume available = profiles[owner].availablevolume();
-                if(available < toexec)
-                {
-                    std::ostringstream es;
-                    es << "Not enough stocks to execute ask of " << r
-                       << ", only " << available << " available";
-                    ret.push_back({tsettleerror::enotenoughstockstosell,es.str()});
-                    toexec = available;
-                }
-
-                if(toexec > 0)
-                {
-                    profiles[owner].addtrade(price * toexec, -toexec, at, fb[j]->owner);
-                    profiles[fb[j]->owner].addtrade(-price * toexec, toexec, at, owner);
-                    profiles[fb[j]->owner].blockedmoney() -= fb[j]->price * toexec;
-                    fb[j]->volume -= toexec;
-                    remains -= toexec;
-
-                }
-                else
-                    break;
-            }
-
-            if(remains && !r.ismarket<true>())
-            {
-                tvolume available = profiles[owner].availablevolume();
-                tvolume toput;
-                if(available < remains)
-                {
-                    std::ostringstream es;
-                    es << "Not enough stocks to put ask of " << r << ", only " << available << " available";
-                    ret.push_back({tsettleerror::enotenoughstockstoput,es.str()});
-                    toput = available;
-                }
-                else
-                    toput = remains;
-                fbook[owner].A.add( torder(r.price,toput,ts,at,owner) );
-                profiles[owner].blockedstocks() += toput;
-                makequeue<true>();
-            }
-            sort();
-        }
         assert(consistencycheck(profiles));
         return ret;
     }
@@ -1664,6 +1702,9 @@ public:
     /// accessor to onn info
     const tstrategyinfo& myinfo() const { return fdata->fstrategyinfos[fmyindex];}
 
+    /// accessor to onn index
+    unsigned myindex() const { return fmyindex; }
+
     /// accessor to onw wallet
     const twallet& mywallet() const { return myinfo().wallet(); }
 
@@ -1793,7 +1834,7 @@ class tmarket : private chronos::Chronos
     /// schedules a request \p request by strategy \p strategyid to settle. The argument
     /// \p t is used only by ED version, telling the market the time.
     template <bool chronos>
-    std::vector<tsettleerror> settle(tstrategyid strategyid,
+    trequestresult settle(tstrategyid strategyid,
                                      const trequest& request,
                                      tabstime t = 0)
     {
@@ -1812,7 +1853,7 @@ class tmarket : private chronos::Chronos
         auto st = chronos ? getabstime() : t;
         try
         {
-            std::vector<tsettleerror> errs = ob.settle(
+            trequestresult sr = ob.settle(
                            request,
                            fmarketdata->fstrategyinfos,
                            owner,
@@ -1824,9 +1865,9 @@ class tmarket : private chronos::Chronos
                 s << "Settle by " << owner << " finished -updating history";
                 possiblylog(floggingfilter.fsettle,0,s.str());
             }
-            fmarketdata->fhistory.add({ob.b(),ob.a(),st});
+            fmarketdata->fhistory.add({ob.b(),ob.a(),st,sr.q});
             possiblylog(floggingfilter.fsettle,0,"History Updated");
-            return errs;
+            return sr;
 
         }
         catch(std::runtime_error& e)
@@ -1991,7 +2032,7 @@ public:
             {
                 auto n = strategies.size();
                 std::vector<bool> firsttime(n,true);
-                std::vector<tstrategy::trequestresult> results(n);
+                std::vector<trequestresult> results(n);
 
                 tabstime T = get_max_time() * def().ticktime();
                 std::vector<tabstime> ts;
@@ -2256,12 +2297,13 @@ inline void tstrategy::main()
 
 
 template <bool chronos>
-inline tstrategy::trequestresult tstrategy::internalrequest(const trequest& request, tabstime t)
+inline trequestresult tstrategy::internalrequest(const trequest& request, tabstime t)
 {
     assert(fmarket);
-    tstrategy::trequestresult ret;
+    trequestresult ret;
     try
     {
+        trequestresult ret;
         if(!request.empty())
         {
             if(fmarket->islogging())
@@ -2273,22 +2315,22 @@ inline tstrategy::trequestresult tstrategy::internalrequest(const trequest& requ
 
             if constexpr(chronos)
             {
-                ret.results = fmarket->async([this,&request]()
+                ret = fmarket->async([this,&request]()
                 {
                     return this->fmarket->settle<true>(this->fid,request);
                 });
             }
             else
-                ret.results = this->fmarket->settle<false>(fid,request,t);
+                ret = this->fmarket->settle<false>(fid,request,t);
 
             if(fmarket->islogging())
             {
                 std::ostringstream s;
-                if(ret.results.size()==0)
+                if(ret.errs.size()==0)
                     s << "OK";
                 else
-                    for(unsigned i=0; i<ret.results.size(); i++)
-                        s << ret.results[i].text << ",";
+                    for(unsigned i=0; i<ret.errs.size(); i++)
+                        s << ret.errs[i].text << ",";
                 // tbd return wallet...
                 fmarket->possiblylog(fmarket->floggingfilter.frequest,fid, "settle returned", s.str());
             }

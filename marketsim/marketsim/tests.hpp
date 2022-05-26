@@ -25,7 +25,7 @@ inline void competitionwithmaslov(std::vector<competitorbase<chronos>*> acompeti
 
 
 template <bool chronos, bool calibrate, bool logging>
-inline void test(std::vector<competitorbase<chronos>*> competitors,
+inline std::shared_ptr<tmarketdata> test(std::vector<competitorbase<chronos>*> competitors,
                  tabstime runningtime,
                  const twallet& endowment,
                  const tmarketdef& adef)
@@ -72,6 +72,7 @@ inline void test(std::vector<competitorbase<chronos>*> competitors,
                  << m.def().chronosduration.count() << " processor ticks unexploited."
                  << std::endl;
         std::cout << "success" << std::endl;
+        return r;
     }
     catch (std::runtime_error& e)
     {
@@ -81,7 +82,7 @@ inline void test(std::vector<competitorbase<chronos>*> competitors,
     {
         std::cerr << "Unknown error" << std::endl;
     }
-
+    return 0;
 }
 
 

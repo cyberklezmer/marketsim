@@ -1,4 +1,3 @@
-#pragma warning(disable : 4996)
 #include <vector>
 #include <iostream>
 #include <limits>
@@ -13,6 +12,7 @@
 #include "msstrategies/naivemmstrategy.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
 #include "msstrategies/liquiditytakers.hpp"
+#include "msstrategies/parametricmm.hpp"
 
 using namespace marketsim;
 
@@ -23,7 +23,7 @@ int main()
     {
         constexpr bool chronos = false;
         constexpr bool logging = false;
-        constexpr tabstime runningtime = 1000;
+        constexpr tabstime runningtime = 10000;
         twallet endowment(5000,100);
         tmarketdef def;
 
@@ -42,17 +42,25 @@ int main()
 
         competitor<naivemmstrategy<10>,chronos> nmm;
 
-
     // our ingenious strategy
-        using testedstrategy = tadpmarketmaker;
+        using testedstrategy = tgeneralpmm;
 
         competitor<testedstrategy,chronos> ts;
+
+competitor<maslovstrategy,chronos> m;
+auto r = test<chronos,true,logging>({&ts,&m},1000,endowment,def);
+//r->fhistory.output(std::cout,1);
+
+return 0;
+
 
         tcompetitiondef cdef;
         cdef.timeofrun = runningtime;
         cdef.endowment = endowment;
         cdef.marketdef = def;
         cdef.samplesize = 30;
+
+
 
         competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
 
