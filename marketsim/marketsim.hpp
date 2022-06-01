@@ -1112,6 +1112,7 @@ struct tloggingfilter
         fgetinfo = false;
         frequest = true;
         fabstime = false;
+        fmarketdata = false;
     }
     bool frequest;
     bool fsettle;
@@ -1379,6 +1380,7 @@ public:
             }
             if(afilter.size())
             {
+                tvolume deltablocked = 0;
                 for(unsigned i=0; i<A.size();i++)
                     if(i<afilter.size() && afilter[i])
                     {
@@ -1390,6 +1392,7 @@ public:
                                 {
                                     afilter[i] = false;
                                     A[i].volume -= request.A[j].volume;
+                                    deltablocked += request.A[j].volume;
                                     request.A[j].volume =0;
                                     assert(request.A[j].volume>=0);
                                 }
@@ -1397,12 +1400,14 @@ public:
                             }
                         }
                     }
-                profiles[owner].blockedstocks() -= fbook[owner].A.volume(afilter);
+                profiles[owner].blockedstocks() -=
+                   (fbook[owner].A.volume(afilter)+deltablocked);
                 A.clear(afilter);
                 makequeue<true>();
             }
             if(bfilter.size())
             {
+                tprice deltablocked = 0;
                 for(unsigned i=0; i<B.size();i++)
                     if(i<bfilter.size() && bfilter[i])
                     {
@@ -1414,6 +1419,7 @@ public:
                                 {
                                     bfilter[i] = false;
                                     B[i].volume -= request.B[j].volume;
+                                    deltablocked += request.B[j].volume * request.B[j].price;
                                     request.B[j].volume = 0;
                                     assert(request.B[j].volume>=0);
                                 }
@@ -1421,7 +1427,8 @@ public:
                             }
                         }
                     }
-                profiles[owner].blockedmoney() -= fbook[owner].B.value(bfilter);
+                profiles[owner].blockedmoney() -=
+                        (fbook[owner].B.value(bfilter)+deltablocked);
                 fbook[owner].B.clear(bfilter);
                 makequeue<false>();
             }

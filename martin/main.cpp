@@ -10,9 +10,11 @@
 #include "marketsim/tests.hpp"
 #include "msstrategies/tadpmarketmaker.hpp"
 #include "msstrategies/naivemmstrategy.hpp"
+#include "msstrategies/lessnaivemmstrategy.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
 #include "msstrategies/liquiditytakers.hpp"
 #include "msstrategies/parametricmm.hpp"
+#include "msstrategies/maslovstrategy.hpp"
 
 using namespace marketsim;
 
@@ -23,9 +25,18 @@ int main()
     {
         constexpr bool chronos = false;
         constexpr bool logging = false;
-        constexpr tabstime runningtime = 10000;
+        constexpr tabstime runningtime = 100;
         twallet endowment(5000,100);
         tmarketdef def;
+
+        def.loggingfilter.frequest = true;
+        def.loggingfilter.fsettle = true;
+        def.loggingfilter.fsleep = false;
+        def.loggingfilter.fgetinfo = false;
+        def.loggingfilter.fmarketdata = false;
+        def.loggingfilter.ftick = false;
+        def.loggingfilter.fabstime = false;
+
 
     competitor<firstsecondstrategy<40,10>,chronos,true> fss;
 
@@ -47,8 +58,9 @@ int main()
 
         competitor<testedstrategy,chronos> ts;
 
-competitor<maslovstrategy,chronos> m;
-auto r = test<chronos,true,logging>({&ts,&m},1000,endowment,def);
+//competitor<maslovstrategy,chronos> m;
+competitor<liquiditytakers<3000,3>,chronos,true> l;
+auto r = test<chronos,true,logging>({&ts,&l,&nmm,&nmm,&nmm,&nmm},3000,endowment,def);
 //r->fhistory.output(std::cout,1);
 
 return 0;

@@ -361,6 +361,95 @@ Note that the distribution of
 \end_layout
 
 \begin_layout Standard
+First note that:
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset Formula $V(0,0,r)=0$
+\end_inset
+
+ (no possibility to earn anything).
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset Formula $V(m,n,r)$
+\end_inset
+
+ is increasing in 
+\begin_inset Formula $m$
+\end_inset
+
+ with 
+\begin_inset Formula $\Delta V_{m}\geq1$
+\end_inset
+
+ (once a strategy 
+\begin_inset Formula $u$
+\end_inset
+
+ is optimal for 
+\begin_inset Formula $V(m_{1},n,r)$
+\end_inset
+
+ and 
+\begin_inset Formula $m_{2}>m_{1},$
+\end_inset
+
+ the strategy to consume 
+\begin_inset Formula $c:=m_{2}-m_{1}$
+\end_inset
+
+ and use 
+\begin_inset Formula $u$
+\end_inset
+
+ brings value 
+\begin_inset Formula $c+V(m_{1},n,r)$
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset Formula $V(m,n,r)$
+\end_inset
+
+ is non-decreasing in 
+\begin_inset Formula $n$
+\end_inset
+
+, provided that the number of stocks held is not part of 
+\begin_inset Formula $r$
+\end_inset
+
+ (once a strategy 
+\begin_inset Formula $u$
+\end_inset
+
+ is optimal for 
+\begin_inset Formula $V(m,n_{1},r)$
+\end_inset
+
+ and 
+\begin_inset Formula $n_{2}>n_{1},$
+\end_inset
+
+ the strategy 
+\begin_inset Formula $u$
+\end_inset
+
+ is feasible for the new problem as we just keep 
+\begin_inset Formula $n_{2}-n_{1}$
+\end_inset
+
+ stocks forever; hence 
+\begin_inset Formula $V(m,n_{2},R)\geq V(m,n_{2},r)$
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Standard
 Clearly, the problem suffers from all the three curses of dimensionality.
 \end_layout
 
@@ -855,52 +944,70 @@ Parametric
 \end_layout
 
 \begin_layout Standard
-In order to apply a parametrized approximation of 
+In order to apply a parameterized approximation of 
 \begin_inset Formula $V$
 \end_inset
 
 , we conjecture
 \end_layout
 
-\begin_layout Itemize
-\begin_inset Formula $\Delta_{m}V(m,n,R)=\gamma$
+\begin_layout Enumerate
+\begin_inset Formula $V(m,n,r)$
+\end_inset
+
+ is non-decreasing in 
+\begin_inset Formula $\beta$
+\end_inset
+
+ (once the prices are higher, the same inventory is more worth).
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset Formula $\Delta_{m}V(m,n,r)=1$
 \end_inset
 
  for 
-\begin_inset Formula $m>h_{m}$
+\begin_inset Formula $m>h_{m,R}$
 \end_inset
 
- (once there is 
+ where 
+\begin_inset Formula $h_{m,R}$
+\end_inset
+
+ is some constant (once there is 
 \begin_inset Formula $h_{m}$
 \end_inset
 
  of cash available, leaving additional cash unit in business does not help
- the business and the best thing to do would be to consume it at the next
- step and consume – thus, it is better to consume the unit now)
+ the business and the best thing to do would be to consume it)
 \end_layout
 
-\begin_layout Itemize
-\begin_inset Formula $\Delta_{n}V(m,n,R)=\gamma^{2}\sigma\beta$
+\begin_layout Enumerate
+\begin_inset Formula $\Delta_{n}V(m,n,r)=\gamma^{\Delta\tau}\overline{\alpha}$
+\end_inset
+
+, 
+\begin_inset Formula $\overline{\alpha}=\min(a,\alpha)$
 \end_inset
 
  for 
 \begin_inset Formula $n>h_{n}$
 \end_inset
 
- (once there is 
+ where 
+\begin_inset Formula $h_{n}$
+\end_inset
+
+ is some constant (once there is 
 \begin_inset Formula $h_{n}$
 \end_inset
 
  stocks available, leaving additional stocks in business does not help the
  business and the best thing to do would be to try to sell it in the next
- step – 
-\begin_inset Formula $\sigma$
-\end_inset
-
- stands for the probability the selling would be successful)
+ step)
 \end_layout
 
-\begin_layout Itemize
+\begin_layout Enumerate
 \begin_inset Formula $V$
 \end_inset
 
@@ -913,10 +1020,33 @@ In order to apply a parametrized approximation of
 \end_inset
 
  (first, additional funds and stocks holdings bring high additional value
- for the business but then their contribution falls below one, se above)
+ for the business but then their contribution falls below one, see above)
 \end_layout
 
-\begin_layout Itemize
+\begin_layout Enumerate
+The higher prices, the more money has to be present in the business 
+\begin_inset Formula $(\text{\ensuremath{h_{m,r}} is increasing in \ensuremath{\overline{\beta})}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+It pays of to quote once there is enough money and stocks in the business:
+ 
+\begin_inset Formula $m>h_{m,f},n>h_{n}\Rightarrow V(m+\overline{\alpha},n-1)>V(m,n),V(m-\overline{\beta},n+1)>V(m,n)$
+\end_inset
+
+ (i.e.
+ selling or buying a stock pays off).
+\end_layout
+
+\begin_layout Subsubsection*
+Additive approximation
+\end_layout
+
+\begin_layout Standard
+To simplify things, we assume that 
 \begin_inset Formula $V$
 \end_inset
 
@@ -928,17 +1058,15 @@ In order to apply a parametrized approximation of
 \begin_inset Formula $n$
 \end_inset
 
- add up (there is no super-additive effect) 
-\end_layout
-
-\begin_layout Standard
+ add up (there is no super-additive effect) , i.e.
+ 
 \begin_inset Formula $V$
 \end_inset
 
  is parametrized/approximated as
 \begin_inset Formula 
 \[
-V(m,n,R)=\gamma^{-\Delta\tau}V_{m}(m)+\gamma^{-2\Delta\tau}\sigma\overline{\beta}V_{n}(n)
+V(m,n,r)=V_{m}(m/\overline{\beta})\overline{\beta}+\gamma^{\Delta\tau}\overline{\alpha}V_{n}(n),\qquad\overline{\beta}=\max(\beta,b)
 \]
 
 \end_inset
@@ -946,7 +1074,7 @@ V(m,n,R)=\gamma^{-\Delta\tau}V_{m}(m)+\gamma^{-2\Delta\tau}\sigma\overline{\beta
  where 
 \begin_inset Formula 
 \[
-V_{\bullet}(x)=x+\sum_{i=0}^{k_{\bullet}}\phi_{i}^{\bullet}s_{ih_{\bullet}}(x),\qquad s_{t}(x)=\min(tx,t)
+V_{\bullet}(x)=x+\sum_{i=1}^{k_{\bullet}}\phi_{i}^{\bullet}s_{ih_{\bullet}}(x),\qquad s_{t}(x)=\min(tx,t)
 \]
 
 \end_inset
@@ -959,12 +1087,47 @@ where
 \begin_inset Formula $\phi$
 \end_inset
 
-'s are unknown parameters, 
-\begin_inset Formula $\overline{\ensuremath{\beta}}$
+'s are unknown non-negative parameters.
+ Note that, as 
+\begin_inset Formula $s$
 \end_inset
 
- is some estimate of future selling price.
- The action space is given by (
+'s are kink concave functions, constant from 
+\begin_inset Formula $t$
+\end_inset
+
+, 
+\begin_inset Formula $V_{\bullet}$
+\end_inset
+
+ is concave with unit derivative starting from 
+\begin_inset Formula $k_{\bullet}h_{\bullet}$
+\end_inset
+
+.
+ so 
+\begin_inset Formula $V$
+\end_inset
+
+ fulfills 1.
+ - 6.
+ By adjusting the 
+\begin_inset Formula $\phi$
+\end_inset
+
+'s and possibly refining 
+\begin_inset Formula $h$
+\end_inset
+
+'s and 
+\begin_inset Formula $k$
+\end_inset
+
+'s 
+\end_layout
+
+\begin_layout Standard
+The action space is given by (
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "eq:adef"
@@ -1335,7 +1498,7 @@ Both the distributions of
 \begin_inset Formula $D$
 \end_inset
 
- may depend non trivially on 
+ may depend non-trivially on 
 \begin_inset Formula $R$
 \end_inset
 
@@ -1398,7 +1561,7 @@ I(x)=\mathrm{round(}\phi(x-1))+E
 \end_inset
 
 and estimate 
-\begin_inset Formula $ $
+\begin_inset Formula $\phi$
 \end_inset
 
  by regression; here, 
@@ -1445,10 +1608,10 @@ A(m,r)\doteq A'(m,a)=\{v\in\mathbb{N}_{0}:\mathrm{round(}\phi(v-1))+\mathrm{stde
 \color none
 Consequently, our (approximated) problem is 
 \begin_inset Formula 
-\begin{multline*}
+\begin{multline}
 V(m,r)\doteq W(m,a)\\
-=\max_{v\in A'(m,r)}[v+\gamma\mathbb{E}_{E,F}W(\max(0,m-v(a+\mathrm{round(}\phi(v-1))+E)),\max(0,a+F))]
-\end{multline*}
+=\max_{v\in A'(m,r)}[v+\gamma\mathbb{E}_{E,F}W(\max(0,m-v(a+\mathrm{round(}\phi(v-1))+E)),\max(0,a+F))]\label{eq:mindpb}
+\end{multline}
 
 \end_inset
 
@@ -1492,6 +1655,69 @@ As for the distribution of
 
 .
  
+\end_layout
+
+\begin_layout Subsection*
+The minimalistic DP of a buyer with repeated orders
+\end_layout
+
+\begin_layout Standard
+If we assume that new money (requests to buy stocks), which only changes
+ (
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:mindpb"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) to 
+\begin_inset Formula 
+\begin{multline*}
+V(m,r)\doteq\max_{v\in A'(m,r)}[v+\gamma\mathbb{E}_{E,F,M}W(\max(0,m+M-v(a+\mathrm{round(}\phi(v-1))+E)),\max(0,a+F))]
+\end{multline*}
+
+\end_inset
+
+where 
+\begin_inset Formula $E,F$
+\end_inset
+
+ are as above and 
+\begin_inset Formula $M$
+\end_inset
+
+ is zero with a relatively mall probability 
+\begin_inset Formula $p_{M}$
+\end_inset
+
+ and 
+\begin_inset Formula $\mathrm{\kappa_{m}Poisson}(\lambda_{M})$
+\end_inset
+
+ for some 
+\begin_inset Formula $\kappa_{m}$
+\end_inset
+
+ and 
+\begin_inset Formula $\lambda_{m}$
+\end_inset
+
+ (say 
+\begin_inset Formula $p_{M}=0.01$
+\end_inset
+
+, 
+\begin_inset Formula $\kappa_{M}=100$
+\end_inset
+
+ and 
+\begin_inset Formula $\lambda_{M}=3$
+\end_inset
+
+)
 \end_layout
 
 \begin_layout Section*

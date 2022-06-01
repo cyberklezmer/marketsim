@@ -21,10 +21,13 @@ public:
            bool buy = uniform() > 0.5;
            auto volume = pd(fengine);
            trequest r;
-           if(buy)
-               r.addsellmarket(volume);
-           else
-               r.addbuymarket(volume);
+           if(volume)
+           {
+               if(buy)
+                   r.addsellmarket(volume);
+               else
+                   r.addbuymarket(volume);
+           }
            return r;
        }
 private:
