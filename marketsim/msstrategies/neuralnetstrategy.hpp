@@ -7,7 +7,7 @@ namespace marketsim {
     std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice finitprice,
                                              tprice last_bid, tprice last_ask);
 
-    template<typename TNet, int conslim, int keep_stocks, int spread_lim, bool modify_c = true>
+    template<typename TNet, int conslim, int keep_stocks, int spread_lim, bool modify_c = true, int volume = 10>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
@@ -97,13 +97,13 @@ namespace marketsim {
             bool is_ask = false;
 			
             if (mi.mywallet().money() > bid) {
-                ord.addbuylimit(bid, 10);
+                ord.addbuylimit(bid, volume);
                 last_bid = bid;
                 is_bid = true;
             }
 
             if (mi.mywallet().stocks() > keep_stocks) {
-			    ord.addselllimit(ask, 10);  //TODO u vsech resit jak presne dat na int
+			    ord.addselllimit(ask, volume);  //TODO u vsech resit jak presne dat na int
                 last_ask = ask;
                 is_ask = true;
             }

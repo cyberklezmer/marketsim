@@ -15,10 +15,10 @@ namespace marketsim {
         virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& state) = 0;
     };
 
-    template<typename TNet, int N>
+    template<typename TNet, int N, typename TReturns>
     class NStepTrainer : BaseTrainer {
     public:
-        NStepTrainer() : BaseTrainer(), net(std::make_unique<TNet>()), gamma(0.99998)
+        NStepTrainer() : BaseTrainer(), net(std::make_unique<TNet>()), returns_func()
         {
             optimizer = std::make_unique<torch::optim::Adam>(net->parameters(), /*lr=*/0.0001);
         }
@@ -74,7 +74,9 @@ namespace marketsim {
     }
 
     private:
-        torch::Tensor modify_state(torch::Tensor x) {
+        torch::Tensor modify_state(const torch::Tensor& state) {
+            torch::Tensor x = state.clone();
+
             x[0][0] /= 1000;
             for (int i = 1; i <= 3; ++i) {
                 x[0][i] /= 10000;
@@ -84,45 +86,16 @@ namespace marketsim {
         }
 
         torch::Tensor compute_returns(const std::vector<hist_entry>& history, const torch::Tensor& next_state) {
-            double curr_gamma = 1.0;
-            double returns = 0.0;
-            size_t hist_size = history.size();
+            torch::Tensor tensor_returns = returns_func.compute_returns(history, next_state);
+            double gamma = returns_func.get_gamma();
 
-            for (int i = hist_size - N; i < hist_size; ++i) {
-                auto entry = history.at(i);
-                torch::Tensor next = (i < hist_size - 1) ? std::get<0>(history.at(i + 1)) : next_state;
-
-                double cons =  std::get<2>(entry).item<double>();
-                double rew = get_reward_diff(std::get<0>(entry), next);
-
-                //std::cout << "\nConsumption: " << cons << "Reward: " << rew << std::endl;
-                returns += curr_gamma * (cons + rew);
-                curr_gamma *= gamma;
-            }
-
-            //std::cout << "\n\nReturns without estimate: " << returns << "Gamma: " << curr_gamma << std::endl;
-
-            auto tensor_returns = torch::tensor({returns}).reshape({1,1});
-            tensor_returns += curr_gamma * net->predict_values(modify_state(next_state));  //TODO preprocess state?
+            tensor_returns += gamma * net->predict_values(modify_state(next_state));  //TODO preprocess state?
             return tensor_returns;
         }
 
-        double get_reward_diff(const torch::Tensor& state, const torch::Tensor& next_state) {
-            //torch::Tensor state = modify_state(s);
-            //torch::Tensor next_state = modify_state(ns);
-
-            double mdiff = next_state[0][0].item<double>() - state[0][0].item<double>();
-            
-            double next_stock = next_state[0][3].item<double>() * next_state[0][1].item<double>();
-            double stock = state[0][3].item<double>() * state[0][1].item<double>();
-            double sdiff = next_stock - stock;
-
-            return mdiff + sdiff;
-        }
-
-        double gamma;
         std::unique_ptr<torch::optim::Adam> optimizer;
         std::unique_ptr<TNet> net;
+        TReturns returns_func;
     };
 
 }

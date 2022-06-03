@@ -15,6 +15,7 @@
 
 #include "nets/actorcritic.hpp"
 #include "nets/trainer.hpp"
+#include "nets/rewards.hpp"
 
 #include <torch/torch.h>
 
@@ -56,6 +57,7 @@ int main()
         constexpr int keep_stocks = 10;
         constexpr int spread_lim = 5;
 
+        constexpr int volume = 10;
         constexpr bool modify_cons = true;
 
         constexpr int max_consumption = 10000;
@@ -63,10 +65,16 @@ int main()
         
         using network = ACDiscrete<4, 256, 5, max_consumption, cons_parts>;
         //using network = ACContinuous<4, 256, 1, cons_mult>;
-        
-        using trainer = NStepTrainer<network, n_steps>;
 
-        using testedstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, modify_cons>;
+        constexpr int money_div = 1000;
+        constexpr int stock_div = 10; 
+
+        //using returns_func = WeightedDiffReturn<n_steps, money_div, stock_div>;
+        using returns_func = DiffReturn<n_steps>;
+        
+        using trainer = NStepTrainer<network, n_steps, returns_func>;
+
+        using testedstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, modify_cons, volume>;
           // should be the AI strategy
 
         enum ewhattodo { esinglerunsinglestrategy,
