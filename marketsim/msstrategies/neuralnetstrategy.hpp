@@ -7,7 +7,7 @@ namespace marketsim {
     std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice finitprice,
                                              tprice last_bid, tprice last_ask);
 
-    template<typename TNet, int cons_mult, int CLim, int DivLim, int keep_stocks, int spread_lim, bool modify_c = true>
+    template<typename TNet, int conslim, int keep_stocks, int spread_lim, bool modify_c = true>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
@@ -61,13 +61,12 @@ namespace marketsim {
             double conspred = cons[0][0].item<double>();
 
             double lim = mi.mywallet().money() - mi.myorderprofile().B.value();
-            if (lim < CLim) {
+            if ((lim - conspred) < conslim) {
                 conspred = 0.0;
             }
-            else {
-                double multiplied_c = cons_mult * conspred;
-                conspred = (multiplied_c >= (lim / DivLim)) ? (lim / DivLim / cons_mult) : conspred;
-                conspred = (conspred < 0) ? 1.0 : conspred;
+
+            if (conspred < 0) {
+                conspred = 0.0;
             }
 
             return torch::tensor({conspred}).reshape({1,1});
@@ -109,11 +108,11 @@ namespace marketsim {
                 is_ask = true;
             }
 
-            ord.setconsumption(int(conspred * cons_mult));
+            ord.setconsumption(int(conspred));
 
             std::cout << "Bid: " << (is_bid ? std::to_string(bid) : std::string(" "));
             std::cout << ", Ask: " << (is_ask ? std::to_string(ask) : std::string(" "));
-            std::cout << ", Cons: " << int(conspred * cons_mult) << std::endl;
+            std::cout << ", Cons: " << int(conspred) << std::endl;
             std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks() << std::endl;
 
             return ord;

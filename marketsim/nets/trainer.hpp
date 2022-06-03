@@ -15,7 +15,7 @@ namespace marketsim {
         virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& state) = 0;
     };
 
-    template<typename TNet, int N, int consmult>
+    template<typename TNet, int N>
     class NStepTrainer : BaseTrainer {
     public:
         NStepTrainer() : BaseTrainer(), net(std::make_unique<TNet>()), gamma(0.99998)
@@ -92,7 +92,7 @@ namespace marketsim {
                 auto entry = history.at(i);
                 torch::Tensor next = (i < hist_size - 1) ? std::get<0>(history.at(i + 1)) : next_state;
 
-                double cons =  std::get<2>(entry).item<double>() * consmult;
+                double cons =  std::get<2>(entry).item<double>();
                 double rew = get_reward_diff(std::get<0>(entry), next);
 
                 //std::cout << "\nConsumption: " << cons << "Reward: " << rew << std::endl;

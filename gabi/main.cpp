@@ -51,20 +51,22 @@ int main()
         bool with_mm = true;
 
         constexpr int n_steps = 2;
-        constexpr int cons_mult = 1;
+        constexpr int cons_mult = 10000;
         constexpr int cons_lim = 1000;
-        constexpr int cons_div = 8;
         constexpr int keep_stocks = 10;
         constexpr int spread_lim = 5;
 
-        constexpr bool modify_cons = false;
-        
-        using network = ACDiscrete<4, 256, 5, 1000, 4>;
-        //using network = ACContinuous<4, 256, 1>;
-        
-        using trainer = NStepTrainer<network, n_steps, cons_mult>;
+        constexpr bool modify_cons = true;
 
-        using testedstrategy = neuralnetstrategy<trainer, cons_mult, cons_lim, cons_div, keep_stocks, spread_lim, modify_cons>;
+        constexpr int max_consumption = 10000;
+        constexpr int cons_parts = 8;
+        
+        using network = ACDiscrete<4, 256, 5, max_consumption, cons_parts>;
+        //using network = ACContinuous<4, 256, 1, cons_mult>;
+        
+        using trainer = NStepTrainer<network, n_steps>;
+
+        using testedstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, modify_cons>;
           // should be the AI strategy
 
         enum ewhattodo { esinglerunsinglestrategy,

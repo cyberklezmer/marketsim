@@ -35,7 +35,7 @@ namespace marketsim {
         torch::nn::Linear linear_critic{nullptr}, linear_actor{nullptr}, critic{nullptr};
     };
 
-    template<int state_size, int hidden_size, int action_scale>
+    template<int state_size, int hidden_size, int action_scale, int cons_mult>
     struct ACContinuous : ActorCriticBase<state_size, hidden_size> {
         ACContinuous() :
             ActorCriticBase<state_size, hidden_size>(),
@@ -76,7 +76,7 @@ namespace marketsim {
             auto cons_stds = pred_actions.at(3);
 
             auto action_sample = normal_sample(mus, stds);
-            auto cons_sample = normal_sample(cons_mus, cons_stds);
+            auto cons_sample = normal_sample(cons_mus, cons_stds) * cons_mult;
 
             return std::vector<torch::Tensor>{action_sample, cons_sample};
         }
@@ -91,7 +91,7 @@ namespace marketsim {
             auto cons_stds = pred_actions.at(3);
             
             auto action_proba = normal_log_proba(actions, mus, stds);
-            auto cons_proba = normal_log_proba(consumption, cons_mus, cons_stds);
+            auto cons_proba = normal_log_proba(consumption / cons_mult, cons_mus, cons_stds);
 
             return action_proba.sum(/*dim=*/1) + cons_proba;
         }
