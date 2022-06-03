@@ -41,7 +41,6 @@ namespace marketsim {
             ActorCriticBase<state_size, hidden_size>(),
             action_size(2)
         {
-            //TODO state_size?
             actor_mu = this->register_module("actor_mu", torch::nn::Linear(hidden_size, action_size));
             actor_std = this->register_module("actor_std", torch::nn::Linear(hidden_size, action_size));
             consumption_mu = this->register_module("consumption_mu", torch::nn::Linear(hidden_size, 1));
@@ -99,5 +98,74 @@ namespace marketsim {
 
         int action_size;
         torch::nn::Linear actor_mu{nullptr}, actor_std{nullptr}, consumption_mu{nullptr}, consumption_std{nullptr};
+    };
+
+    template <int state_size, int hidden_size, int action_h, int cons_max, int cons_div>
+    struct ACDiscrete : ActorCriticBase<state_size, hidden_size> {
+        ACDiscrete() : 
+            ActorCriticBase<state_size, hidden_size>() {
+                int ba_size = action_h * 2 + 1;
+                cons_step_size = int(std::ceil(cons_max / cons_div));
+
+                bid_actor = this->register_module("bid_actor", torch::nn::Linear(hidden_size, ba_size));
+                ask_actor = this->register_module("ask_actor", torch::nn::Linear(hidden_size, ba_size));
+                cons_actor = this->register_module("cons_actor", torch::nn::Linear(hidden_size, cons_div + 1));
+            }
+
+        std::vector<torch::Tensor> predict_actions(const torch::Tensor& x) {
+            return predict_actions(x, true);
+        }
+
+        std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool sample) {
+             x = torch::relu(this->linear_actor->forward(x));
+            
+            auto bid = torch::log_softmax(bid_actor->forward(x), /*dim=*/1);
+            auto ask = torch::log_softmax(ask_actor->forward(x), /*dim=*/1);
+            auto cons = torch::log_softmax(cons_actor->forward(x), /*dim=*/1);
+
+            auto res = std::vector<torch::Tensor>{bid, ask, cons};
+            if (!sample) {
+                return res;
+            }
+
+            return sample_actions(res);
+        }
+
+        std::vector<torch::Tensor> sample_actions(std::vector<torch::Tensor> pred_actions) {
+            auto bid_logits = at::exp(pred_actions.at(0));
+            auto ask_logits = at::exp(pred_actions.at(1));
+            auto cons_logits = at::exp(pred_actions.at(2));
+
+            torch::Tensor bid = sample_from_pb(bid_logits) - action_h;
+            torch::Tensor ask = sample_from_pb(ask_logits) - action_h;
+            torch::Tensor cons = sample_from_pb(cons_logits) * cons_step_size;
+
+            std::vector<torch::Tensor> res{
+                at::concat({bid, ask}).reshape({1, 2}),
+                cons.reshape({1, 1})
+            };
+
+            return res;
+        }
+
+        torch::Tensor action_log_prob(const torch::Tensor& actions, const torch::Tensor& consumption,
+                                      const std::vector<torch::Tensor>& pred_actions) {
+            auto bid_logits = pred_actions.at(0);
+            auto ask_logits = pred_actions.at(1);
+            auto cons_logits = pred_actions.at(2);
+
+            torch::Tensor bid_target = (actions[0][0].reshape({1}) + action_h).to(torch::kLong);
+            torch::Tensor ask_target = (actions[0][1].reshape({1}) + action_h).to(torch::kLong);
+            torch::Tensor cons_target = (consumption[0] / cons_step_size).to(torch::kLong);
+
+            torch::Tensor loss = torch::nll_loss(bid_logits, bid_target);
+            loss += torch::nll_loss(ask_logits, ask_target);
+            loss += torch::nll_loss(cons_logits, cons_target);
+
+            return -loss;
+        }
+
+        int cons_step_size;
+        torch::nn::Linear bid_actor{nullptr}, ask_actor{nullptr}, cons_actor{nullptr};
     };
 }

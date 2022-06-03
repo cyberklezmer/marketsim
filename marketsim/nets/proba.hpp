@@ -24,6 +24,10 @@ namespace marketsim {
         //return stds * rand_norm + mus;
         return stds.exp() * rand_norm + mus;
     }
+
+    torch::Tensor sample_from_pb(const torch::Tensor& probas) {
+        return at::multinomial(probas, 1);
+    }
 }
 
 #endif // PROBA_HPP_

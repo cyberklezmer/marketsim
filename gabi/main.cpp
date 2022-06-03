@@ -35,6 +35,7 @@ int main()
 
         // change accordingly (one unit rougly corresponds to one second)
         constexpr tabstime runningtime = 1000;
+        //constexpr tabstime runningtime = 8 * 3600;
 
         // change accordingly
         twallet endowment(5000,100);
@@ -47,16 +48,24 @@ int main()
         // descentants of marketsim::teventdrivenstrategy
         //using testedstrategy = maslovstrategy;
 
-        constexpr int n_steps = 5;
-        constexpr int cons_mult = 500;
-        using network = ACContinuous<4, 256, 1>;
-        using trainer = NStepTrainer<network, n_steps>;
+        bool with_mm = true;
 
-        using testedstrategy = neuralnetstrategy<trainer, cons_mult>;
+        constexpr int n_steps = 2;
+        constexpr int cons_mult = 1;
+        constexpr int cons_lim = 1000;
+        constexpr int cons_div = 8;
+        constexpr int keep_stocks = 10;
+        constexpr int spread_lim = 5;
+
+        constexpr bool modify_cons = false;
+        
+        using network = ACDiscrete<4, 256, 5, 1000, 4>;
+        //using network = ACContinuous<4, 256, 1>;
+        
+        using trainer = NStepTrainer<network, n_steps, cons_mult>;
+
+        using testedstrategy = neuralnetstrategy<trainer, cons_mult, cons_lim, cons_div, keep_stocks, spread_lim, modify_cons>;
           // should be the AI strategy
-
-        //firstsecondstrategy<10,10>;
-
 
         enum ewhattodo { esinglerunsinglestrategy,
                          erunall,
@@ -98,11 +107,23 @@ int main()
             }
             break;
         case erunall:
-            test<chronos,true,logging>({&fss,&lts,&nmm,&ts}, runningtime, endowment, def);
+            if (with_mm) {
+                test<chronos,true,logging>({&fss,&lts,&nmm,&ts}, runningtime, endowment, def);
+            }
+            else {
+                test<chronos,true,logging>({&fss,&lts,&ts}, runningtime, endowment, def);
+            }
             break;
         case ecompetition:
-            competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, runningtime, endowment, def, std::clog);
-            break;
+            if (with_mm) {
+                competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, runningtime, endowment, def, std::clog);
+                break;
+            }
+            else {
+                competition<chronos,true,logging>({&fss,&lts,&ts}, runningtime, endowment, def, std::clog);
+                break;
+            }
+
         default:
             throw "unknown option";
         }

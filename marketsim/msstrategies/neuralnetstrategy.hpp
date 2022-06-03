@@ -7,7 +7,7 @@ namespace marketsim {
     std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice finitprice,
                                              tprice last_bid, tprice last_ask);
 
-    template<typename TNet, int cons_mult>
+    template<typename TNet, int cons_mult, int CLim, int DivLim, int keep_stocks, int spread_lim, bool modify_c = true>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
@@ -15,21 +15,30 @@ namespace marketsim {
             history(),
 			finitprice(100),
             last_bid(klundefprice),
-            last_ask(khundefprice) {}
+            last_ask(khundefprice),
+            counter{0} {}
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
             torch::Tensor next_state = this->construct_state(mi);
             net.train(history, next_state);
 
-            //std::cout << "Tensor: " << next_state << std::endl;
-
             auto pred_actions = net.predict_actions(next_state);
             torch::Tensor next_action = pred_actions.at(0);
             torch::Tensor next_cons = pred_actions.at(1);
-            next_cons = this->modify_consumption(mi, next_cons);
 
-            //std::cout << "\nActions: " << next_action << "\nConsume: " << next_cons << std::endl;
+            if (modify_c) {
+                next_cons = this->modify_consumption(mi, next_cons);
+            }
+
+            double a1 = next_action[0][0].item<double>();
+            double a2 = next_action[0][1].item<double>();
+            if ((a1 >= spread_lim) || (a1 <= -spread_lim)) {
+                next_action[0][0] = (a1 < 0) ? -spread_lim : spread_lim;
+            }
+            if ((a2 >= spread_lim) || (a2 <= -spread_lim)) {
+                next_action[0][1] = (a2 < 0) ? -spread_lim : spread_lim;
+            }
 
             history.push_back(std::make_tuple<>(next_state, next_action, next_cons));
 
@@ -45,19 +54,21 @@ namespace marketsim {
             auto b = std::get<1>(ab);
             
             std::vector<float> state_data = std::vector<float>{float(m), float(s), float(a), float(b)};
-
-            //std::cout << state_data << std::endl;  //TODO tady se děje chyba protože cplusko je děvka
-
-            //auto options = torch::TensorOptions().dtype(torch::kFloat32);
             return torch::tensor(state_data).reshape({1,4});
         }
 
         virtual torch::Tensor modify_consumption(const tmarketinfo& mi, const torch::Tensor& cons) {
             double conspred = cons[0][0].item<double>();
 
-            double lim = (mi.mywallet().money() - mi.myorderprofile().B.value()) / 2;
-            conspred = conspred >= lim ? lim : conspred;
-            conspred = conspred < 0 ? 1.0 : conspred;
+            double lim = mi.mywallet().money() - mi.myorderprofile().B.value();
+            if (lim < CLim) {
+                conspred = 0.0;
+            }
+            else {
+                double multiplied_c = cons_mult * conspred;
+                conspred = (multiplied_c >= (lim / DivLim)) ? (lim / DivLim / cons_mult) : conspred;
+                conspred = (conspred < 0) ? 1.0 : conspred;
+            }
 
             return torch::tensor({conspred}).reshape({1,1});
         }
@@ -70,17 +81,45 @@ namespace marketsim {
             auto ab = get_alpha_beta(mi, finitprice, last_bid, last_ask);
             auto a = std::get<0>(ab);
             auto b = std::get<1>(ab);
+            std::cout << "Beta: " << b << ", Alpha " << a << std::endl;
 
-            last_bid = int(b + bpred);
-            last_ask = int(a + apred);
+            tprice bid = int(b + bpred);
+            tprice ask = int(a + apred);
+            
+            bid = (bid < 0) ? 0 : bid;
+            ask = (ask <= 0) ? 1 : ask;
+
+            if (bid >= ask) {
+                bid = ask - 1;
+            }
 
             trequest ord;
-			ord.addbuylimit(last_bid, 1);
-			ord.addselllimit(last_ask, 1);  //TODO u vsech resit jak presne dat na int
-			ord.setconsumption(int(conspred * cons_mult));
+            bool is_bid = false;
+            bool is_ask = false;
+			
+            if (mi.mywallet().money() > bid) {
+                ord.addbuylimit(bid, 10);
+                last_bid = bid;
+                is_bid = true;
+            }
+
+            if (mi.mywallet().stocks() > keep_stocks) {
+			    ord.addselllimit(ask, 10);  //TODO u vsech resit jak presne dat na int
+                last_ask = ask;
+                is_ask = true;
+            }
+
+            ord.setconsumption(int(conspred * cons_mult));
+
+            std::cout << "Bid: " << (is_bid ? std::to_string(bid) : std::string(" "));
+            std::cout << ", Ask: " << (is_ask ? std::to_string(ask) : std::string(" "));
+            std::cout << ", Cons: " << int(conspred * cons_mult) << std::endl;
+            std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks() << std::endl;
 
             return ord;
         }
+
+        size_t counter;
 
 		tprice last_bid, last_ask;
         double finitprice;
@@ -101,7 +140,6 @@ namespace marketsim {
 			if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
 			if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
 
-            //std::cout << "a" << alpha << "b" << beta << std::endl;
             return std::make_pair<>(alpha, beta);
     }
 }
