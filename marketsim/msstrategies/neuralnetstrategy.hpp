@@ -73,14 +73,14 @@ namespace marketsim {
         }
 
         virtual trequest construct_order(const tmarketinfo& mi, const torch::Tensor& actions, const torch::Tensor& cons) {
-            double bpred = actions[0][1].item<double>();
+            double bpred = actions[0][0].item<double>();
             double apred = actions[0][1].item<double>();
             double conspred = cons[0][0].item<double>();
 
             auto ab = get_alpha_beta(mi, finitprice, last_bid, last_ask);
             auto a = std::get<0>(ab);
             auto b = std::get<1>(ab);
-            std::cout << "Beta: " << b << ", Alpha " << a << std::endl;
+            std::cout << "Beta: " << b << ", Alpha: " << a << std::endl;
 
             tprice bid = int(b + bpred);
             tprice ask = int(a + apred);
@@ -89,7 +89,8 @@ namespace marketsim {
             ask = (ask <= 0) ? 1 : ask;
 
             if (bid >= ask) {
-                bid = ask - 1;
+                //bid = ask - 1;
+                ask = bid + 1;
             }
 
             trequest ord;
@@ -108,10 +109,21 @@ namespace marketsim {
                 is_ask = true;
             }
 
+            tprice m = mi.mywallet().money();
+            tprice s = mi.mywallet().stocks();
+            if (s <= keep_stocks && m <= b) {
+                ord.addbuylimit(int(m / 2), 1);
+                ord.addselllimit(a - 1, 1);
+                last_bid = int(m / 2);
+                last_ask = a - 1;
+                is_bid = true;
+                is_ask = true;
+            }
+
             ord.setconsumption(int(conspred));
 
-            std::cout << "Bid: " << (is_bid ? std::to_string(bid) : std::string(" "));
-            std::cout << ", Ask: " << (is_ask ? std::to_string(ask) : std::string(" "));
+            std::cout << "Bid: " << (is_bid ? std::to_string(bid) : std::string(" ")) << "(" << bpred << ")";
+            std::cout << ", Ask: " << (is_ask ? std::to_string(ask) : std::string(" ")) << "(" << apred << ")";
             std::cout << ", Cons: " << int(conspred) << std::endl;
             std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks() << std::endl;
 

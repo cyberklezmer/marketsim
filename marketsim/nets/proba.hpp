@@ -6,6 +6,10 @@
 
 namespace marketsim {
 
+    double pi() {
+        return boost::math::constants::pi<double>();
+    }
+
     torch::Tensor normal_log_proba(const torch::Tensor& x, const torch::Tensor& mu, const torch::Tensor& std) {
         //std::cout << "x, mu, std" << std::endl;
         //std::cout << x << mu << std << std::endl;
@@ -15,7 +19,7 @@ namespace marketsim {
         //auto variance = std.pow(2);
         //auto log_std = (std + torch::tensor({1e-12})).log();
         auto subs = (-(x - mu).pow(2) / (2 * variance));
-        return subs - log_std - std::log(std::sqrt(2 * boost::math::constants::pi<double>()));
+        return subs - log_std - std::log(std::sqrt(2 * pi()));
     }
 
     torch::Tensor normal_sample(const torch::Tensor& mus, const torch::Tensor& stds) {
@@ -27,6 +31,15 @@ namespace marketsim {
 
     torch::Tensor sample_from_pb(const torch::Tensor& probas) {
         return at::multinomial(probas, 1);
+    }
+
+    torch::Tensor normal_entropy(const torch::Tensor& stds) {
+        return at::mean(stds + std::log(2 * pi()) / 2 + 1 / 2);
+    }
+
+    torch::Tensor logit_entropy(const torch::Tensor& logits) {
+        auto expit = at::exp(logits);
+        return -at::mean(expit * logits);
     }
 }
 

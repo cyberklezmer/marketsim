@@ -32,6 +32,8 @@ namespace marketsim {
         virtual torch::Tensor action_log_prob(const torch::Tensor& actions, const torch::Tensor& consumption,
                                               const std::vector<torch::Tensor>& pred_actions) = 0;
 
+        virtual torch::Tensor entropy(const std::vector<torch::Tensor>& pred_actions) = 0;
+
         torch::nn::Linear linear_critic{nullptr}, linear_actor{nullptr}, critic{nullptr};
     };
 
@@ -94,6 +96,13 @@ namespace marketsim {
             auto cons_proba = normal_log_proba(consumption / cons_mult, cons_mus, cons_stds);
 
             return action_proba.sum(/*dim=*/1) + cons_proba;
+        }
+
+        torch::Tensor entropy(const std::vector<torch::Tensor>& pred_actions) {
+            auto stds = pred_actions.at(1);
+            auto cons_stds = pred_actions.at(3);
+
+            return normal_entropy(stds) + normal_entropy(cons_stds);
         }
 
         int action_size;
@@ -163,6 +172,15 @@ namespace marketsim {
             loss += torch::nll_loss(cons_logits, cons_target);
 
             return -loss;
+        }
+
+        
+        virtual torch::Tensor entropy(const std::vector<torch::Tensor>& pred_actions) {
+            auto bid_logits = pred_actions.at(0);
+            auto ask_logits = pred_actions.at(1);
+            auto cons_logits = pred_actions.at(2);
+
+            return logit_entropy(bid_logits) + logit_entropy(ask_logits) + logit_entropy(cons_logits);
         }
 
         int cons_step_size;

@@ -1,5 +1,6 @@
 #include <torch/torch.h>
 #include <vector>
+#include "proba.hpp"
 
 
 namespace marketsim {
@@ -81,11 +82,15 @@ namespace marketsim {
             double state_money = get_money(state);
             double state_stocks = get_stocks(state);
 
-            mdiff_mult = TMinM / state_money;
-            sdiff_mult = TMinS / state_stocks;
+            //mdiff_mult = TMinM / (state_money + 10) - 10;
+            //sdiff_mult = TMinS / (state_stocks + 10) - 3;
+            mdiff_mult = 20 * (-std::atan(state_money / 500) + pi() / 2);
+            sdiff_mult = 1 * (-std::atan(state_stocks - 10) + pi() / 2);
         }
 
         virtual double compute_reward(double cons, double mdiff, double sdiff) {
+            std::cout << "Returns - Cons: " << cons << ", Mdiff: " << mdiff_mult << ", Sdiff: " << sdiff_mult << std::endl;
+
             return cons + mdiff_mult * mdiff + sdiff_mult * sdiff;
         }
 

@@ -15,10 +15,10 @@ namespace marketsim {
         virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& state) = 0;
     };
 
-    template<typename TNet, int N, typename TReturns>
+    template<typename TNet, int N, typename TReturns, bool use_entropy = false>
     class NStepTrainer : BaseTrainer {
     public:
-        NStepTrainer() : BaseTrainer(), net(std::make_unique<TNet>()), returns_func()
+        NStepTrainer() : BaseTrainer(), net(std::make_unique<TNet>()), returns_func(), beta(0.01)
         {
             optimizer = std::make_unique<torch::optim::Adam>(net->parameters(), /*lr=*/0.0001);
         }
@@ -49,11 +49,12 @@ namespace marketsim {
             auto state_value = std::get<1>(pred);
 
             auto advantages = (returns - state_value);
+            auto entropy = net->entropy(pred_actions);
 
             auto value_loss = advantages.pow(2).mean();
             //auto value_loss = at::huber_loss(state_value, returns);
             auto action_probs = net->action_log_prob(actions, cons, pred_actions);
-            auto action_loss = -(advantages.detach() * action_probs).mean(); //TODO minus správně?
+            auto action_loss = -(advantages.detach() * action_probs + beta * entropy).mean(); //TODO minus správně?
 
             //action_loss = at::clamp(action_loss, -2, 2);
             
@@ -93,6 +94,7 @@ namespace marketsim {
             return tensor_returns;
         }
 
+        double beta;
         std::unique_ptr<torch::optim::Adam> optimizer;
         std::unique_ptr<TNet> net;
         TReturns returns_func;
