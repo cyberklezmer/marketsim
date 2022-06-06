@@ -1,70 +1,100 @@
 #include "marketsim.hpp"
-#include<random>
 #include "leastsquares.hpp"
-
-std::random_device rd;
-std::mt19937 gen(rd());
+#include <boost/math/distributions/normal.hpp>
+	using boost::math::normal;
 
 namespace marketsim
 {	
 	class buyer : public teventdrivenstrategy 
 	{
+		using Tvec = std::vector<double>;
+		using T2vec = std::vector<std::vector<double>>;
+
 	public:
-		buyer()
-			: teventdrivenstrategy(1)
+		buyer() : teventdrivenstrategy(1)
 		{
 			discfact = 0.9998;
-			cash = 0;
-			W = T2vec(0,Tvec(0,0.0));
-			price = 0, price_last = 0;
-			E = std::normal_distribution<>{ 0, E_stddev };
-			F = std::normal_distribution<>{ 0, F_stddev };
-
+			a_last = a = khundefprice;
+			vol_last = 0;
+			E_stddev = F_stddev = 1;
+			E_mean = F_mean = 0;
 		}
 
 	private:
 		virtual trequest event(const tmarketinfo& info, tabstime t, trequestresult* lastresult)
-		{
+		{	
+				
 			if (!lastresult)
 			{
-				int bnd_ask_impact = 101; //change to sth dynamic
-				cash = info.mywallet().money();
-				W = T2vec(cash + 1, Tvec(bnd_ask_impact, 0.0));
-				return trequest();
+				m = info.mywallet().money(), s = info.mywallet().stocks(), a = info.a();
+				int bnd_ask = 10000; //change to sth dynamic
+				W = T2vec(info.mywallet().money() + 1, Tvec(bnd_ask, 0.0));
+				for (int i = 1; i <= m; i++)
+					for (int j = 1; j <= bnd_ask; j++)
+						W[i][j] = floor(i / j);
 			}
 
-			price_last = price;
-			price = (info.alpha() != khundefprice && info.beta() != klundefprice)
-				? (info.alpha() + info.beta()) / 2 : std::numeric_limits<double>::quiet_NaN();
+			m_last = m, s_last = s, a_last = a;
+			m = info.mywallet().money(), a = info.a(), s = info.mywallet().stocks();
+			auto diff_m = abs(m - m_last), diff_s = abs(s - s_last);
 
-			if(!isnan(price - price_last))
+			if(a != khundefprice && a_last != khundefprice)
 			{
-				cash = info.mywallet().money();
-				ins.push_back(vol);
-				outs.push_back(price - price_last);
-				auto regress = getRegressCoef(ins, outs);
+				ins.push_back(vol_last);
+				outs.push_back(vol_last > 0 ? 1.0 * (diff_m - a_last) / diff_s : 0.0);
+				auto regress = ins.size() > 5 ? getRegressCoef(ins, outs) : Tvec{ 0,2 };
 
-				for (tvolume v = 0; round(regress[0] + regress[1] * (v - 1)) + E_stddev < cash; v++);
+				tvolume vol_best = 0;
+				double w = 0;
+
+				for (tvolume v = 0; round(regress[0] + regress[1] * (v - 1) + E_stddev) < m; v++)
 				{
-					double expv_opt = 0.0; double expv = 0.0;
+					double expv_opt = 0.0, expv = 0.0;
 
-					
+					for (int e = round(E_mean - 4 * E_stddev); e <= round(E_mean + 4 * E_stddev); e++)
+					{ 
+						double e_upp = boost::math::cdf(normal(E_mean, E_stddev), e + 0.5),
+							e_low = boost::math::cdf(normal(E_mean, E_stddev), e - 0.5);
+
+						for (int f = round(F_mean - 4 * F_stddev); f <= round(F_mean + 4 * F_stddev); f++)
+						{
+							double prob = 
+								e_upp * boost::math::cdf(normal(F_mean, F_stddev), f + 0.5) -
+								e_low * boost::math::cdf(normal(F_mean, F_stddev), f - 0.5);
+
+							expv += v + discfact *
+								W[std::max<int>(0, m - v * (a + round(regress[0] + regress[1] * (v - 1) + e)))]
+								[std::max(0, a + f)] * prob;
+
+							expv_opt += vol_best + discfact *
+								W[std::max<int>(0, m - vol_best * (a + round(regress[0] + regress[1] * (vol_best - 1) + e)))]
+								[std::max(0, a + f)] * prob;
+						}
+					}
+					if (expv > expv_opt)
+					{
+						vol_best = v;
+						w = expv;
+					}
 				}
 
+				W[m][a] = w;
 				trequest req;
-				req.addbuymarket(vol);
+				req.addbuymarket(vol_best);
+				vol_last = vol_best;
 				return req;
 			}
+
 			return trequest();
 		}
 
-		int vol, cash, cash_new, price_last, price;
+		tvolume vol_last;
+		tprice m, m_last, a, a_last;
+		int s, s_last;
 		Tvec ins, outs;
 		double discfact;
 		T2vec W;
-		double E_stddev, F_stddev;
-		std::normal_distribution<> E, F;
-
+		double E_stddev, F_stddev, E_mean, F_mean;
 	};
 
 }

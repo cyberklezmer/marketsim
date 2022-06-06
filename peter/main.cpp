@@ -13,7 +13,7 @@
 #include "msstrategies/naivemmstrategy.hpp"
 #include "msstrategies/liquiditytakers.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
-
+#include "msstrategies/buyer.hpp"
 
 using namespace marketsim;
 
@@ -111,13 +111,14 @@ int main()
 
             // our ingenious strategy
             competitor<testedstrategy,chronos> ts;
+            competitor<buyer, chronos> buyer;
 
             tcompetitiondef cdef;
             cdef.timeofrun = runningtime;
             cdef.endowment = endowment;
             cdef.marketdef = def;
             cdef.samplesize = 1;
-            competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
+            competition<chronos, true, logging>({ &fss,&lts,&nmm,&ts, &buyer }, cdef, std::clog);
 
             }
             break;

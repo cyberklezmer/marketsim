@@ -152,17 +152,6 @@ namespace marketsim
 					out_valfunc << W[i][j] << ",";
 				out_valfunc << "\n";
 			}
-
-			out_valfunc_init.open("valfunc_init.csv");
-			for(int i = 0; i < W.size(); i++)
-			{ 
-				for (int j = 0; j < W[0].size(); j++)
-				{ 
-					double r = (i == 0 && i == j) ? 0 : (1.0 - pow(fdiscfact, i + j * finitprice)) / (1.0 - fdiscfact);
-					out_valfunc_init << r << ",";
-				}
-				out_valfunc_init << "\n";
-			}
 		}*/
 
 		tprice finitprice;

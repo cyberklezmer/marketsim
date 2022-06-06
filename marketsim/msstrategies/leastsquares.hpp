@@ -1,10 +1,7 @@
 #include<vector>
 #include<numeric>
 
-using Tvec = std::vector<double>;
-using T2vec = std::vector<Tvec>;
-
-Tvec getRegressCoef(Tvec ins, Tvec outs, bool intercept = false)
+inline std::vector<double> getRegressCoef(std::vector<double> ins, std::vector<double> outs, bool intercept = false)
 {
 	double xavg = std::accumulate(ins.begin(), ins.end(), 0.0) / ins.size();
 	double yavg = std::accumulate(outs.begin(), outs.end(), 0.0) / outs.size();
@@ -19,5 +16,5 @@ Tvec getRegressCoef(Tvec ins, Tvec outs, bool intercept = false)
 	}
 	double beta = (xy - c) / (xx - d);
 
-	return Tvec{ intercept * (yavg - beta) * xavg, beta };
+	return std::vector<double>{ intercept * (yavg - beta) * xavg, beta };
 }
