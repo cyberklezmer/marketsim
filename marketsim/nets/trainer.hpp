@@ -10,12 +10,12 @@ namespace marketsim {
         virtual ~BaseTrainer() {}
 
     private:
-        virtual void train(const std::vector<hist_entry>& history, const torch::Tensor& next_state) = 0;
+        virtual void train(const std::vector<hist_entry>& history, torch::Tensor next_state) = 0;
 
-        virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& state) = 0;
+        virtual std::vector<torch::Tensor> predict_actions(torch::Tensor state) = 0;
     };
 
-    template<typename TNet, int N, typename TReturns, bool use_entropy = false>
+    template<typename TNet, int N, typename TReturns, bool use_entropy = false, int clamp = 2>
     class NStepTrainer : BaseTrainer {
     public:
         NStepTrainer() : BaseTrainer(), net(std::make_unique<TNet>()), returns_func(), beta(0.01)
@@ -23,7 +23,7 @@ namespace marketsim {
             optimizer = std::make_unique<torch::optim::Adam>(net->parameters(), /*lr=*/0.0001);
         }
 
-        virtual void train(const std::vector<hist_entry>& history, const torch::Tensor& next_state) {
+        void train(const std::vector<hist_entry>& history, torch::Tensor next_state) {
             if (history.size() < N) {
                 return;
             }
@@ -36,8 +36,6 @@ namespace marketsim {
             torch::Tensor actions = std::get<1>(curr);
             torch::Tensor cons = std::get<2>(curr);
             torch::Tensor returns = compute_returns(history, next_state);
-            //std::cout << "\nReturns " << returns.item<double>() << std::endl;
-            //std::cout << "State: " << state << std::endl;
 
             state = modify_state(state);
 
@@ -58,24 +56,21 @@ namespace marketsim {
 
             //action_loss = at::clamp(action_loss, -2, 2);
             
-            auto loss = value_loss + action_loss; //TODO entropy regularization
-            loss = at::clamp(loss, -2, 2);
-
-            //std::cout << "Value " << value_loss << "Action: " << action_loss << std::endl;
-            //std::cout << "State_value: " << state_value << std::endl;
+            auto loss = value_loss + action_loss;
+            loss = at::clamp(loss, -clamp, clamp);
 
             loss.backward();
             optimizer->step();
         }
     
-    virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& state) {
-        torch::NoGradGuard no_grad;
-        torch::Tensor x = modify_state(state);
-        return net->predict_actions(x);
-    }
+        std::vector<torch::Tensor> predict_actions(torch::Tensor state) {
+            torch::NoGradGuard no_grad;
+            torch::Tensor x = modify_state(state);
+            return net->predict_actions(x);
+        }
 
     private:
-        torch::Tensor modify_state(const torch::Tensor& state) {
+        torch::Tensor modify_state(torch::Tensor state) {
             torch::Tensor x = state.clone();
 
             x[0][0] /= 1000;
@@ -86,11 +81,11 @@ namespace marketsim {
             return x;
         }
 
-        torch::Tensor compute_returns(const std::vector<hist_entry>& history, const torch::Tensor& next_state) {
+        torch::Tensor compute_returns(const std::vector<hist_entry>& history, torch::Tensor next_state) {
             torch::Tensor tensor_returns = returns_func.compute_returns(history, next_state);
             double gamma = returns_func.get_gamma();
 
-            tensor_returns += gamma * net->predict_values(modify_state(next_state));  //TODO preprocess state?
+            tensor_returns += gamma * net->predict_values(modify_state(next_state));
             return tensor_returns;
         }
 

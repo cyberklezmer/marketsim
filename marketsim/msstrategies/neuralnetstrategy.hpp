@@ -1,3 +1,6 @@
+#ifndef NEURALNETSTRATEGY_HPP_
+#define NEURALNETSTRATEGY_HPP_
+
 #include "marketsim.hpp"
 #include <torch/torch.h>
 
@@ -15,8 +18,7 @@ namespace marketsim {
             history(),
 			finitprice(100),
             last_bid(klundefprice),
-            last_ask(khundefprice),
-            counter{0} {}
+            last_ask(khundefprice) {}
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
@@ -46,12 +48,12 @@ namespace marketsim {
         }
 
         virtual torch::Tensor construct_state(const tmarketinfo& mi) {
-            auto m = mi.mywallet().money();
-            auto s = mi.mywallet().stocks();
+            tprice m = mi.mywallet().money();
+            tprice s = mi.mywallet().stocks();
 
             auto ab = get_alpha_beta(mi, finitprice, last_bid, last_ask);
-            auto a = std::get<0>(ab);
-            auto b = std::get<1>(ab);
+            tprice a = std::get<0>(ab);
+            tprice b = std::get<1>(ab);
             
             std::vector<float> state_data = std::vector<float>{float(m), float(s), float(a), float(b)};
             return torch::tensor(state_data).reshape({1,4});
@@ -78,8 +80,8 @@ namespace marketsim {
             double conspred = cons[0][0].item<double>();
 
             auto ab = get_alpha_beta(mi, finitprice, last_bid, last_ask);
-            auto a = std::get<0>(ab);
-            auto b = std::get<1>(ab);
+            tprice a = std::get<0>(ab);
+            tprice b = std::get<1>(ab);
             std::cout << "Beta: " << b << ", Alpha: " << a << std::endl;
 
             tprice bid = int(b + bpred);
@@ -89,33 +91,33 @@ namespace marketsim {
             ask = (ask <= 0) ? 1 : ask;
 
             if (bid >= ask) {
-                //bid = ask - 1;
                 ask = bid + 1;
             }
 
             trequest ord;
             bool is_bid = false;
             bool is_ask = false;
-			
-            if (mi.mywallet().money() > bid) {
+			tprice m = mi.mywallet().money();
+            tprice s = mi.mywallet().stocks();
+
+            if (m > bid) {
                 ord.addbuylimit(bid, volume);
                 last_bid = bid;
                 is_bid = true;
             }
 
-            if (mi.mywallet().stocks() > keep_stocks) {
+            if (s > keep_stocks) {
 			    ord.addselllimit(ask, volume);  //TODO u vsech resit jak presne dat na int
                 last_ask = ask;
                 is_ask = true;
             }
 
-            tprice m = mi.mywallet().money();
-            tprice s = mi.mywallet().stocks();
+            // get out of low resources
             if (s <= keep_stocks && m <= b) {
-                ord.addbuylimit(int(m / 2), 1);
-                ord.addselllimit(a - 1, 1);
                 last_bid = int(m / 2);
                 last_ask = a - 1;
+                ord.addbuylimit(last_bid, 1);
+                ord.addselllimit(last_ask, 1);
                 is_bid = true;
                 is_ask = true;
             }
@@ -125,12 +127,10 @@ namespace marketsim {
             std::cout << "Bid: " << (is_bid ? std::to_string(bid) : std::string(" ")) << "(" << bpred << ")";
             std::cout << ", Ask: " << (is_ask ? std::to_string(ask) : std::string(" ")) << "(" << apred << ")";
             std::cout << ", Cons: " << int(conspred) << std::endl;
-            std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks() << std::endl;
+            std::cout << "Wallet: " << m << ", Stocks: " << s << std::endl;
 
             return ord;
         }
-
-        size_t counter;
 
 		tprice last_bid, last_ask;
         double finitprice;
@@ -154,3 +154,5 @@ namespace marketsim {
             return std::make_pair<>(alpha, beta);
     }
 }
+
+#endif // NEURALNETSTRATEGY_HPP_

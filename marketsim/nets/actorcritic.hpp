@@ -15,8 +15,10 @@ namespace marketsim {
 
         virtual ~ActorCriticBase() {}
 
-        virtual std::vector<torch::Tensor> predict_actions(const torch::Tensor& x) = 0;
+        virtual std::vector<torch::Tensor> predict_actions(torch::Tensor x) = 0;
         virtual std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool sample) = 0;
+        virtual std::vector<torch::Tensor> sample_actions(const std::vector<torch::Tensor>& pred_actions) = 0;
+
 
         torch::Tensor predict_values(torch::Tensor x) {
             x = torch::relu(linear_critic->forward(x));
@@ -29,7 +31,7 @@ namespace marketsim {
             return std::make_pair<>(actions, state_values);
         }
 
-        virtual torch::Tensor action_log_prob(const torch::Tensor& actions, const torch::Tensor& consumption,
+        virtual torch::Tensor action_log_prob(torch::Tensor actions, torch::Tensor consumption,
                                               const std::vector<torch::Tensor>& pred_actions) = 0;
 
         virtual torch::Tensor entropy(const std::vector<torch::Tensor>& pred_actions) = 0;
@@ -66,11 +68,11 @@ namespace marketsim {
             return sample_actions(res);
         }
 
-        std::vector<torch::Tensor> predict_actions(const torch::Tensor& x) {
+        std::vector<torch::Tensor> predict_actions(torch::Tensor x) {
             return predict_actions(x, true);
         }
 
-        std::vector<torch::Tensor> sample_actions(std::vector<torch::Tensor> pred_actions) {
+        std::vector<torch::Tensor> sample_actions(const std::vector<torch::Tensor>& pred_actions) {
             auto mus = pred_actions.at(0);
             auto stds = pred_actions.at(1);
             
@@ -83,7 +85,7 @@ namespace marketsim {
             return std::vector<torch::Tensor>{action_sample, cons_sample};
         }
 
-        torch::Tensor action_log_prob(const torch::Tensor& actions, const torch::Tensor& consumption,
+        torch::Tensor action_log_prob(torch::Tensor actions, torch::Tensor consumption,
                                       const std::vector<torch::Tensor>& pred_actions) {
 
             auto mus = pred_actions.at(0);
@@ -121,7 +123,7 @@ namespace marketsim {
                 cons_actor = this->register_module("cons_actor", torch::nn::Linear(hidden_size, cons_div + 1));
             }
 
-        std::vector<torch::Tensor> predict_actions(const torch::Tensor& x) {
+        std::vector<torch::Tensor> predict_actions(torch::Tensor x) {
             return predict_actions(x, true);
         }
 
@@ -140,7 +142,7 @@ namespace marketsim {
             return sample_actions(res);
         }
 
-        std::vector<torch::Tensor> sample_actions(std::vector<torch::Tensor> pred_actions) {
+        std::vector<torch::Tensor> sample_actions(const std::vector<torch::Tensor>& pred_actions) {
             auto bid_logits = at::exp(pred_actions.at(0));
             auto ask_logits = at::exp(pred_actions.at(1));
             auto cons_logits = at::exp(pred_actions.at(2));
@@ -157,7 +159,7 @@ namespace marketsim {
             return res;
         }
 
-        torch::Tensor action_log_prob(const torch::Tensor& actions, const torch::Tensor& consumption,
+        torch::Tensor action_log_prob(torch::Tensor actions, torch::Tensor consumption,
                                       const std::vector<torch::Tensor>& pred_actions) {
             auto bid_logits = pred_actions.at(0);
             auto ask_logits = pred_actions.at(1);
@@ -173,9 +175,8 @@ namespace marketsim {
 
             return -loss;
         }
-
         
-        virtual torch::Tensor entropy(const std::vector<torch::Tensor>& pred_actions) {
+        torch::Tensor entropy(const std::vector<torch::Tensor>& pred_actions) {
             auto bid_logits = pred_actions.at(0);
             auto ask_logits = pred_actions.at(1);
             auto cons_logits = pred_actions.at(2);

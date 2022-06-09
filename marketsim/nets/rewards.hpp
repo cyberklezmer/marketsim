@@ -6,15 +6,15 @@
 namespace marketsim {
     using hist_entry = std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>;
 
-    double get_money(const torch::Tensor& state) {
+    double get_money(torch::Tensor state) {
         return state[0][0].item<double>();
     }
 
-    double get_stocks(const torch::Tensor& state) {
+    double get_stocks(torch::Tensor state) {
         return state[0][1].item<double>();
     }
 
-    double get_beta(const torch::Tensor& state) {
+    double get_beta(torch::Tensor state) {
         return state[0][3].item<double>();
     }
 
@@ -24,7 +24,7 @@ namespace marketsim {
         DiffReturn() : curr_gamma(1.0), gamma(0.99998) {}
         virtual ~DiffReturn() {}
         
-        torch::Tensor compute_returns(const std::vector<hist_entry>& history, const torch::Tensor & next_state) {
+        torch::Tensor compute_returns(const std::vector<hist_entry>& history, torch::Tensor next_state) {
             curr_gamma = 1.0;
             double returns = 0.0;
 
@@ -50,16 +50,16 @@ namespace marketsim {
             return curr_gamma;
         }
 
-        virtual void init(const std::vector<hist_entry>& history, const torch::Tensor & next_state) {}
+        virtual void init(const std::vector<hist_entry>& history, torch::Tensor next_state) {}
         virtual double compute_reward(double cons, double mdiff, double sdiff) {
             return cons + curr_gamma * (mdiff + sdiff);
         }
 
     private:
-        double get_money_diff(const torch::Tensor& state, const torch::Tensor& next_state) {
+        double get_money_diff(torch::Tensor state, torch::Tensor next_state) {
                 return get_money(next_state) - get_money(state);        }
 
-        double get_stock_diff(const torch::Tensor& state, const torch::Tensor& next_state) {
+        double get_stock_diff(torch::Tensor state, torch::Tensor next_state) {
                 double next_stock = get_beta(next_state) * get_stocks(next_state);
                 double stock = get_beta(state) * get_stocks(state);
                 
@@ -74,7 +74,7 @@ namespace marketsim {
     public:
         WeightedDiffReturn() : DiffReturn<N>(), mdiff_mult(1.0), sdiff_mult(1.0) {}
 
-        virtual void init(const std::vector<hist_entry>& history, const torch::Tensor & next_state) {
+        virtual void init(const std::vector<hist_entry>& history, torch::Tensor next_state) {
             size_t idx = history.size() - N;
 
             auto curr = history.at(idx);
@@ -82,10 +82,10 @@ namespace marketsim {
             double state_money = get_money(state);
             double state_stocks = get_stocks(state);
 
-            //mdiff_mult = TMinM / (state_money + 10) - 10;
-            //sdiff_mult = TMinS / (state_stocks + 10) - 3;
-            mdiff_mult = 20 * (-std::atan(state_money / 500) + pi() / 2);
-            sdiff_mult = 1 * (-std::atan(state_stocks - 10) + pi() / 2);
+            mdiff_mult = TMinM / (state_money + 10) - 10;
+            sdiff_mult = TMinS / (state_stocks + 10) - 3;
+            //mdiff_mult = 20 * (-std::atan(state_money / 500) + pi() / 2);
+            //sdiff_mult = 1 * (-std::atan(state_stocks - 10) + pi() / 2);
         }
 
         virtual double compute_reward(double cons, double mdiff, double sdiff) {
