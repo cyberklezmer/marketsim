@@ -1,7 +1,9 @@
 #include "marketsim.hpp"
 #include "leastsquares.hpp"
 #include <boost/math/distributions/normal.hpp>
+#include<boost/math/distributions/poisson.hpp>
 	using boost::math::normal;
+	using boost::math::poisson;
 
 namespace marketsim
 {	
@@ -18,6 +20,7 @@ namespace marketsim
 			vol_last = 0;
 			E_stddev = F_stddev = 1;
 			E_mean = F_mean = 0;
+			p_m = 0.01, k_m = 100, lambda_m = 3;
 		}
 
 	private:
@@ -27,11 +30,11 @@ namespace marketsim
 			if (!lastresult)
 			{
 				m = info.mywallet().money(), s = info.mywallet().stocks(), a = info.a();
-				int bnd_ask = 10000; //change to sth dynamic
-				W = T2vec(info.mywallet().money() + 1, Tvec(bnd_ask, 0.0));
-				for (int i = 1; i <= m; i++)
+				int bnd_ask = 10000, bnd_m = 10000; //change to sth dynamic
+				W = T2vec(bnd_m + 1, Tvec(bnd_ask + 1, 0.0));
+				for (int i = 1; i <= bnd_m; i++)
 					for (int j = 1; j <= bnd_ask; j++)
-						W[i][j] = floor(i / j);
+						W[i][j]  = 1.0 * i / j;
 			}
 
 			m_last = m, s_last = s, a_last = a;
@@ -58,17 +61,24 @@ namespace marketsim
 
 						for (int f = round(F_mean - 4 * F_stddev); f <= round(F_mean + 4 * F_stddev); f++)
 						{
-							double prob = 
-								e_upp * boost::math::cdf(normal(F_mean, F_stddev), f + 0.5) -
-								e_low * boost::math::cdf(normal(F_mean, F_stddev), f - 0.5);
+							double f_upp = boost::math::cdf(normal(F_mean, F_stddev), f + 0.5),
+								f_low = boost::math::cdf(normal(F_mean, F_stddev), f - 0.5);
 
-							expv += v + discfact *
-								W[std::max<int>(0, m - v * (a + round(regress[0] + regress[1] * (v - 1) + e)))]
-								[std::max(0, a + f)] * prob;
+							for (int c = std::max<int>(0, lambda_m - 4*sqrt(lambda_m)); c < lambda_m + 4 * sqrt(lambda_m); c++)
+							{ 
+								double pr_poiss = boost::math::pdf(poisson(lambda_m), c);
+								for (int y = 0; y <= 1; y++)
+								{
+									double prob = (e_upp - e_low) * (f_upp - f_low) * pr_poiss * (y ? p_m : (1 - p_m));
+									expv += v + discfact *
+										W[std::max<int>(0, m + y * k_m * c - v * (a + round(regress[0] + regress[1] * (v - 1) + e)))]
+										[std::max(0, a + f)] * prob;
 
-							expv_opt += vol_best + discfact *
-								W[std::max<int>(0, m - vol_best * (a + round(regress[0] + regress[1] * (vol_best - 1) + e)))]
-								[std::max(0, a + f)] * prob;
+									expv_opt += vol_best + discfact *
+										W[std::max<int>(0, m + y * k_m * c - vol_best * (a + round(regress[0] + regress[1] * (vol_best - 1) + e)))]
+										[std::max(0, a + f)] * prob;
+								}	
+							}
 						}
 					}
 					if (expv > expv_opt)
@@ -95,6 +105,7 @@ namespace marketsim
 		double discfact;
 		T2vec W;
 		double E_stddev, F_stddev, E_mean, F_mean;
+		double p_m = 0.01, k_m = 100, lambda_m = 3;
 	};
 
 }

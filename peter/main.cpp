@@ -14,6 +14,7 @@
 #include "msstrategies/liquiditytakers.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
 #include "msstrategies/buyer.hpp"
+#include "msstrategies/technicalanalyst.hpp"
 
 using namespace marketsim;
 
@@ -29,7 +30,7 @@ int main()
         constexpr bool logging = false;
 
         // change accordingly (one unit rougly corresponds to one second)
-        constexpr tabstime runningtime = 100;
+        constexpr tabstime runningtime = 1000;
 
         // change accordingly
         twallet endowment(5000,100);
@@ -112,13 +113,14 @@ int main()
             // our ingenious strategy
             competitor<testedstrategy,chronos> ts;
             competitor<buyer, chronos> buyer;
+            competitor<ta_macd, chronos> ta_macd;
 
             tcompetitiondef cdef;
             cdef.timeofrun = runningtime;
             cdef.endowment = endowment;
             cdef.marketdef = def;
             cdef.samplesize = 1;
-            competition<chronos, true, logging>({ &fss,&lts,&nmm,&ts, &buyer }, cdef, std::clog);
+            competition<chronos, true, logging>({ &fss,&lts,&nmm,&ts, &buyer, &ta_macd }, cdef, std::clog);
 
             }
             break;
