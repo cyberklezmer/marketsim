@@ -31,7 +31,7 @@ namespace marketsim
 				W = T2vec(info.mywallet().money() + 1, Tvec(bnd_ask, 0.0));
 				for (int i = 1; i <= m; i++)
 					for (int j = 1; j <= bnd_ask; j++)
-						W[i][j] = floor(i / j);
+						W[i][j]  = 1.0 * i / j;
 			}
 
 			m_last = m, s_last = s, a_last = a;
