@@ -12,6 +12,7 @@
 #include "msstrategies/liquiditytakers.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
 #include "msstrategies/neuralnetstrategy.hpp"
+#include "msstrategies/greedystrategy.hpp"
 
 #include "nets/actorcritic.hpp"
 #include "nets/trainer.hpp"
@@ -23,6 +24,8 @@ using namespace marketsim;
 
 int main()
 {
+    torch::manual_seed(42);
+
     torch::Tensor tensor = torch::rand({2, 3});
     std::cout << tensor << std::endl;
 
@@ -75,8 +78,9 @@ int main()
         
         using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg>;
 
-        using testedstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, modify_cons, volume>;
+        //using testedstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, modify_cons, volume>;
           // should be the AI strategy
+        using testedstrategy = greedystrategy<>;
 
         enum ewhattodo { esinglerunsinglestrategy,
                          erunall,

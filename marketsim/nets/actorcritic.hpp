@@ -129,7 +129,7 @@ namespace marketsim {
 
         std::vector<torch::Tensor> predict_actions(torch::Tensor x, bool sample) {
              x = torch::relu(this->linear_actor->forward(x));
-            
+
             auto bid = torch::log_softmax(bid_actor->forward(x), /*dim=*/1);
             auto ask = torch::log_softmax(ask_actor->forward(x), /*dim=*/1);
             auto cons = torch::log_softmax(cons_actor->forward(x), /*dim=*/1);
@@ -175,7 +175,7 @@ namespace marketsim {
 
             return -loss;
         }
-        
+
         torch::Tensor entropy(const std::vector<torch::Tensor>& pred_actions) {
             auto bid_logits = pred_actions.at(0);
             auto ask_logits = pred_actions.at(1);
