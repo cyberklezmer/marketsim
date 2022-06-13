@@ -19,7 +19,7 @@ public:
        virtual trequest event(const tmarketinfo&, tabstime t, trequestresult*)
        {
            bool buy = uniform() > 0.5;
-           auto volume = pd(fengine);
+           auto volume = pd(engine());
            trequest r;
            if(volume)
            {

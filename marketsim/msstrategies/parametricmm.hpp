@@ -191,7 +191,7 @@ public:
                tvolume sumq = info.history().sumq(tnow-aint,tnow);
                lambda = std::max(1.0, sumq / aint / 2.0)*deltatau();
            }
-std::cout << "lambda=" << lambda << std::endl;
+//std::cout << "lambda=" << lambda << std::endl;
 
 if(0)
 {
@@ -228,7 +228,7 @@ if(0)
            try
            {
                oresult = o.optimize(v, ovalue);
-std::cout << "Successfully optimized " << std::endl;
+// std::cout << "Successfully optimized " << std::endl;
 
                    useit = true;
            }
@@ -245,22 +245,22 @@ std::cout << "Successfully optimized " << std::endl;
            {
                std::clog << "Nlopt throwed exception, res=" << oresult << std::endl;
            }
-std::cout << "optvalue=" << ovalue << ",";
+// std::cout << "optvalue=" << ovalue << ",";
            if(useit)
            {
                unsigned i=0;
                for(; i<phim.size(); i++)
                {
-std::cout << v[i] << ",";
+//std::cout << v[i] << ",";
                     phim[i] = v[i];
                }
                for(unsigned j=0; j<phin.size(); j++,i++)
                {
-std::cout << v[i] << ",";
+//std::cout << v[i] << ",";
                    phin[j] = v[i];
                }
            }
-std::cout << std::endl;
+//std::cout << std::endl;
 }
 
            tprice m = info.mywallet().money();
@@ -272,10 +272,13 @@ std::cout << std::endl;
                return trequest();
            else
            {
-               std::cout << "t=" << tnow << " m=" << m << " n=" << n
+               std::ostringstream s;
+               s << "t=" << tnow << " m=" << m << " n=" << n
                   << " alpha=" << alpha << " beta=" << beta
                   << " c=" << opt.c << " a=" << opt.a
-                  << " b=" << opt.b  << " v=" << opt.v  << " w=" << opt.w << std::endl;
+                  << " b=" << opt.b  << " v=" << opt.v  << " w=" << opt.w;
+
+               possiblylog("about to apply", s.str());
 
                /*                if(aint > 0 && sumq > fsetting.lambda / 2)
                     {

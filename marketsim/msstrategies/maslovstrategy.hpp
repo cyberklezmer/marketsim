@@ -11,15 +11,18 @@ class generalmaslovstrategy: public teventdrivenstrategy
 {
 public:
        generalmaslovstrategy()
-           : teventdrivenstrategy(1.0 / std::max( eventspersec, 1),true)
+           : teventdrivenstrategy(1.0 / std::max( eventspersec, 1))
        {
            fsigma = sqrt(pow(volatilityperc / 100,2) / ( 24 * 3600* 365 ) * interval());
-           flogfair = 2+3 * uniform();
        }
 
-       virtual trequest event(const tmarketinfo&, tabstime, trequestresult*)
+       virtual trequest event(const tmarketinfo&, tabstime, trequestresult* last)
        {
-           flogfair += w(fengine) * fsigma;
+            possiblylog("event procedure entered","by maslovstrategy");
+           if(!last)
+               flogfair = 2+3 * uniform();
+
+           flogfair += w(engine()) * fsigma;
            double logprice = flogfair
                + static_cast<double>(windowsize) * (uniform() - 0.5)/ 2.0;
            bool buy = uniform() > 0.5;
@@ -27,11 +30,25 @@ public:
            tpreorderprofile pp;
            if(buy)
            {
+               // we add this condition only to avoid useless formatting in case logging
+               // does not take place
+               if(market()->islogging())
+               {
+                   std::ostringstream ls;
+                   ls << "Lim. price: " << lprice;
+                   possiblylog("Buy limit order requested.",ls.str());
+               }
                tpreorder p(lprice,1);
                pp.B.add(p);
            }
            else
            {
+               if(market()->islogging())
+               {
+                   std::ostringstream ls;
+                   ls << "Lim. price: " << lprice;
+                   possiblylog("sell limit order requested.",ls.str());
+               }
                tpreorder o(lprice,1);
                pp.A.add(o);
            }
@@ -43,7 +60,7 @@ private:
     std::normal_distribution<> w;
 };
 
-using maslovstrategy = generalmaslovstrategy<1,30,10>;
+using maslovstrategy = generalmaslovstrategy<10,30,10>;
 
 } // namespace
 #endif // MASLOVSTRATEGY_HPP

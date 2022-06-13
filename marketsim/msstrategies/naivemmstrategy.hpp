@@ -10,7 +10,7 @@ class naivemmstrategy: public teventdrivenstrategy
 {
 public:
        naivemmstrategy(double interval=1)
-           : teventdrivenstrategy(interval, false)
+           : teventdrivenstrategy(interval)
        {
        }
 
