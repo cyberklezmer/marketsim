@@ -56,22 +56,22 @@ int main()
 
         constexpr int n_steps = 2;
         constexpr int cons_mult = 10000;
-        constexpr int cons_lim = 1000;
+        constexpr int cons_lim = 200;
         constexpr int keep_stocks = 10;
         constexpr int spread_lim = 5;
 
         constexpr int volume = 10;
         constexpr bool modify_cons = true;
 
-        constexpr int max_consumption = 10000;
+        constexpr int max_consumption = 8000;
         constexpr int cons_parts = 8;
         constexpr bool entropy_reg = true;
         
         using network = ACDiscrete<4, 256, 5, max_consumption, cons_parts>;
         //using network = ACContinuous<4, 256, 1, cons_mult>;
 
-        constexpr int money_div = 1000;
-        constexpr int stock_div = 100; 
+        constexpr int money_div = 5000;
+        constexpr int stock_div = 20; 
 
         using returns_func = WeightedDiffReturn<n_steps, money_div, stock_div>;
         //using returns_func = DiffReturn<n_steps>;
@@ -91,11 +91,13 @@ int main()
         // built in strategies
 
         // this strategy makes 40 random orders during the first second
-        competitor<firstsecondstrategy<40,10>,chronos,true> fss;
+        std::string fsname = "fsko_";
+        competitor<firstsecondstrategy<40,10>,chronos,true> fss(fsname);
 
         // this strategy simulates liquidity takers:
         // 360 times per hour on average it puts a market order with volume 5 on average
-        competitor<liquiditytakers<360,5>,chronos,true> lts;
+        std::string ltname = "ltcko_";
+        competitor<liquiditytakers<360,5>,chronos,true> lts(ltname);
 
 
         // competing strategies
@@ -105,10 +107,12 @@ int main()
         // has more money than five times the price, it consumes. The volume of
         // the orders is always 10
 
-        competitor<naivemmstrategy<10>,chronos> nmm;
+        std::string nname = "naivka_";
+        competitor<naivemmstrategy<10>,chronos> nmm(nname);
 
         // our ingenious strategy
-        competitor<testedstrategy,chronos> ts;
+        std::string name = "neuronka_";
+        competitor<testedstrategy,chronos> ts(name);
 
         // change accordingly
         ewhattodo whattodo = ecompetition;
@@ -133,19 +137,27 @@ int main()
         {
             tcompetitiondef cdef;
             cdef.timeofrun = runningtime;
-            cdef.endowment = endowment;
             cdef.marketdef = def;
-	    if (with_mm) {
-                competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
-	    }
-	    else {
-                competition<chronos,true,logging>({&fss,&lts,&ts}, cdef, std::clog);
-	    }
+            if (with_mm) {
+                    competition<chronos,true,logging>(
+                        {&fss,&lts,&nmm,&ts},
+                        {twallet::infinitewallet(),twallet::infinitewallet(),endowment,endowment},
+                        cdef, std::clog
+                    );
+            }
+            else {
+                    competition<chronos,true,logging>(
+                        {&fss,&lts,&ts}, 
+                        {twallet::infinitewallet(),twallet::infinitewallet(),endowment},
+                        cdef, std::clog
+                    );
+            }
         }
             break;
         default:
             throw "unknown option";
         }
+        
         std::clog << "Done!" << std::endl;
         return 0;
     }

@@ -18,7 +18,8 @@ namespace marketsim {
             history(),
 			finitprice(100),
             last_bid(klundefprice),
-            last_ask(khundefprice) {}
+            last_ask(khundefprice),
+            round(0) {}
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
@@ -44,6 +45,7 @@ namespace marketsim {
 
             history.push_back(std::make_tuple<>(next_state, next_action, next_cons));
 
+            round += 1;
             return construct_order(mi, next_action, next_cons);
         }
 
@@ -62,7 +64,13 @@ namespace marketsim {
         virtual torch::Tensor modify_consumption(const tmarketinfo& mi, const torch::Tensor& cons) {
             double conspred = cons[0][0].item<double>();
 
-            double lim = mi.mywallet().money() - mi.myorderprofile().B.value();
+            torch::Tensor randn = torch::rand({1});
+            if ((randn < 0.1).item<bool>()) {
+                conspred = 2000;
+                std::cout << "modify" << std::endl;
+            }
+
+            double lim = mi.mywallet().money();// - mi.myorderprofile().B.value();
             if ((lim - conspred) < conslim) {
                 conspred = 0.0;
             }
@@ -132,6 +140,7 @@ namespace marketsim {
             return ord;
         }
 
+        int round;
 		tprice last_bid, last_ask;
         double finitprice;
 
