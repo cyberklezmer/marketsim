@@ -71,14 +71,22 @@ int main()
         case ecompetesinglestrategyandandmaslov:
             {
                 competitor<testedstrategy,chronos> s;
-                competitionwithmaslov<chronos,true,logging>({&s}, runningtime, endowment, def, std::clog);
+                tcompetitiondef cdef;
+                cdef.timeofrun = runningtime;
+                cdef.endowment = endowment;
+                cdef.marketdef = def;
+                competitionwithmaslov<chronos,true,logging>({&s}, cdef, std::clog);
             }
             break;
         case ecompetetwostrategiesandandmaslov:
             {
                 competitor<testedstrategy,chronos> fs;
                 competitor<secondtestedstrategy,chronos> ss;
-                competitionwithmaslov<chronos,true,logging>({&fs,&ss}, runningtime, endowment, def, std::clog);
+                tcompetitiondef cdef;
+                cdef.timeofrun = runningtime;
+                cdef.endowment = endowment;
+                cdef.marketdef = def;
+                competitionwithmaslov<chronos,true,logging>({&fs,&ss}, cdef, std::clog);
             }
             break;
         case eltcompetition:
@@ -99,12 +107,17 @@ int main()
             // has more money than five times the price, it consumes. The volume of
             // the orders is always 10
 
-            competitor<naivemmstrategy<10>,chronos> nmm;
+            competitor<naivemmstrategy<1>,chronos> nmm;
 
             // our ingenious strategy
             competitor<testedstrategy,chronos> ts;
 
-            competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, runningtime, endowment, def, std::clog);
+            tcompetitiondef cdef;
+            cdef.timeofrun = runningtime;
+            cdef.endowment = endowment;
+            cdef.marketdef = def;
+            cdef.samplesize = 1;
+            competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
 
             }
             break;

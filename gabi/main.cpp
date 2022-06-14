@@ -130,15 +130,19 @@ int main()
             }
             break;
         case ecompetition:
-            if (with_mm) {
-                competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, runningtime, endowment, def, std::clog);
-                break;
-            }
-            else {
-                competition<chronos,true,logging>({&fss,&lts,&ts}, runningtime, endowment, def, std::clog);
-                break;
-            }
-
+        {
+            tcompetitiondef cdef;
+            cdef.timeofrun = runningtime;
+            cdef.endowment = endowment;
+            cdef.marketdef = def;
+	    if (with_mm) {
+                competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
+	    }
+	    else {
+                competition<chronos,true,logging>({&fss,&lts,&ts}, cdef, std::clog);
+	    }
+        }
+            break;
         default:
             throw "unknown option";
         }
