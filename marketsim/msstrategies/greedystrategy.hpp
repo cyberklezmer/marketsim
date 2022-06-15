@@ -8,7 +8,7 @@
 namespace marketsim {
 
 
-    template <int cons = 10000, int volume = 10, int keep_stocks = 10, int bid = -10, int ask = 10>
+    template <int cons = 8000, int volume = 10, int keep_stocks = 10, int bid = -5, int ask = 5>
     class greedystrategy : public teventdrivenstrategy {
     public:
         greedystrategy() :
@@ -19,7 +19,7 @@ namespace marketsim {
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
-            tprice m = mi.mywallet().money() - mi.myorderprofile().B.value();
+            tprice m = mi.mywallet().money();// - mi.myorderprofile().B.value();
             tprice s = mi.mywallet().stocks();
 
             auto ab = get_alpha_beta(mi, finitprice, last_bid, last_ask);
@@ -28,11 +28,14 @@ namespace marketsim {
             std::cout << "Beta: " << b << ", Alpha: " << a << std::endl;
 
             trequest ord;
+            tpreorderprofile pp;
 
             last_bid = b + bid;
             last_bid = (last_bid < 0) ? 1 : last_bid;
             if (m > last_bid) {
                 ord.addbuylimit(last_bid, volume);
+                pp.B.add(tpreorder(last_bid, volume));
+
                 std::cout << "Bid: " << last_bid;
             }
 
@@ -40,6 +43,8 @@ namespace marketsim {
             last_ask = (last_ask < 0) ? 1 : last_ask;
             if (s > keep_stocks) {
 			    ord.addselllimit(last_ask, volume);
+                pp.A.add(tpreorder(last_ask, volume));
+
                 std::cout << ", Ask: " << last_ask;
             }
 
@@ -50,7 +55,8 @@ namespace marketsim {
 
             std::cout << std::endl << "Wallet: " << m << ", Stocks: " << s << std::endl;
 
-            return ord;
+            return {pp, trequest::teraserequest(true), cons};
+            //return ord;
         }
 
         tprice last_bid, last_ask, finitprice;

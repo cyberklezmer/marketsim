@@ -7,12 +7,16 @@
 
 #include "marketsim.hpp"
 #include "marketsim/competition.hpp"
+#include "mscompetitions/dsmaslovcompetition.hpp"
+#include "mscompetitions/originalcompetition.hpp"
 #include "marketsim/tests.hpp"
 #include "msstrategies/naivemmstrategy.hpp"
 #include "msstrategies/liquiditytakers.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
 #include "msstrategies/neuralnetstrategy.hpp"
 #include "msstrategies/greedystrategy.hpp"
+#include "msstrategies/initialstrategy.hpp"
+#include "msstrategies/maslovstrategy.hpp"
 
 #include "nets/actorcritic.hpp"
 #include "nets/trainer.hpp"
@@ -35,7 +39,7 @@ int main()
         constexpr bool chronos = false;
 
         // change accordingly
-        constexpr bool logging = false;
+        constexpr bool logging = true;
 
         // change accordingly (one unit rougly corresponds to one second)
         constexpr tabstime runningtime = 1000;
@@ -56,22 +60,22 @@ int main()
 
         constexpr int n_steps = 2;
         constexpr int cons_mult = 10000;
-        constexpr int cons_lim = 200;
+        constexpr int cons_lim = 1000;
         constexpr int keep_stocks = 10;
-        constexpr int spread_lim = 5;
+        constexpr int spread_lim = 10;
 
         constexpr int volume = 10;
         constexpr bool modify_cons = true;
 
-        constexpr int max_consumption = 8000;
-        constexpr int cons_parts = 8;
+        constexpr int max_consumption = 1000;
+        constexpr int cons_parts = 4;
         constexpr bool entropy_reg = true;
         
-        using network = ACDiscrete<4, 256, 5, max_consumption, cons_parts>;
+        using network = ACDiscrete<4, 256, 10, max_consumption, cons_parts>;
         //using network = ACContinuous<4, 256, 1, cons_mult>;
 
-        constexpr int money_div = 5000;
-        constexpr int stock_div = 20; 
+        constexpr int money_div = 1000;
+        constexpr int stock_div = 10; 
 
         using returns_func = WeightedDiffReturn<n_steps, money_div, stock_div>;
         //using returns_func = DiffReturn<n_steps>;
@@ -82,11 +86,20 @@ int main()
           // should be the AI strategy
         //using testedstrategy = greedystrategy<>;
 
+        using secondtestedstrategy = naivemmstrategy<10>;
+        std::string sname = "naivka";
+
         enum ewhattodo { esinglerunsinglestrategy,
                          erunall,
-                         ecompetition };
+                         ecompetition,
+                         esinglerunstrategyandmaslovwithlogging,
+                         edetailedcompetiton,
+                         emaslovcompetition,
+                         eoriginalcompetition };
 
 
+        // change accordingly
+        ewhattodo whattodo = emaslovcompetition;
 
         // built in strategies
 
@@ -113,9 +126,6 @@ int main()
         // our ingenious strategy
         std::string name = "neuronka_";
         competitor<testedstrategy,chronos> ts(name);
-
-        // change accordingly
-        ewhattodo whattodo = ecompetition;
 
         switch(whattodo)
         {
@@ -154,6 +164,91 @@ int main()
             }
         }
             break;
+        case esinglerunstrategyandmaslovwithlogging:
+            {
+                // runs the tested strategy
+                competitor<testedstrategy,chronos> s(name);
+                competitor<maslovstrategy,chronos> m("msdlob");
+                // we will log the settlements
+                def.loggingfilter.fsettle = true;
+                // we wish to log also log entries by m, so we add its index
+                // (see m's event handler to see how strategy can issue log entries)
+                def.loggedstrategies.push_back(1);
+                // the log is sent to std::cout
+                auto data = test<chronos,true,true>({&s,&m},runningtime,endowment,def);
+                const tmarkethistory& h=data->fhistory;
+                tabstime t = 0;
+                unsigned n = 30;
+                tabstime dt = runningtime / n;
+
+                std::cout << "t,b,a,p,definedp" << std::endl;
+                for(unsigned i=0; i<=n; i++, t+=dt)
+                {
+                    auto s = h(t);
+                    std::cout << t << "," << s.b << "," << s.a << "," << s.p() << ",";
+                    if(i)
+                        std::cout << h.definedpin(t-dt,t);
+                    std::cout << std::endl;
+                }
+            }
+            break;
+        case edetailedcompetiton:
+            {
+            // competition of three naive market makers with different volume
+
+            // this strategy puts two quotes in the beginning
+            competitor<initialstrategy<90,100>,chronos,true> fss("initial");
+
+            // this strategy simulates liquidity takers:
+            // 360 times per hour on average it puts a market order with volume 5 on average
+            competitor<liquiditytakers<3600,10>,chronos,true> lts("lts");
+
+
+            // competing strategies
+
+            // this strategy just wants to put orders into spread and when it
+            // has more money than five times the price, it consumes. The volume of
+            // the orders is always 10
+
+            competitor<naivemmstrategy<1>,chronos> nmm1("naivka1_");
+            competitor<naivemmstrategy<10>,chronos> nmm10("naivka10_");
+            competitor<naivemmstrategy<50>,chronos> nmm50("naivka50_");
+
+
+            tcompetitiondef cdef;
+            cdef.timeofrun = runningtime;
+            cdef.marketdef = def;
+            cdef.samplesize = 20;
+            competition<chronos,true,logging>(
+                             {&fss,&lts,&nmm1,&nmm10,&nmm50,&ts},
+                             {twallet::infinitewallet(),twallet::infinitewallet(),
+                              endowment,endowment,endowment,endowment},
+                              cdef, std::clog);
+
+            }
+            break;
+        case emaslovcompetition:
+        case eoriginalcompetition:
+            {
+                competitor<testedstrategy,chronos> fs(name);
+                competitor<secondtestedstrategy,chronos> ss(sname);
+
+                // we will log the settlements
+                def.loggingfilter.fsettle = true;
+                // we wish to log also log entries by m, so we add its index
+                // (see m's event handler to see how strategy can issue log entries)
+                def.loggedstrategies.push_back(0);
+
+                tcompetitiondef cdef;
+                cdef.timeofrun = runningtime;
+                cdef.marketdef = def;
+
+                if(whattodo==emaslovcompetition)
+                    dsmaslovcompetition<chronos,logging>({&fs,&ss}, endowment, cdef, std::clog);
+                else
+                    originalcompetition<chronos,logging>({&fs,&ss}, endowment, cdef, std::clog);
+            }
+            break;
         default:
             throw "unknown option";
         }
@@ -183,6 +278,3 @@ int main()
 
     return 0;
 }
-
-
-

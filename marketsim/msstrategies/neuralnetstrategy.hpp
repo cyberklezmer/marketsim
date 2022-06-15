@@ -66,7 +66,7 @@ namespace marketsim {
 
             torch::Tensor randn = torch::rand({1});
             if ((randn < 0.1).item<bool>()) {
-                conspred = 2000;
+                conspred = 125;
                 std::cout << "modify" << std::endl;
             }
 
@@ -102,42 +102,52 @@ namespace marketsim {
                 ask = bid + 1;
             }
 
+            tpreorderprofile pp;
+
             trequest ord;
             bool is_bid = false;
             bool is_ask = false;
 			tprice m = mi.mywallet().money();
             tprice s = mi.mywallet().stocks();
 
-            if (m > bid) {
+            if (m > (bid * volume)) {
                 ord.addbuylimit(bid, volume);
+                pp.B.add(tpreorder(bid, volume));
                 last_bid = bid;
                 is_bid = true;
             }
 
             if (s > keep_stocks) {
 			    ord.addselllimit(ask, volume);  //TODO u vsech resit jak presne dat na int
+                pp.A.add(tpreorder(ask, volume));
                 last_ask = ask;
                 is_ask = true;
             }
 
             // get out of low resources
-            if (s <= keep_stocks && m <= b) {
+            if (s <= keep_stocks && m <= (b * volume)) {
+                std::cout << "emergency" << std::endl;
+
                 last_bid = int(m / 2);
-                last_ask = a - 1;
+                last_ask = a - 5;
                 ord.addbuylimit(last_bid, 1);
+                pp.B.add(tpreorder(last_bid, 1));
                 ord.addselllimit(last_ask, 1);
+                pp.A.add(tpreorder(last_ask, 1));
                 is_bid = true;
                 is_ask = true;
             }
 
             ord.setconsumption(int(conspred));
 
-            std::cout << "Bid: " << (is_bid ? std::to_string(bid) : std::string(" ")) << "(" << bpred << ")";
-            std::cout << ", Ask: " << (is_ask ? std::to_string(ask) : std::string(" ")) << "(" << apred << ")";
+            std::cout << "Bid: " << (is_bid ? std::to_string(last_bid) : std::string(" ")) << "(" << bpred << ")";
+            std::cout << ", Ask: " << (is_ask ? std::to_string(last_ask) : std::string(" ")) << "(" << apred << ")";
             std::cout << ", Cons: " << int(conspred) << std::endl;
             std::cout << "Wallet: " << m << ", Stocks: " << s << std::endl;
 
-            return ord;
+
+            return {pp, trequest::teraserequest(true), int(conspred)};
+            //return ord;
         }
 
         int round;

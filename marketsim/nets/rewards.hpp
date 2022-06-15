@@ -61,7 +61,7 @@ namespace marketsim {
 
         double get_stock_diff(torch::Tensor state, torch::Tensor next_state) {
                 double next_stock = get_beta(next_state) * get_stocks(next_state);
-                double stock = get_beta(state) * get_stocks(state);
+                double stock = get_stocks(state) * get_beta(state);
                 
                 return next_stock - stock;
         }
@@ -82,8 +82,8 @@ namespace marketsim {
             double state_money = get_money(state);
             double state_stocks = get_stocks(state);
 
-            mdiff_mult = TMinM / (state_money + 100) - 1;
-            sdiff_mult = TMinS / (state_stocks + 10) - 1;
+            mdiff_mult = TMinM / (state_money + 100);
+            sdiff_mult = TMinS / (state_stocks + 10);
             //mdiff_mult = 20 * (-std::atan(state_money / 500) + pi() / 2);
             //sdiff_mult = 1 * (-std::atan(state_stocks - 10) + pi() / 2);
         }
