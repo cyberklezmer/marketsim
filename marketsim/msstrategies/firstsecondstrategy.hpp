@@ -13,11 +13,13 @@ public:
        firstsecondstrategy()
            : teventdrivenstrategy(1.0 / std::max( numeventsinfirstseconds, 1),false)
        {
-           flogfair = 2+3 * uniform();
        }
 
-       virtual trequest event(const tmarketinfo&, tabstime t, trequestresult*)
+       virtual trequest event(const tmarketinfo&, tabstime t, trequestresult* f)
        {
+           if(!f)
+               flogfair = 2+3 * uniform();
+
            double logprice = flogfair
                + static_cast<double>(windowsize) * uniform() / 2.0;
            bool buy = uniform() > 0.5;

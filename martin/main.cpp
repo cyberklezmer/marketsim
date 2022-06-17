@@ -1,4 +1,3 @@
-#pragma warning(disable : 4996)
 #include <vector>
 #include <iostream>
 #include <limits>
@@ -11,8 +10,13 @@
 #include "marketsim/tests.hpp"
 #include "msstrategies/tadpmarketmaker.hpp"
 #include "msstrategies/naivemmstrategy.hpp"
+#include "msstrategies/lessnaivemmstrategy.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
 #include "msstrategies/liquiditytakers.hpp"
+#include "msstrategies/parametricmm.hpp"
+#include "msstrategies/maslovorderplacer.hpp"
+#include "msstrategies/initialstrategy.hpp"
+#include "msdss/rawds.hpp"
 
 using namespace marketsim;
 
@@ -23,9 +27,22 @@ int main()
     {
         constexpr bool chronos = false;
         constexpr bool logging = false;
-        constexpr tabstime runningtime = 1000;
+        constexpr tabstime runningtime = 100;
         twallet endowment(5000,100);
         tmarketdef def;
+
+/*        def.loggingfilter.frequest = true;
+        def.loggingfilter.fsleep = false;
+        def.loggingfilter.fgetinfo = false;
+        def.loggingfilter.fmarketdata = false;
+        def.loggingfilter.ftick = false;
+        def.loggingfilter.fabstime = false;*/
+        def.loggingfilter.fsettle = true;
+        def.loggingfilter.fds = true;
+
+        def.loggedstrategies.push_back(0);
+        def.directlogging = true;
+        def.demandupdateperiod = 0.1;
 
     competitor<firstsecondstrategy<40,10>,chronos,true> fss;
 
@@ -40,19 +57,39 @@ int main()
     // has more money than five times the price, it consumes. The volume of
     // the orders is always 10
 
-        competitor<naivemmstrategy<10>,chronos> nmm;
+        competitor<naivemmstrategy<10>,chronos> nmm("naivka");
 
+        using testedstrategy = tgeneralpmm;
+        competitor<testedstrategy,chronos> ts("tested");
+        competitor<initialstrategy<90,110>,chronos,true> is("is");
 
-    // our ingenious strategy
-        using testedstrategy = tadpmarketmaker;
+//competitor<maslovstrategy,chronos> m;
+        competitor<maslovorderplacer<100>,chronos> l("mop");
+        twallet emptywallet = {0,0};
+std::vector<double> o;
+for(unsigned i = 0; i<20; i++)
+{
+        auto r = test<chronos,true,logging,rawds<3600,10>>({&is,&l,&nmm/*,&ts*/},2000,
+                                                          {twallet::infinitewallet(),emptywallet,
+                                                           endowment /*,endowment*/},
+                                                           def);
+        o.push_back(r->fhistory(2000).p());
+        r->fhistory.output(std::cout,100);
+}
 
-        competitor<testedstrategy,chronos> ts;
+for(unsigned i = 0; i<o.size(); i++)
+    std::cout << o[i] << std::endl;
+
+return 0;
+
 
         tcompetitiondef cdef;
         cdef.timeofrun = runningtime;
         cdef.endowment = endowment;
         cdef.marketdef = def;
         cdef.samplesize = 30;
+
+
 
         competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
 
@@ -93,125 +130,3 @@ int main()
 
 
 
-/*
- *
-
-class luckockstrategy: public teventdrivenstrategy
-{
-       tprice fmaxprice;
-public:
-       luckockstrategy(tprice maxprice=100, double meantime=1)
-           : teventdrivenstrategy(meantime,true),
-             fmaxprice(maxprice)
-       {
-       }
-
-       virtual trequest event(const tmarketinfo&, tabstime, bool)
-       {
-           bool buy = uniform() > 0.5;
-           tprice lprice = 1+uniform()*fmaxprice;
-           tpreorderprofile pp;
-           if(buy)
-           {
-               tpreorder p(lprice,1);
-               pp.B.add(p);
-           }
-           else
-           {
-               tpreorder o(lprice,1);
-               pp.A.add(o);
-           }
-
-           return trequest({pp,trequest::teraserequest(false),0});
-       }
-};
-
-
-
-class foostrategy: public teventdrivenstrategy
-{
-public:
-       foostrategy(double interval=1)
-           : teventdrivenstrategy(interval, false)
-       {
-       }
-
-       virtual trequest event(const tmarketinfo&, tabstime, bool)
-       {
-           static int i=1;
-          tpreorderprofile pp;
-
-          pp.B.add(tpreorder(100,1));
-          pp.A.add(tpreorder(101,1));
-          pp.B.add(tpreorder(100-i,1));
-          pp.A.add(tpreorder(101+i,1));
-          i++;
-
-          return {pp,trequest::teraserequest(true),0};
-       }
-};
-
-
-class selfishstrategy : public tstrategy
-{
-public:
-    selfishstrategy() : tstrategy() {}
-    virtual void trade(twallet) override
-    {
-        for(;;)
-            ;
-    }
-};
-
-template <bool chronos, bool directlog>
-void test()
-{
-    tmarket m(3);
-
-    m.setlogging(cout);
-
-    m.setdirectlogging(directlog);
-
-    twallet e(5000,100);
-
-    std::cout << "start " << std::endl;
-
-//    competitor<luckockstrategy,chronos> cl;
-    competitor<naivemmstrategy,chronos> cn;
-    competitor<foostrategy,chronos> cf;
-//    competitor<selfishstrategy,chronos> cs;
-    competitor<maslovstrategy,chronos,true> cm;
-    competitor<tadpmarketmaker,chronos> ca;
-    std::vector<tstrategy*> garbage;
-    try
-    {
-        if(!m.run<chronos>({&ca, &cf},{e,e},garbage))
-            cout << "Selfish stretegy!" << endl;
-
-        auto r = m.results();
-        for(unsigned i=0; i<r->n(); i++)
-        {
-            cout << i << " " << r->fstrategyinfos[i].name() << ": ";
-            r->fstrategyinfos[i].wallet().output(cout);
-            if(r->fstrategyinfos[i].endedbyexception())
-                cout << " (ended by exception: " << r->fstrategyinfos[i].errmsg() << ")";
-            cout << endl;
-        }
-        std::cout << r->frunstat.fextraduration.average() << " out of "
-             << m.def().chronosduration.count() << " processor ticks unexploited."
-             << std::endl;
-        std::cout << "success" << std::endl;
-
-    }
-    catch (std::runtime_error& e)
-    {
-        std::cout << "Error:" << e.what() << std::endl;
-    }
-    catch (...)
-    {
-        std::cout << "Unknown error" << std::endl;
-    }
-}
-
-
-*/

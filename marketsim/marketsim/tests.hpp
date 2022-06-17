@@ -3,31 +3,16 @@
 
 #include "marketsim.hpp"
 #include "marketsim/competition.hpp"
-#include "msstrategies/maslovstrategy.hpp"
 
 namespace marketsim
 {
 
-template <bool chronos=true, bool calibrate = true, bool logging = false>
-inline void competitionwithmaslov(std::vector<competitorbase<chronos>*> acompetitors,
-                                  const tcompetitiondef& adef,
-                                  std::ostream& protocol)
-{
-   std::vector<competitorbase<chronos>*> competitors = acompetitors;
-
-   competitor<maslovstrategy,chronos,true> cm("maslov(internal)");
-
-   competitors.push_back(&cm);
-
-   competition<chronos,calibrate,logging>(competitors,adef,protocol);
-}
 
 
-
-template <bool chronos, bool calibrate, bool logging>
-inline void test(std::vector<competitorbase<chronos>*> competitors,
+template <bool chronos, bool calibrate, bool logging, typename D = tnodemandsupply>
+inline std::shared_ptr<tmarketdata> test(std::vector<competitorbase<chronos>*> competitors,
                  tabstime runningtime,
-                 const twallet& endowment,
+                 std::vector<twallet> endowments,
                  const tmarketdef& adef)
 {
     auto n = competitors.size();
@@ -40,18 +25,12 @@ inline void test(std::vector<competitorbase<chronos>*> competitors,
     if(logging)
         m.setlogging(std::cout,m.def().loggingfilter);
 
-    std::vector<twallet> es;
-    for(unsigned i=0; i<n; i++)
-        es.push_back(competitors[i]->isbuiltin()
-                     ? twallet::infinitewallet()
-                     : endowment);
-
     std::clog << "running " << n << " strategies" << std::endl;
 
     std::vector<tstrategy*> garbage;
     try
     {
-        auto res = m.run<chronos>(competitors,es,garbage);
+        auto res = m.run<chronos,D>(competitors,endowments,garbage);
         for(unsigned i=0; i<res.size(); i++)
             if(res[i])
                 std::cout << "Strategy with index " << i << " did not release control." << std::endl;
@@ -72,6 +51,7 @@ inline void test(std::vector<competitorbase<chronos>*> competitors,
                  << m.def().chronosduration.count() << " processor ticks unexploited."
                  << std::endl;
         std::cout << "success" << std::endl;
+        return r;
     }
     catch (std::runtime_error& e)
     {
@@ -81,10 +61,17 @@ inline void test(std::vector<competitorbase<chronos>*> competitors,
     {
         std::cerr << "Unknown error" << std::endl;
     }
-
+    return 0;
 }
 
-
+template <bool chronos, bool calibrate, bool logging, typename D = tnodemandsupply>
+inline std::shared_ptr<tmarketdata> test(std::vector<competitorbase<chronos>*> competitors,
+                 tabstime runningtime,
+                 const twallet& endowment,
+                 const tmarketdef& adef)
+{
+    return test<chronos,calibrate,logging,D>(competitors,runningtime, std::vector<twallet>(competitors.size(),endowment),adef);
+}
 
 
 } // namespace

@@ -1,16 +1,16 @@
-#ifndef NAIVEMMSTRATEGY_HPP
-#define NAIVEMMSTRATEGY_HPP
+#ifndef LESSNAIVEMMSTRATEGY_HPP
+#define LESSNAIVEMMSTRATEGY_HPP
 
 #include "marketsim.hpp"
 
 namespace marketsim {
 
-template <int volume = 1>
-class naivemmstrategy: public teventdrivenstrategy
+template <int volume = 1,int eventsperhour = 5*3600>
+class lessnaivemmstrategy: public teventdrivenstrategy
 {
 public:
-       naivemmstrategy(double interval=1)
-           : teventdrivenstrategy(interval)
+       lessnaivemmstrategy()
+           : teventdrivenstrategy(eventsperhour / 3600.00, false)
        {
        }
 
@@ -18,12 +18,17 @@ public:
        {
            tprice alpha = info.alpha();
            tprice beta = info.beta();
+           if(alpha != khundefprice)
+               beta = alpha/2;
+           if(beta != klundefprice)
+               alpha = beta * 2;
+
 
            if(alpha != khundefprice && beta != klundefprice)
            {
                double p = (alpha + beta)/2;
                tprice c = 0;
-               if(info.mywallet().money() > 5*p)
+               if(info.mywallet().money() > 5*p*volume)
                     c = info.mywallet().money()-5*p;
                tprice mya = info.myorderprofile().a();
                tprice myb = info.myorderprofile().b();
@@ -48,7 +53,9 @@ public:
                   tpreorderprofile pp;
 
                   pp.B.add(tpreorder(proposedb,volume));
-                  pp.A.add(tpreorder(proposeda,volume));
+                  if(info.mywallet().stocks() > volume / 2)
+                      pp.A.add(tpreorder(proposeda,
+                                std::min(info.mywallet().stocks()-volume/2,volume)));
 //cout << beta << "(" << proposedb << ") - " << alpha << "(" << proposeda << ")" << endl;
                   return {pp,trequest::teraserequest(true),c};
                }
