@@ -10,7 +10,8 @@ namespace marketsim {
     std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice finitprice,
                                              tprice last_bid, tprice last_ask);
 
-    template<typename TNet, int conslim, int keep_stocks, int spread_lim, int explore_cons, int volume = 10, bool modify_c = true, bool explore = true>
+    template<typename TNet, int conslim, int keep_stocks, int spread_lim, int explore_cons, int volume = 10, bool verbose = true,
+             bool modify_c = true, bool explore = true>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
@@ -67,7 +68,9 @@ namespace marketsim {
             torch::Tensor randn = torch::rand({1});
             if ((randn < 0.1).item<bool>()) {
                 conspred = explore_cons;
-                std::cout << "modify" << std::endl;
+                if (verbose) {
+                    std::cout << "modify" << std::endl;
+                }
             }
 
             double lim = mi.mywallet().money();// - mi.myorderprofile().B.value();
@@ -90,7 +93,9 @@ namespace marketsim {
             auto ab = get_alpha_beta(mi, finitprice, last_bid, last_ask);
             tprice a = std::get<0>(ab);
             tprice b = std::get<1>(ab);
-            std::cout << "Beta: " << b << ", Alpha: " << a << std::endl;
+            if (verbose) {
+                std::cout << "Beta: " << b << ", Alpha: " << a << std::endl;
+            }
 
             tprice bid = int(b + bpred);
             tprice ask = int(a + apred);
@@ -131,7 +136,9 @@ namespace marketsim {
 
             // get out of low resources
             if (!stocks_enough && !b_enough) {
-                std::cout << "emergency" << std::endl;
+                if (verbose) {
+                    std::cout << "emergency" << std::endl;
+                }
 
                 last_bid = int(m / 2);
                 last_bid = std::min(last_bid, bid);
@@ -146,10 +153,12 @@ namespace marketsim {
 
             ord.setconsumption(int(conspred));
 
-            std::cout << "Bid: " << (is_bid ? std::to_string(last_bid) : std::string(" ")) << "(" << bpred << ")";
-            std::cout << ", Ask: " << (is_ask ? std::to_string(last_ask) : std::string(" ")) << "(" << apred << ")";
-            std::cout << ", Cons: " << int(conspred) << std::endl;
-            std::cout << "Wallet: " << m << ", Stocks: " << s << std::endl;
+            if (verbose) {
+                std::cout << "Bid: " << (is_bid ? std::to_string(last_bid) : std::string(" ")) << "(" << bpred << ")";
+                std::cout << ", Ask: " << (is_ask ? std::to_string(last_ask) : std::string(" ")) << "(" << apred << ")";
+                std::cout << ", Cons: " << int(conspred) << std::endl;
+                std::cout << "Wallet: " << m << ", Stocks: " << s << std::endl;
+            }
 
 
             return {pp, trequest::teraserequest(true), int(conspred)};

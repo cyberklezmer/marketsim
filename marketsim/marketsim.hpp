@@ -4,6 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <ostream>
+#include <fstream>
 #include <sstream>
 #include <limits>
 #include <random>

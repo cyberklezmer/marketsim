@@ -69,7 +69,7 @@ namespace marketsim {
         double gamma, curr_gamma;
     };
 
-    template <int N, int TMinM, int TMinS>
+    template <int N, int TMinM, int TMinS, bool verbose = false>
     class WeightedDiffReturn : public DiffReturn<N> {
     public:
         WeightedDiffReturn() : DiffReturn<N>(), mdiff_mult(1.0), sdiff_mult(1.0) {}
@@ -89,7 +89,9 @@ namespace marketsim {
         }
 
         virtual double compute_reward(double cons, double mdiff, double sdiff) {
-            std::cout << "Returns - Cons: " << cons << ", Mdiff: " << mdiff_mult << ", Sdiff: " << sdiff_mult << std::endl;
+            if (verbose) {
+                std::cout << "Returns - Cons: " << cons << ", Mdiff: " << mdiff_mult << ", Sdiff: " << sdiff_mult << std::endl;
+            }
 
             return cons + mdiff_mult * mdiff + sdiff_mult * sdiff;
         }

@@ -48,6 +48,8 @@ int main()
         // if false, run only the tested strategy (without the naive mm)
         bool with_mm = true;
 
+        constexpr bool verbose = false;
+
         // change accordingly (one unit rougly corresponds to one second)
         constexpr tabstime runningtime = 1000;
         //constexpr tabstime runningtime = 8 * 3600;
@@ -83,14 +85,14 @@ int main()
         constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
         constexpr int stock_div = 10; // weight stock value difference by stock_div / stock
 
-        using wreturns_func = WeightedDiffReturn<n_steps, money_div, stock_div>;
+        using wreturns_func = WeightedDiffReturn<n_steps, money_div, stock_div, verbose>;
         using dreturns_func = DiffReturn<n_steps>;
         using returns_func = wreturns_func;  // change to dreturns_funct to use returns that are not weighted
         
         using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg>;
 
-        using neuralstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, cons_step, volume>;
-        using greedystrategy = greedystrategy<>;
+        using neuralstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, cons_step, volume, verbose>;
+        using greedystrategy = greedystrategy<verbose>;
 
         using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
 
