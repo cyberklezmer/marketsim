@@ -13,6 +13,7 @@
 #include "msstrategies/naivemmstrategy.hpp"
 #include "msstrategies/liquiditytakers.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
+#include "msstrategies/maslovstrategy.hpp"
 
 
 using namespace marketsim;
@@ -114,10 +115,9 @@ int main()
 
             tcompetitiondef cdef;
             cdef.timeofrun = runningtime;
-            cdef.endowment = endowment;
             cdef.marketdef = def;
             cdef.samplesize = 1;
-            competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
+            competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, {endowment,endowment,endowment,endowment}, cdef, std::clog);
 
             }
             break;
