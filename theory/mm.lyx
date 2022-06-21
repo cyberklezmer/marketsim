@@ -940,7 +940,7 @@ Find
 
 \end_deeper
 \begin_layout Subsection*
-Parametric 
+Parametric (UNDER CONSTRUCTION!)
 \end_layout
 
 \begin_layout Standard
@@ -1032,7 +1032,7 @@ The higher prices, the more money has to be present in the business
 \end_layout
 
 \begin_layout Enumerate
-It pays of to quote once there is enough money and stocks in the business:
+It pays off to quote once there is enough money and stocks in the business:
  
 \begin_inset Formula $m>h_{m,f},n>h_{n}\Rightarrow V(m+\overline{\alpha},n-1)>V(m,n),V(m-\overline{\beta},n+1)>V(m,n)$
 \end_inset
@@ -1249,15 +1249,24 @@ Maximalistic
 \end_layout
 
 \begin_layout Standard
-Keeping the notation of MM, the action set of the speculator is 
+Keeping the notation of MM, the action set of the speculator is
+\end_layout
+
+\begin_layout Standard
 \begin_inset Formula 
 \begin{multline*}
-A_{t}=A(m_{t},n_{t},\beta_{t},\alpha_{t})=\{(c,b,a)\in\{0,1\}\times\mathbb{N}_{0}\times\mathbb{N}_{\infty}:a_{t}>b_{t},a_{t}\geq\beta_{t},b_{t}\leq\alpha_{t},\\
-m_{t}-b_{t}-c_{t}\geq0,n_{t}\geq0,n_{t}=0\Rightarrow a_{t}=\infty,m_{t}=0\Rightarrow b_{t}=0\}
+A(m,n,\beta,\alpha)\\
+=\{(c,w,v,b,a)\in\{0,\omega\}\times\{0,\eta\}^{2}\times\{\alpha-\Delta,\dots,\alpha+\delta\}\cup\{0\}\times\{\beta-\delta,\dots\beta+\Delta\}\cup\{\infty\}:\\
+b<a,m-bw-c\geq0,n-v\geq0,\\
+m=0\Rightarrow b=0,n=0\Rightarrow a=\infty\}.
 \end{multline*}
 
 \end_inset
 
+
+\end_layout
+
+\begin_layout Standard
 (note the implications and 
 \begin_inset Formula $\geq's$
 \end_inset
@@ -1349,21 +1358,59 @@ noprefix "false"
 \end_layout
 
 \begin_layout Subsection*
-Minimalistic and realistic
+Very minimalistic
 \end_layout
 
 \begin_layout Standard
-Here we assume 
+Here we assume the speculator to put only market orders with unit volume:
 \begin_inset Formula 
 \begin{multline*}
-A(m,n,\beta,\alpha)=\{(c,b,a)\in\{0,1\}\times\{\alpha-\Delta,\dots,\alpha+\delta\}\cup\{0\}\times\{\beta-\delta,\dots\beta+\Delta\}\cup\{\infty\}:\\
-b<a,a\geq\beta,b\leq\alpha,m-b-c\geq0,n\geq0,m=0\Rightarrow b=0,n=0\Rightarrow a=\infty\}.
+A(m,n,r)=\{(c,d)\in\{0,\omega\}\times\{-1,0,1\},m-d\alpha\geq0,n+d\geq0\}.
 \end{multline*}
 
 \end_inset
 
-with the Bellman equation identical to the MM's minimalistic problem.
- Computation is analogous, differing only in the action space.
+with the Bellman equation
+\begin_inset Formula 
+\[
+V(m,n,r)=\max_{(c,d)\in A(m,n,r)}[\text{\ensuremath{c}}+\gamma\mathbb{E}_{R}V(m-d^{+}\alpha+d^{-}\beta-c,n+d,R)]
+\]
+
+\end_inset
+
+(we neglect the possibiliy that that our trade does not succeed).
+ Note also that, similarly as above, 
+\begin_inset Formula $V(m,n,r)\geq1+V(m-1,n,r)$
+\end_inset
+
+ and that 
+\begin_inset Formula $V$
+\end_inset
+
+ is non-decreasing in 
+\begin_inset Formula $n$
+\end_inset
+
+.
+ It is a question which quantities to include into 
+\begin_inset Formula $r$
+\end_inset
+
+: the absolute minimum is the midpoint price 
+\begin_inset Formula $p$
+\end_inset
+
+ (and to use the fact that 
+\begin_inset Formula $d^{+}\alpha-d^{-}\beta=dp-|d|s/2$
+\end_inset
+
+ where 
+\begin_inset Formula $s$
+\end_inset
+
+ is the spread, which we can approximate by a constant); however, it is
+ desirable to experiment with adding another values, like past increases
+ etc.
 \end_layout
 
 \begin_layout Section*
