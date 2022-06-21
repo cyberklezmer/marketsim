@@ -8,17 +8,17 @@ namespace marketsim
     public:
         ta_macd() : teventdrivenstrategy(1)
         {
+            fdelta = 1;
             len_short = 12, len_long = 26, len_sgn = 9;
             step = 0;
         }
 
     private:
-        virtual trequest event(const tmarketinfo& mi, tabstime, trequestresult*)
+        virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult*)
         {
             tprice alpha = mi.alpha(), beta = mi.beta();
             double p = (alpha != khundefprice && beta != klundefprice) ?
                 (alpha + beta) / 2 : std::numeric_limits<double>::quiet_NaN();
-            trequest req;
 
             if (!isnan(p))
             {
@@ -49,13 +49,14 @@ namespace marketsim
                     signal_curr = ema(signal_curr, p, len_sgn);
                 }
 
-                if (macd_prev < signal_prev && macd_curr > signal_curr)
-                    req.addbuymarket(fdelta);
-                if (macd_prev > signal_prev && macd_curr < signal_curr)
-                    req.addsellmarket(fdelta);
-
                 step++;
             }
+
+            trequest req;
+            if (macd_prev < signal_prev && macd_curr > signal_curr)
+                req.addbuymarket(fdelta);
+            if (macd_prev > signal_prev && macd_curr < signal_curr)
+                req.addsellmarket(fdelta);
 
             return req;
         }
@@ -69,6 +70,7 @@ namespace marketsim
         {
             return 2.0 / (len + 1) * price_curr + ema_prev * (1 - 2.0 / (len + 1));
         }
+
 
         tvolume fdelta;
         int step;
