@@ -10,7 +10,7 @@ namespace marketsim {
     std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice finitprice,
                                              tprice last_bid, tprice last_ask);
 
-    template<typename TNet, int conslim, int keep_stocks, int spread_lim, bool modify_c = true, int volume = 10>
+    template<typename TNet, int conslim, int keep_stocks, int spread_lim, int explore_cons, int volume = 10, bool modify_c = true, bool explore = true>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
@@ -66,7 +66,7 @@ namespace marketsim {
 
             torch::Tensor randn = torch::rand({1});
             if ((randn < 0.1).item<bool>()) {
-                conspred = 125;
+                conspred = explore_cons;
                 std::cout << "modify" << std::endl;
             }
 
@@ -110,14 +110,19 @@ namespace marketsim {
 			tprice m = mi.mywallet().money();
             tprice s = mi.mywallet().stocks();
 
-            if (m > (bid * volume)) {
-                ord.addbuylimit(bid, volume);
-                pp.B.add(tpreorder(bid, volume));
+            bool vol_enough = m > (bid * volume);
+            bool b_enough = m > bid;
+            bool stocks_enough = s > keep_stocks;
+
+            if (vol_enough || b_enough) {
+                int vol = vol_enough ? volume : 1;
+                ord.addbuylimit(bid, vol);
+                pp.B.add(tpreorder(bid, vol));
                 last_bid = bid;
                 is_bid = true;
             }
 
-            if (s > keep_stocks) {
+            if (stocks_enough) {
 			    ord.addselllimit(ask, volume);  //TODO u vsech resit jak presne dat na int
                 pp.A.add(tpreorder(ask, volume));
                 last_ask = ask;
@@ -125,10 +130,11 @@ namespace marketsim {
             }
 
             // get out of low resources
-            if (s <= keep_stocks && m <= (b * volume)) {
+            if (!stocks_enough && !b_enough) {
                 std::cout << "emergency" << std::endl;
 
                 last_bid = int(m / 2);
+                last_bid = std::min(last_bid, bid);
                 last_ask = a - 5;
                 ord.addbuylimit(last_bid, 1);
                 pp.B.add(tpreorder(last_bid, 1));
