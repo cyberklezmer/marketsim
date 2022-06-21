@@ -2,6 +2,7 @@
 
 To run the neural strategies, you need to install libtorch. Download the C++ version of PyTorch here:
 https://pytorch.org/get-started/locally/
+. Then, unzip it directly into content root, so you have `./PATH_TO_MARKETSIM/libtorch/`.
 
 For example:
 ```
