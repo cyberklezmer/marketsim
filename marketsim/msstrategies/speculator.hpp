@@ -26,7 +26,7 @@ namespace marketsim
 			W = T2vec(fbndmoney + 1, Tvec(fbndstocks + 1, 0.0));
 			N = P = T4vec(2, T3vec(2, T2vec(fldelta + fudelta + 1, Tvec(fldelta + fudelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
-			fKparam = 3000, fepsparam = 0.2, fdiscfact = 0.99998;
+			Kparam = 3000, fepsparam = 0.2, fdiscfact = 0.9998;
 			n = 0;
 		}
 	private:
@@ -50,6 +50,7 @@ namespace marketsim
 						//W[i][j] = i + j * finitprice;
 					}
 				//initialize N
+				countKparam = Kparam;
 				for (int a = 0; a <= fldelta + fudelta; a++)
 				{
 					for (int b = 0; b <= fldelta + fudelta; b++)
@@ -57,9 +58,9 @@ namespace marketsim
 						double pra = (a < fudelta) ? 0.25 : ((a > fudelta) ? 0.0 : 1.0 / 3);
 						double prb = (b > fldelta) ? 0.25 : ((b < fldelta) ? 0.0 : 1.0 / 3);
 						N[1][1][a][b] = 0;
-						N[1][0][a][b] = fKparam * pra;
-						N[0][1][a][b] = fKparam * prb;
-						N[0][0][a][b] = fKparam - N[1][0][a][b] - N[0][1][a][b];
+						N[1][0][a][b] = Kparam * pra;
+						N[0][1][a][b] = Kparam * prb;
+						N[0][0][a][b] = Kparam - N[1][0][a][b] - N[0][1][a][b];
 					}
 				}
 				n = mi.mywallet().stocks();
@@ -80,22 +81,13 @@ namespace marketsim
 
 			//update and normalize N
 			N[c][d][da - (beta - alpha - fldelta)][db - (alpha - beta - fudelta)]++;
+			countKparam++;
 
-			for (int a = 0; a <= fudelta + fldelta; a++)
-				for (int b = 0; b <= fudelta + fldelta; b++)
-				{
-					double sum = 0.0;
+			for (int a = 0; a <= fldelta + fudelta; a++)
+				for (int b = 0; b <= fldelta + fudelta; b++)
 					for (unsigned i = 0; i < N.size(); i++)
 						for (unsigned j = 0; j < N[0].size(); j++)
-							sum += N[i][j][a][b];
-
-					if (sum > 0)
-					{
-						for (unsigned i = 0; i < N.size(); i++)
-							for (unsigned j = 0; j < N[0].size(); j++)
-								P[i][j][a][b] = N[i][j][a][b] / sum;
-					}
-				}
+							P[i][j][a][b] = N[i][j][a][b] / countKparam;
 
 			//calculate value function
 			double v = 0.0;
@@ -150,7 +142,7 @@ namespace marketsim
 		double
 			fdiscfact,
 			fepsparam;
-		int fKparam,
+		int Kparam, countKparam,
 			fbndmoney, fbndstocks,
 			fldelta,
 			fudelta;
