@@ -2,6 +2,8 @@
 #define COMPETITION_HPP
 
 #include "marketsim.hpp"
+#include <iostream>
+#include <fstream>
 
 namespace marketsim
 {
@@ -160,7 +162,7 @@ inline void competition(std::vector<competitorbase<chronos>*> competitors,
 
    std::ofstream rescsv("competition.csv");
    if(!rescsv)
-       throw std::runtime_error("Cannot open competitio.csv");
+       throw std::runtime_error("Cannot open competition.csv");
 
    auto res = compete<chronos,calibrate,logging,D>(competitors,endowments,
                                                  cd,rescsv,garbage,std::clog);
