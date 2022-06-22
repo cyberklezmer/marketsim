@@ -2,7 +2,9 @@
 #define MARKETSIM_HPP
 #include "assert.h"
 #include <vector>
+#include <iostream>
 #include <ostream>
+#include <fstream>
 #include <sstream>
 #include <limits>
 #include <random>

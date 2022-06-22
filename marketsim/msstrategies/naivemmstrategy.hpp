@@ -49,7 +49,15 @@ public:
 
                   pp.B.add(tpreorder(proposedb,volume));
                   pp.A.add(tpreorder(proposeda,volume));
+
+                  trequest ord;
+                  ord.addbuylimit(proposedb, volume);
+                  ord.addselllimit(proposeda, volume);
+                  ord.setconsumption(c);
+
+
 //cout << beta << "(" << proposedb << ") - " << alpha << "(" << proposeda << ")" << endl;
+                  //return ord;
                   return {pp,trequest::teraserequest(true),c};
                }
            }
