@@ -74,36 +74,12 @@ for(unsigned i = 0; i<20; i++)
                                                            endowment /*,endowment*/},
                                                            def);
         o.push_back(r->fhistory(2000).p());
-        r->fhistory.output(std::cout,100);
+        r->fhistory.output(std::clog,100);
 }
 
 for(unsigned i = 0; i<o.size(); i++)
     std::cout << o[i] << std::endl;
 
-return 0;
-
-
-        tcompetitiondef cdef;
-        cdef.timeofrun = runningtime;
-        cdef.endowment = endowment;
-        cdef.marketdef = def;
-        cdef.samplesize = 30;
-
-
-
-        competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
-
-
-
-
-//std::cout << std::endl <<"With chronos: " << std::endl;
-//        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,false>(1000);
-
-
-//        testsingle<tadpmarketmaker,false,false>(); // without chronos
-//        testcompete<tadpmarketmaker,false,true>(10);
-//        competesingle<tadpmarketmaker,false>();
-        return 0;
     }
     catch (std::exception& e) {
         std::cerr << e.what() << std::endl;

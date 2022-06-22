@@ -37,6 +37,17 @@ public:
    marketsimerror(const std::string &what = "") : error(what) {}
 };
 
+/// class used to collect statistical information (TBD move to orpp)
+struct statcounter
+{
+    double sum = 0.0;
+    double sumsq = 0.0;
+    unsigned num = 0;
+    void add(double x) { sum += x; sumsq += x*x; num++;}
+    double average() const { return sum / num; }
+    double var() const { return sumsq/num - average()*average(); }
+};
+
 
 
 using tprice = int;
@@ -987,6 +998,9 @@ public:
     {
         return fname;
     }
+
+    void addcomptime(tabstime t) {fcomptimes.add(t);}
+    const statcounter& comptimes() const { return fcomptimes; }
 protected:
     tstrategyid fid;
     std::string fname;
@@ -996,6 +1010,7 @@ protected:
     std::vector<tconsumptionevent> fconsumption;
     std::vector<tradingevent> ftrading;
     std::vector<tdsevent> fds;
+    statcounter fcomptimes;
 
     std::ostringstream fsublog;
     bool fendedbyexception = false;
@@ -1732,17 +1747,6 @@ public:
 
 };
 
-/// class used to collect statistical information (TBD move to orpp)
-struct statcounter
-{
-    double sum = 0.0;
-    double sumsq = 0.0;
-    unsigned num = 0;
-    void add(double x) { sum += x; sumsq += x*x; num++;}
-    double average() const { return sum / num; }
-    double var() const { return sumsq/num - average()*average(); }
-};
-
 /// this class exclusively holds the state and the history of the market
 class tmarketdata
 {
@@ -1844,6 +1848,22 @@ public:
 
     /// number of strategies
     unsigned n() const { return fstrategyinfos.size(); }
+
+    void protocol(std::ostream& o) const
+    {
+        o << "stretegies:";
+        for(unsigned i=0; i<fstrategyinfos.size(); i++)
+        {
+            o << "," << fstrategyinfos[i].name();
+        }
+        o << std::endl;
+        o << "c:";
+        for(unsigned i=0; i<fstrategyinfos.size(); i++)
+        {
+            o << "," << fstrategyinfos[i].name();
+        }
+
+    }
 };
 
 /// accessor of a particular strategy to marketsim::tmarketdata (the strategy should not see
@@ -1992,7 +2012,6 @@ public:
 private:
 
     friend class tstrategy;
-    friend class tcompetition;
     friend class tdsbase;
 
     /// converts a strategy \p id  to its index in marketsim::tmarketdata
@@ -2301,6 +2320,7 @@ public:
 //                           double endt = ;
                            double dt = (::clock()-fclockstarteventtime) / CLOCKS_PER_SEC;
 
+                           fmarketdata->fstrategyinfos[first].addcomptime(dt);
                            ts[first] = t + dt + str->finterval + def().ticktime()
                                                  + str->uniform() * def().epsilon;
                            rts[first] = t + dt;
