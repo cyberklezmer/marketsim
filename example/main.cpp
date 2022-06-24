@@ -24,7 +24,7 @@ int main()
         constexpr bool chronos = false;
 
         // change accordingly
-        constexpr bool logging = false;
+        constexpr bool logging = true;
 
         // change accordingly (one unit rougly corresponds to one second)
         constexpr tabstime runningtime = 10000;
@@ -51,7 +51,7 @@ int main()
                          ebuyerscompetition};
 
         // change accordingly
-        ewhattodo whattodo = edetailedcompetiton;
+        ewhattodo whattodo = emaslovcompetition;
 
         switch(whattodo)
         {
@@ -134,6 +134,7 @@ int main()
                 tcompetitiondef cdef;
                 cdef.timeofrun = runningtime;
                 cdef.marketdef = def;
+                cdef.marketdef.loggingfilter.fprotocol = true;
                 if(whattodo==emaslovcompetition)
                     dsmaslovcompetition<chronos,logging>({&fs,&ss}, competitorsendowment, cdef, std::clog);
                 else

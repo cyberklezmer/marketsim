@@ -19,7 +19,7 @@ namespace marketsim
 {
 
 constexpr unsigned versionmajor=1;
-constexpr unsigned versionminor=95;
+constexpr unsigned versionminor=96;
 
 class error: public std::runtime_error
 {
@@ -100,9 +100,27 @@ public:
     twallet(tprice amoney, tvolume astocks) : fmoney(amoney), fstocks(astocks) {}
 
     /// accessor
-    tprice& money() { return fmoney; }
+    void changemoney(tprice moneydelta)
+    {
+        // this should not happen if we do not put too much money into the competition
+        if(static_cast<double>(fmoney)+static_cast<double>(moneydelta)
+                 > std::numeric_limits<tprice>::max() / 2)
+            throw marketsimerror("Wallet money overflow");
+        if(fmoney + moneydelta < 0)
+            throw marketsimerror("Negative money in wallet");
+        fmoney += moneydelta;
+    }
     /// accessor
-    tvolume& stocks() { return fstocks; }
+    void changestocks(tvolume stockdelta)
+    {
+        // this should not happen if we do not put too much money into the competition
+        if(static_cast<double>(fstocks)+static_cast<double>(stockdelta)
+                 > std::numeric_limits<tvolume>::max() / 2)
+            throw marketsimerror("Wallet stocksoverflow");
+        if(fstocks + stockdelta < 0)
+            throw marketsimerror("Negative stock in wallet");
+        fstocks += stockdelta;
+    }
     /// accessor
     const tprice& money() const  { return fmoney; }
     /// accessor
@@ -137,7 +155,7 @@ struct tsettleerror
 {
     /// possible warnings/errors, which can be returned back when settling the request
     enum eresult { OK /* never used */ ,enotenoughmoneytoconsume,
-                   ecrossedorders, enotenoughmoneytobuy, enotenoughstockstosell,
+                   ecrossedorders, einvalidorders, enotenoughmoneytobuy, enotenoughstockstosell,
                     enotenoughmoneytoput, enotenoughstockstoput,ezeroorlessprice,
                     enumresults};
     eresult w;
@@ -147,7 +165,7 @@ struct tsettleerror
     {
         static std::vector<std::string> lbls =
         { "OK" , "not enough money to consume",
-          "crossed orders", "not enough money to buy",
+          "crossed orders", "invalid orders", "not enough money to buy",
           "not enough stocks to sell", "not enough money to put",
           "not enough stocks to put", "0 or even less limit prace of buy" };
         return lbls[w];
@@ -539,13 +557,33 @@ public:
     }
 
     /// checks whether the lists are not crossed (i.e. a <= b when both are defined)
-    bool check() const
+    bool checkcrossed() const
     {
         tprice ap = a();
         tprice bp = b();
         return  a() > b() || (bp == khundefprice && ap==khundefprice) ||
                 (bp == klundefprice && ap==klundefprice);
     }
+
+    /// checks for undefined prices
+    bool checkorders() const
+    {
+        for(unsigned i=0; i<A.size(); i++)
+        {
+            const auto& a=A[i];
+            if(a.price == klundefprice)
+                return false;
+        }
+        for(unsigned i=0; i<B.size(); i++)
+        {
+            const auto& b=B[i];
+            if(b.price == khundefprice)
+                return false;
+        }
+        return true;
+    }
+
+
 
     /// output to a stream
     void output(std::ostream& o) const
@@ -636,6 +674,9 @@ public:
     /// accessor
     const teraserequest& eraserequest() const { return feraserequest; }
 
+    /// accessor
+    void seteraserequest(const teraserequest& r) { feraserequest = r; }
+
     /// if true then the request would certainly have no effect
     bool empty() const
     {
@@ -654,8 +695,13 @@ public:
             o << "none";
         else
         {
-            o << "(" << feraserequest.b.size() << " bids, ";
-            o << feraserequest.b.size() << " asks)";
+            o << "(bids=";
+            for(unsigned i=0; i < feraserequest.b.size(); i++)
+                o << (feraserequest.b[i] ? "y" : "n");
+            o << " asks=";
+            for(unsigned i=0; i < feraserequest.a.size(); i++)
+                     o << (feraserequest.a[i] ? "y" : "n");
+            o << ")";
         }
         o << ", ";
         forderrequest.output(o);
@@ -668,72 +714,29 @@ private:
     teraserequest feraserequest;
 };
 
-/// Class serving strategies (ane later possibly for evaluations) to access the history of market
-class tmarkethistory
+template <typename S>
+class tjumpprocess
 {
 public:
-    static constexpr double knan = std::numeric_limits<double>::quiet_NaN();
+    tjumpprocess() {}
+    tjumpprocess(const S& s) : fx(1,s) {}
 
-    /// state of the bid and ask values at a time
-    struct tsnapshot
+
+    template <double F(const S&)>
+    double evaluate(tabstime astart, tabstime aend) const
     {
-        /// bid price (may be \c klundefprice)
-        tprice b;
-        /// ask price (may be \c khundefprice)
-        tprice a;
-        /// time of the snapshot        
-        tabstime t;
-        /// traded volume
-        tvolume q = 0;
-        /// computes the midpoint price -- if \c b or \c a are undefined, it returns \c nan
-        /// (the return value should be thus checked by \c isnan() )
-        double p() const
-        {
-            if(b==klundefprice || a==khundefprice)
-                return knan;
-            else
-                return (a+b) / 2.0;
-        }
-    };
-private:
-    static bool cmp(const tsnapshot &a, const tsnapshot &b)
-    {
-        return a.t < b.t;
-    }
+        if(!fx.size())
+            return 0;
 
-    auto lastnegreaterthan(tabstime at) const
-    {
-        assert(fx.size());
-        tsnapshot val={0,0,at+std::numeric_limits<tabstime>::epsilon(),0};
-        auto it = std::lower_bound(fx.begin(),fx.end(),val,cmp);
-        assert(it != fx.begin());
-        return it - 1;
-    }
-public:
-    /// constructor
-    tmarkethistory() : fx({{klundefprice,khundefprice,0,0}}) {}
-
-    /// returns the state of the bid and ask at a given time (\p at can be any positive number)
-    tsnapshot operator () (tabstime at) const
-    {
-        auto it = lastnegreaterthan(at);
-        return *it;
-    }
-
-
-
-    tvolume sumq(tabstime astart,tabstime aend) const
-    {
-        assert(fx.size());
         tvolume ret = 0;
-        tsnapshot val={0,0,aend,0};
+        S val(aend);
         auto it = std::lower_bound(fx.begin(),fx.end(),val,cmp);
         if(it==fx.end())
              it--;
         for(;;)
         {
             if(it->t >= astart)
-                ret += it->q;
+                ret += F(*it);
             else
                 break;
             if(it==fx.begin())
@@ -742,6 +745,98 @@ public:
         }
         return ret;
     }
+
+    auto lastnogreaterthan(tabstime at) const
+    {
+        assert(fx.size());
+        S val(at+std::numeric_limits<tabstime>::epsilon());
+        auto it = std::lower_bound(fx.begin(),fx.end(),val,cmp);
+        assert(it != fx.begin());
+        return it - 1;
+    }
+
+    tabstime timeoflast() const
+    {
+        if(fx.size())
+            return fx[fx.size()-1].t;
+        else
+            return std::numeric_limits<tabstime>::quiet_NaN();
+    }
+
+
+    /// returns the state of the bid and ask at a given time (\p at can be any positive number)
+    const S& operator() (tabstime at) const
+    {
+        if(!fx.size())
+            throw std::runtime_error("No records in tjumpprocess");
+        auto it = lastnogreaterthan(at);
+        return *it;
+    }
+
+    /// adds a record to the end of the snapshot list (time has to be greater than those already present)
+    void add(const S& s)
+    {
+        fx.push_back(s);
+    }
+
+
+    static bool cmp(const S &a, const S &b)
+    {
+        return a.t < b.t;
+    }
+    const std::vector<S>& x() const { return fx; }
+private:
+    std::vector<S> fx;
+
+};
+
+/// state of the bid and ask values at a time
+struct tsnapshot
+{
+    static constexpr double knan = std::numeric_limits<double>::quiet_NaN();
+
+    /// bid price (may be \c klundefprice)
+    tprice b;
+    /// ask price (may be \c khundefprice)
+    tprice a;
+    /// time of the snapshot
+    tabstime t;
+    /// traded volume
+    tvolume q;
+    /// traded volume
+    tvolume Bvol;
+    /// traded volume
+    tvolume Avol;
+    /// computes the midpoint price -- if \c b or \c a are undefined, it returns \c nan
+    /// (the return value should be thus checked by \c isnan() )
+    double p() const
+    {
+        if(b==klundefprice || a==khundefprice)
+            return knan;
+        else
+            return (a+b) / 2.0;
+    }
+    static double getq(const tsnapshot& s) { return s.q; }
+    tsnapshot(tprice ab, tprice aa, tabstime at, tvolume aq, tvolume bvol, tvolume avol)
+         : b(ab), a(aa), t(at), q(aq), Bvol(bvol), Avol(avol) {}
+    tsnapshot(tabstime at) : b(klundefprice), a(khundefprice), t(at), q(0), Bvol(0), Avol(0) {}
+};
+
+
+/// Class serving strategies (ane later possibly for evaluations) to access the history of market
+class tmarkethistory : public tjumpprocess<tsnapshot>
+{
+public:
+
+    /// constructor
+    tmarkethistory() : tjumpprocess<tsnapshot>(tsnapshot(0)) {}
+
+    /// sums trades in [\p astart, \p aend)
+    double sumq(tabstime astart,tabstime aend) const
+    {
+        return this->tjumpprocess<tsnapshot>::evaluate<tsnapshot::getq>(astart,aend);
+    }
+
 
     /// returns the bid at \p at
     tprice b(tabstime at) const
@@ -765,35 +860,68 @@ public:
     template <int which>
     tsnapshot lastdefined(tabstime l=0, tabstime h=std::numeric_limits<tabstime>::max()) const
     {
-        if(fx.size())
+        assert(x().size());
+        auto it=lastnogreaterthan(h);
+        for(; it>=x().begin(); it--)
         {
-            auto it=lastnegreaterthan(h);
-            for(; it>=fx.begin(); it--)
+            if(it->t < l)
+                break;
+            if constexpr(which==efindb)
             {
-                if(it->t < l)
-                    break;
-                if constexpr(which==efindb)
-                {
-                    if(it->b != klundefprice)
-                        return *it;
-                }
-                else if constexpr(which==efinda)
-                {
-                    if(it->a != khundefprice)
-                        return *it;
-                }
-                else if constexpr(which==efindp)
-                {
-                    if(it->a != khundefprice && it->b != klundefprice)
-                        return *it;
-                }
-                else
-                {
-                    assert(0);
-                }
+                if(it->b != klundefprice)
+                    return *it;
+            }
+            else if constexpr(which==efinda)
+            {
+                if(it->a != khundefprice)
+                    return *it;
+            }
+            else if constexpr(which==efindp)
+            {
+                if(it->a != khundefprice && it->b != klundefprice)
+                    return *it;
+            }
+            else
+            {
+                assert(0);
             }
         }
-        return { klundefprice, khundefprice, 0, 0};
+        return tsnapshot(0);
+    }
+
+    template<int which>
+    tabstime timeundefined(tabstime astart, tabstime aend) const
+    {
+        assert(x().size());
+        auto it=lastnogreaterthan(aend);
+        tabstime sum = 0;
+        tabstime h = aend;
+        for(;;)
+        {
+            tabstime l = std::max(it->t,astart);
+            if constexpr(which==efindb)
+            {
+                if(it->b == klundefprice)
+                    sum+=h-l;
+            }
+            else if constexpr(which==efinda)
+            {
+                if(it->a == khundefprice)
+                    sum+=h-l;
+            }
+            else if constexpr(which==efindp)
+            {
+                if(it->a == khundefprice || it->b == klundefprice)
+                    sum+=h-l;
+            }
+            if(it->t <= astart)
+                break;
+            if(it == x().begin())
+                break;
+            it--;
+            h = l;
+        }
+        return sum;
     }
 
 
@@ -803,17 +931,12 @@ public:
     }
 
 
-    /// adds a record to the end of the snapshot list (time has to be greater than those already present)
-    void add(const tsnapshot& s)
-    {
-        fx.push_back(s);
-    }
 
     /// displays the history to stream \p o by intervals \p interval
     void output(std::ostream& o, tabstime interval) const
     {
         o << "t,b,a,p,q" << std::endl;
-        for(tabstime t = 0; t < (fx.end()-1)->t + interval; t+= interval )
+        for(tabstime t = 0; t < (x().end()-1)->t + interval; t+= interval )
         {
             auto s = (*this)(t);
             auto q = t==0 ? 0 : sumq(t-interval+std::numeric_limits<tabstime>::epsilon(),t);
@@ -821,8 +944,23 @@ public:
               << q << std::endl;
         }
     }
-private:
-    std::vector<tsnapshot> fx;
+};
+
+
+/// record about a demand/supply
+struct tdsevent
+{
+    /// time of the trade
+    tabstime t;
+    /// money from d/s
+    tprice demand;
+    /// increase/decrease of the (stock) inventory
+    tvolume supply;
+    tdsevent(tabstime at): t(at),demand(0), supply(0) {}
+    tdsevent(tabstime at, tprice ademand, tvolume asupply )
+        : t(at),demand(ademand), supply(asupply) {}
+    static double getdemand(const tdsevent& e) { return e.demand; }
+    static double getsupply(const tdsevent& e) { return e.supply; }
 };
 
 
@@ -836,34 +974,34 @@ public:
     struct tconsumptionevent
     {
         /// time of the consumption
-        tabstime ftime;
+        tabstime t;
         /// amount consumed
         tprice famount;
+        tconsumptionevent(tabstime at) : t(at), famount(0) {}
+        tconsumptionevent(tabstime at,tprice amount): t(at), famount(amount) {}
+        static double getc(const tconsumptionevent& e) { return e.famount; }
     };
 
     /// record about a trade
     struct tradingevent
     {
         /// time of the trade
-        tabstime ftime;
+        tabstime t;
         /// increase/descreas of the cash
-        tprice fmoneydelta;
+        tprice moneydelta;
         /// increase/decrease of the (stock) inventory
-        tvolume fstockdelta;
+        tvolume stockdelta;
         /// other party of the trade (index in the market's list)
         unsigned partner;
+        tradingevent(tabstime at) : t(at), moneydelta(0), stockdelta(0),
+            partner(std::numeric_limits<unsigned>::max()) {}
+        tradingevent(tabstime at, tprice amoneydelta, tvolume astockdelta, unsigned apartner)
+            : t(at), moneydelta(amoneydelta), stockdelta(astockdelta), partner(apartner)
+             {}
+        static double getstockpurchase(const tradingevent& e) { return std::max(0,e.stockdelta); }
+        static double getstockselling(const tradingevent& e) { return std::max(0,-e.stockdelta); }
     };
 
-    /// record about a demand/supply
-    struct tdsevent
-    {
-        /// time of the trade
-        tabstime ftime;
-        /// money from d/s
-        tprice fdemand;
-        /// increase/decrease of the (stock) inventory
-        tvolume fsupply;
-    };
 
 
     /// constructor, \p endowment is the initial state of the wallet,
@@ -883,39 +1021,40 @@ public:
     void addconsumption(tprice c, tabstime t)
     {
         assert(c <= fwallet.money());
-        fconsumption.push_back(tconsumptionevent({t,c}));
-        fwallet.money() -= c;
+        fconsumption.add(tconsumptionevent(t,c));
+        fwallet.changemoney(-c);
     }
     /// accessor
     void addtrade(tprice moneydelta, tvolume stockdelta, tabstime t, unsigned partner)
     {
         assert(fwallet.money() + moneydelta >= 0);
         assert(fwallet.stocks() + stockdelta >= 0);
-        ftrading.push_back({t, moneydelta, stockdelta, partner});
-        fwallet.money() += moneydelta;
-        fwallet.stocks() += stockdelta;
+        ftrading.add(tradingevent(t, moneydelta, stockdelta, partner));
+        fwallet.changemoney(moneydelta);
+        fwallet.changestocks(stockdelta);
     }
     /// accessor
     void addds(tprice demand, tvolume supply, tabstime t)
     {
-        fds.push_back({t, demand, supply});
-        fwallet.money() += demand;
-        fwallet.stocks() += supply;
+        fds.add(tdsevent(t, demand, supply));
+        fwallet.changemoney(demand);
+        fwallet.changestocks(supply);
     }
     /// accessor
     const twallet& wallet() const { return fwallet; }
     /// accessor
     twallet& wallet() { return fwallet; }
     /// accessor
-    const std::vector<tconsumptionevent>& consumption() const { return fconsumption; }
+    const tjumpprocess<tconsumptionevent>& consumption() const { return fconsumption; }
 
     /// computes the sum of all consumptions
     tprice totalconsumption() const
     {
-        tprice c = 0;
+        return fconsumption.evaluate<tconsumptionevent::getc>(0,std::numeric_limits<tabstime>::max());
+/*        tprice c = 0;
         for(unsigned k=0; k<fconsumption.size(); k++)
             c += fconsumption[k].famount;
-        return c;
+        return c;*/
     }
 
     /// returns the amount of money blocked by market (to secure active orders)
@@ -931,9 +1070,9 @@ public:
     /// avaliable (not blocked) amount of stocks
     tvolume availablevolume() { return fwallet.stocks() - fblockedstocks;}
     /// returns trading history
-    const std::vector<tradingevent>& tradinghistory() const { return ftrading; }
+    const tjumpprocess<tradingevent>& tradinghistory() const { return ftrading; }
     /// returns ds history
-    const std::vector<tdsevent>& dshistory() const { return fds; }
+    const tjumpprocess<tdsevent>& dshistory() const { return fds; }
 //    /// returns the name of the strategy
     tstrategyid strategyid() const { return fid; }
 
@@ -953,9 +1092,9 @@ public:
         if(level >= etrades)
         {
             o << "Trades:"  << std::endl;
-            for(auto tr: tradinghistory())
-                o << tr.ftime << "s: " << tr.fmoneydelta << "$, "
-                  << tr.fstockdelta << " with " << tr.partner << std::endl;
+            for(auto tr: tradinghistory().x())
+                o << tr.t << "s: " << tr.moneydelta << "$, "
+                  << tr.stockdelta << " with " << tr.partner << std::endl;
         }
     }
 
@@ -1009,9 +1148,9 @@ protected:
     twallet fwallet;
     tprice fblockedmoney;
     tvolume fblockedstocks;
-    std::vector<tconsumptionevent> fconsumption;
-    std::vector<tradingevent> ftrading;
-    std::vector<tdsevent> fds;
+    tjumpprocess<tconsumptionevent> fconsumption;
+    tjumpprocess<tradingevent> ftrading;
+    tjumpprocess<tdsevent> fds;
     statcounter fcomptimes;
 
     std::ostringstream fsublog;
@@ -1247,6 +1386,7 @@ struct tloggingfilter
         fabstime = false;
         fmarketdata = false;
         fds = false;
+        fprotocol = false;
     }
     bool frequest;
     bool fsettle;
@@ -1256,6 +1396,7 @@ struct tloggingfilter
     bool ftick;
     bool fabstime;
     bool fds;
+    bool fprotocol;
 };
 
 
@@ -1341,7 +1482,12 @@ public:
 
     /// logging filter
     tloggingfilter loggingfilter = tloggingfilter();
+
+    /// strategies logging their custom entries (by their ordering submitted to run)
     std::vector<unsigned> loggedstrategies;
+
+    /// numbor of snapshots in protocol (loggingfilter.fprotocol = true)
+    unsigned numsnapshotsinprotocol = 10;
 
     /// returns constant converting a duration of the chrnonos tick to time in seconds
     double ticktime() const
@@ -1488,9 +1634,14 @@ public:
             r.addconsumption(c,at);
         }
         tpreorderprofile request = arequest.orderrequest();
-        if(!request.check())
+        if(!request.checkcrossed())
         {
             ret.errs.push_back({tsettleerror::ecrossedorders,"Crossed orders."});
+            return ret;
+        }
+        if(!request.checkorders())
+        {
+            ret.errs.push_back({tsettleerror::einvalidorders,"Invalid orders."});
             return ret;
         }
         const trequest::teraserequest& eraserequest = arequest.eraserequest();
@@ -1513,7 +1664,6 @@ public:
             }
             if(afilter.size())
             {
-                tvolume deltablocked = 0;
                 for(unsigned i=0; i<A.size();i++)
                     if(i<afilter.size() && afilter[i])
                     {
@@ -1521,12 +1671,10 @@ public:
                         {
                             if(request.A[j].price == A[i].price )
                             {
-                                if(A[i].volume >= request.A[j].volume)
+                                if(request.A[j].volume >= A[i].volume)
                                 {
                                     afilter[i] = false;
-                                    A[i].volume -= request.A[j].volume;
-                                    deltablocked += request.A[j].volume;
-                                    request.A[j].volume =0;
+                                    request.A[j].volume -= A[i].volume;
                                     assert(request.A[j].volume>=0);
                                 }
                                 break;
@@ -1534,13 +1682,12 @@ public:
                         }
                     }
                 profiles[owner].blockedstocks() -=
-                   (fbook[owner].A.volume(afilter)+deltablocked);
+                   fbook[owner].A.volume(afilter);
                 A.clear(afilter);
                 makequeue<true>();
             }
             if(bfilter.size())
             {
-                tprice deltablocked = 0;
                 for(unsigned i=0; i<B.size();i++)
                     if(i<bfilter.size() && bfilter[i])
                     {
@@ -1548,20 +1695,17 @@ public:
                         {
                             if(request.B[j].price == B[i].price )
                             {
-                                if(B[i].volume >= request.B[j].volume)
+                                if(request.B[j].volume >= B[i].volume)
                                 {
                                     bfilter[i] = false;
-                                    B[i].volume -= request.B[j].volume;
-                                    deltablocked += request.B[j].volume * request.B[j].price;
-                                    request.B[j].volume = 0;
+                                    request.B[j].volume -= B[i].volume;
                                     assert(request.B[j].volume>=0);
                                 }
                                 break;
                             }
                         }
                     }
-                profiles[owner].blockedmoney() -=
-                        (fbook[owner].B.value(bfilter)+deltablocked);
+                profiles[owner].blockedmoney() -=fbook[owner].B.value(bfilter);
                 fbook[owner].B.clear(bfilter);
                 makequeue<false>();
             }
@@ -1831,7 +1975,11 @@ public:
     {
         auto candb= b();
         if(candb==klundefprice)
+        {
+//if(fhistory.lastdefined<tmarkethistory::efindb>().b==klundefprice)
+//    std::cout << "ldb=undef" << std::endl;
             return fhistory.lastdefined<tmarkethistory::efindb>().b;
+        }
         else
             return candb;
     }
@@ -1851,20 +1999,173 @@ public:
     /// number of strategies
     unsigned n() const { return fstrategyinfos.size(); }
 
-    void protocol(std::ostream& o) const
+
+    /// puts a protocol to the log stream. Consists of:
+    ///
+    /// List of stragegies, for each of which it shows \c c - consumption, \c m - money,
+    /// \c n = stocks, \c #events - number of calls to marketsim::teventstrategy::event
+    /// \c ave_comp_time = average time spent in the event method
+    ///
+    /// Time shapshots (their # is given by \p nsnaps): \c b - current bid,
+    /// \c %_undef - percent of the interval the bid was undefined
+    /// \c B_volume - number of stocks in the bid order book at the time of snapshot
+    /// \c a, \c %_undef, \c A_volume - same for asks
+    /// \c q - number of trades within interval
+    ///
+    /// Consumption of individual strategies within intervals
+    ///
+    /// Purchases/Selling of individual strategies
+    ///
+    /// Demand/Supply passed to the strategies
+    ///
+    void protocol(std::ostream& o, tabstime T, unsigned nsnaps = 10) const
     {
-        o << "stretegies:";
+        o << std::endl << "Protocol of a market simulation"
+          << std::endl << std::endl;
+        o << "strategies:";
+
         for(unsigned i=0; i<fstrategyinfos.size(); i++)
-        {
             o << "," << fstrategyinfos[i].name();
-        }
         o << std::endl;
         o << "c:";
         for(unsigned i=0; i<fstrategyinfos.size(); i++)
-        {
-            o << "," << fstrategyinfos[i].name();
-        }
+            o << "," << fstrategyinfos[i].totalconsumption();
+        o << std::endl;
+        o << "m:";
+        for(unsigned i=0; i<fstrategyinfos.size(); i++)
+            o << "," << fstrategyinfos[i].wallet().money();
+        o << std::endl;
+        o << "n:";
+        for(unsigned i=0; i<fstrategyinfos.size(); i++)
+            o << "," << fstrategyinfos[i].wallet().stocks();
+        o << std::endl;
+        o << "# events:";
+        for(unsigned i=0; i<fstrategyinfos.size(); i++)
+            o << "," << fstrategyinfos[i].comptimes().num;
+        o << std::endl;
+        o << "ave comp time:";
+        for(unsigned i=0; i<fstrategyinfos.size(); i++)
+            o << "," << fstrategyinfos[i].comptimes().average();
+        o << std::endl;
+        o << std::endl;
 
+        o << "time snapshots:";
+
+        tabstime dt = T/nsnaps;
+        if(isnan(T))
+            o << ",no records in market history" << std::endl;
+        else
+        {
+            for(unsigned i=1; i<=nsnaps; i++)
+                o << "," << i * dt;
+            o << std::endl;
+            o << "b:";
+            for(unsigned i=1; i<=nsnaps; i++)
+                o << "," << p2str(fhistory(i * dt).b);
+            o << std::endl;
+
+
+
+//            o << "last def in int:";
+//            for(unsigned i=1; i<=nsnaps; i++)
+//            {
+//                o << ",";
+//                tprice lb = this->fhistory.lastdefined<tmarkethistory::efindb>((i-1)*dt,i * dt).b;
+//                if(lb != klundefprice)
+//                    o << lb;
+//            }
+//            o << std::endl;
+            o << "% undef:";
+            for(unsigned i=1; i<=nsnaps; i++)
+                o << "," << 100 * this->fhistory.timeundefined<tmarkethistory::efindb>((i-1)*dt,i * dt) / dt;
+            o << std::endl;
+
+            o << "B volume:";
+            for(unsigned i=1; i<=nsnaps; i++)
+                o << "," << fhistory(i * dt).Bvol;
+            o << std::endl;
+
+            o << "a:";
+            for(unsigned i=1; i<=nsnaps; i++)
+                o << "," << p2str(fhistory(i * dt).a);
+            o << std::endl;
+            o << "% undef:";
+            for(unsigned i=1; i<=nsnaps; i++)
+                o << "," << 100 * this->fhistory.timeundefined<tmarkethistory::efinda>((i-1)*dt,i * dt)/dt;
+            o << std::endl;
+
+            o << "A volume:";
+            for(unsigned i=1; i<=nsnaps; i++)
+                o << "," << fhistory(i * dt).Avol;
+            o << std::endl;
+
+
+            o << "q:";
+            for(unsigned i=1; i<=nsnaps; i++)
+                o << "," << fhistory.sumq((i-1)*dt,i * dt);
+            o << std::endl;
+            o << std::endl;
+
+            o << "Consumption" << std::endl;
+            for(unsigned i=0; i<fstrategyinfos.size(); i++)
+            {
+                o << fstrategyinfos[i].name();
+                for(unsigned j=1; j<=nsnaps; j++)
+                    o << "," << fstrategyinfos[i].consumption().evaluate
+                           <tstrategyinfo::tconsumptionevent::getc>((j-1)*dt,j * dt);
+                o << std::endl;
+            }
+
+            o << std::endl;
+
+
+            o << "Purchases" << std::endl;
+            for(unsigned i=0; i<fstrategyinfos.size(); i++)
+            {
+                o << fstrategyinfos[i].name();
+                for(unsigned j=1; j<=nsnaps; j++)
+                    o << "," << fstrategyinfos[i].tradinghistory().evaluate
+                           <tstrategyinfo::tradingevent::getstockpurchase>((j-1)*dt,j * dt);
+                o << std::endl;
+            }
+
+            o << std::endl;
+
+            o << "Selling" << std::endl;
+            for(unsigned i=0; i<fstrategyinfos.size(); i++)
+            {
+                o << fstrategyinfos[i].name();
+                for(unsigned j=1; j<=nsnaps; j++)
+                    o << "," << fstrategyinfos[i].tradinghistory().evaluate
+                           <tstrategyinfo::tradingevent::getstockselling>((j-1)*dt,j * dt);
+                o << std::endl;
+            }
+
+            o << std::endl;
+
+            o << "Demand" << std::endl;
+            for(unsigned i=0; i<fstrategyinfos.size(); i++)
+            {
+                o << fstrategyinfos[i].name();
+                for(unsigned j=1; j<=nsnaps; j++)
+                    o << "," << fstrategyinfos[i].dshistory().evaluate
+                           <tdsevent::getdemand>((j-1)*dt,j * dt);
+                o << std::endl;
+            }
+
+            o << std::endl;
+
+            o << "Supply" << std::endl;
+            for(unsigned i=0; i<fstrategyinfos.size(); i++)
+            {
+                o << fstrategyinfos[i].name();
+                for(unsigned j=1; j<=nsnaps; j++)
+                    o << "," << fstrategyinfos[i].dshistory().evaluate
+                           <tdsevent::getsupply>((j-1)*dt,j * dt);
+                o << std::endl;
+            }
+            o << std::endl;
+        }
     }
 };
 
@@ -1988,6 +2289,9 @@ private:
     double finterval;
 };
 
+
+
+
 /// class performing the simulation.
 class tmarket : private chronos::Chronos
 {
@@ -2085,10 +2389,17 @@ private:
                 std::ostringstream s;
                 s << "Settle by " << findname(strategyid) << " finished";
                 std::ostringstream s2;
-                s2 << "Volume traded " << sr.q;
+                s2 << "q=" << sr.q;
+                if(sr.errs.size())
+                {
+                    s2 << ", errs:";
+                    for(unsigned i=0; i<sr.errs.size(); i++)
+                        s2 << " '" << sr.errs[i].text << ",";
+                }
                 possiblylog(floggingfilter.fsettle,0,s.str(), s2.str());
             }
-            fmarketdata->fhistory.add({ob.b(),ob.a(),st,sr.q});
+            auto profile = ob.obprofile();
+            fmarketdata->fhistory.add(tsnapshot(ob.b(),ob.a(),st,sr.q,profile.B.volume(),profile.A.volume()));
             return sr;
 
         }
@@ -2153,7 +2464,8 @@ public:
     /// \p maxtime - time of simulation in absolute time
     /// \p adef - paremeters of market
     tmarket(tabstime maxtime, tmarketdef adef) :
-        chronos::Chronos(adef.chronosduration, maxtime / adef.ticktime()), fdef(adef),
+        chronos::Chronos(adef.chronosduration, maxtime / adef.ticktime()),
+        fdef(adef), fmaxtime(maxtime),
         flog(0)
     {
     }
@@ -2376,6 +2688,11 @@ public:
             errtxt = "run throwed unknown error.";
         }
 
+        if(islogging() && fdef.loggingfilter.fprotocol)
+        {
+            fmarketdata->protocol(*flog,fmaxtime,fdef.numsnapshotsinprotocol);
+        }
+
         if(islogging() && !fdef.directlogging)
         {
             *flog << flogheader << std::endl;
@@ -2434,6 +2751,9 @@ private:
     /// state variable: market definition
     tmarketdef fdef;
 
+    /// time the simulation takse
+    tabstime fmaxtime;
+
     /// state variable: pointer to log, if any
     std::ostream* flog;
     /// state variable
@@ -2472,8 +2792,8 @@ private:
 
             std::shared_ptr<tmarketdata> ssht = atomic_load(&fmarketsnapshot);
             if(ssht)
-               o << ssht->forderbook.b() << ";"
-                 << ssht->forderbook.a() << ";";
+               o << p2str(ssht->forderbook.b()) << ";"
+                 << p2str(ssht->forderbook.a()) << ";";
              else
                o << ";;";
 
@@ -2572,6 +2892,39 @@ private:
     std::shared_ptr<tmarketdata> fmarketdata;
     /// current market snapshot
     std::shared_ptr<tmarketdata> fmarketsnapshot;
+};
+
+
+template<bool demand, bool supply>
+class tdsprocessingstrategy : public teventdrivenstrategy
+{
+public:
+    tdsprocessingstrategy()
+        : teventdrivenstrategy(0), flastdssize(0)
+        { static_assert(demand || supply); }
+
+    virtual trequest dsevent(const tdsevent&, const tmarketinfo& info, tabstime t) = 0;
+
+    virtual trequest event(const tmarketinfo& info, tabstime t, trequestresult* lrr)
+    {
+        trequest ret;
+        const auto& h = info.myinfo().dshistory().x();
+        int n = h.size();
+        if(n > flastdssize)
+        {
+            auto ds = h[flastdssize++];
+            ret = dsevent(ds,info,t);
+        }
+        setinterval(flastdssize == n ? this->market()->def().demandupdateperiod : 0);
+        return ret;
+    }
+
+private:
+    int flastdssize;
+
+    virtual bool acceptsdemand() const  { return demand; }
+    virtual bool acceptssupply() const  { return supply; }
+
 };
 
 inline void tstrategy::main()
