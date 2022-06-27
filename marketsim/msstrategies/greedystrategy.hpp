@@ -8,7 +8,8 @@
 namespace marketsim {
 
 
-    template <int conslim, bool verbose = false, int cons = 500, int volume = 10, int keep_stocks = 10, int bid = -5, int ask = 5>
+    template <int conslim, bool verbose = false, bool rand_actions = false, int cons = 500, int volume = 10,
+              int keep_stocks = 10, int spread_size = 5>
     class greedystrategy : public teventdrivenstrategy {
     public:
         greedystrategy() :
@@ -30,6 +31,9 @@ namespace marketsim {
                std::cout << "Beta: " << b << ", Alpha: " << a << std::endl;
             }
 
+            tprice bid = rand_actions ? get_random_int() : spread_size;
+            tprice ask = rand_actions ? get_random_int() : -spread_size;
+
             tprice next_bid = b + bid;
             next_bid = (next_bid < 0) ? 1 : next_bid;
 
@@ -50,6 +54,11 @@ namespace marketsim {
                 last_ask = ot.get_ask();
             }
             return ot.to_request();
+        }
+
+        int get_random_int() {
+            torch::Tensor rand_tens = torch::randint(-spread_size, spread_size + 1, {1});
+            return rand_tens.item<int>();
         }
 
         tprice last_bid, last_ask, finitprice;

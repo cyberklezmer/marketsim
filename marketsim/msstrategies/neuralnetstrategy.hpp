@@ -111,7 +111,6 @@ namespace marketsim {
         }
 
 		tprice last_bid, last_ask;
-        double finitprice;
 
         TNet net;
         std::vector<std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>> history;

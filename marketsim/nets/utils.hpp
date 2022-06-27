@@ -50,7 +50,7 @@ namespace marketsim {
     class ordertemplate {
     public:
         ordertemplate(bool erase) :
-            cons(0), erase(erase) {}
+            cons(0), erase(erase), _is_bid(false), _is_ask(false), _is_cons(false) {}
 
         void set_bid(tprice bid, int volume) {
             this->bid = bid;

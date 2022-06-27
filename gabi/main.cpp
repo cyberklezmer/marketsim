@@ -43,7 +43,7 @@ int main()
         constexpr bool chronos = false;
 
         // change accordingly
-        constexpr bool logging = true;
+        constexpr bool logging = false;
 
         // if false, run only the tested strategy (without the naive mm)
         bool with_mm = true;
@@ -51,8 +51,8 @@ int main()
         constexpr bool verbose = false;
 
         // change accordingly (one unit rougly corresponds to one second)
-        //constexpr tabstime runningtime = 1000;
-        constexpr tabstime runningtime = 10000;
+        constexpr tabstime runningtime = 1000;
+        //constexpr tabstime runningtime = 5000;
         //constexpr tabstime runningtime = 8 * 3600;
 
         // change accordingly
@@ -78,6 +78,9 @@ int main()
         constexpr int cons_step = 125;  // for discrete actions, the max consumption is cons_parts * cons_step
         constexpr int cons_parts = 4;  // number of consumption steps
         constexpr bool entropy_reg = true;  // entropy regularization for more exploration
+
+        // greedy strategy settings
+        constexpr bool random_strategy = true;  // choose bid/ask values randomly
         
         using dnetwork = ACDiscrete<4, hidden_size, spread_lim, cons_step * cons_parts, cons_parts>;
         using cnetwork = ACContinuous<4, hidden_size, 1, cons_mult>;
@@ -93,10 +96,10 @@ int main()
         using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg>;
 
         using neuralstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, cons_step, volume, verbose>;
-        using greedystrategy = greedystrategy<cons_lim, verbose>;
+        using greedystrategy = greedystrategy<cons_lim, verbose, random_strategy>;
 
-        using testedstrategy = greedystrategy;
-        //using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
+        //using testedstrategy = greedystrategy;
+        using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
 
         enum ewhattodo { esinglerunsinglestrategy,
                          erunall,
