@@ -10,55 +10,77 @@ class lessnaivemmstrategy: public teventdrivenstrategy
 {
 public:
        lessnaivemmstrategy()
-           : teventdrivenstrategy(eventsperhour / 3600.00, false)
+           : teventdrivenstrategy(3600.00 / eventsperhour, false)
        {
        }
 
-       virtual trequest event(const tmarketinfo& info, tabstime, trequestresult* )
+       virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* )
        {
-           tprice alpha = info.alpha();
-           tprice beta = info.beta();
-           if(alpha != khundefprice)
-               beta = alpha/2;
-           if(beta != klundefprice)
-               alpha = beta * 2;
+           trequest ret;
 
+           auto alpha = mi.alpha();
+           auto beta = mi.beta();
+           if(alpha == khundefprice)
+               alpha = mi.lastdefineda();
+           if(beta == klundefprice)
+               beta = mi.lastdefinedb();
 
-           if(alpha != khundefprice && beta != klundefprice)
+           if(alpha != khundefprice && beta != khundefprice)
            {
+               if(alpha <= beta)
+               {
+                   if(uniform()<0.5)
+                       alpha = beta+1;
+                   else if(alpha > 1)
+                       beta = alpha - 1;
+                   else
+                   {
+                       beta = 1;
+                       alpha = 2;
+                   }
+               }
+
                double p = (alpha + beta)/2;
                tprice c = 0;
-               if(info.mywallet().money() > 5*p*volume)
-                    c = info.mywallet().money()-5*p;
-               tprice mya = info.myorderprofile().a();
-               tprice myb = info.myorderprofile().b();
+               tprice threshold = 5*volume*p;
+               if(mi.mywallet().money() > threshold)
+                    c = mi.mywallet().money()-threshold;
 
-               tprice proposeda = mya;
-               if(alpha <= mya)
-                   proposeda = alpha-1;
-
-               tprice proposedb = myb;
-               if(beta != klundefprice && beta >= myb)
-                   proposedb = beta+1;
-
-               if(proposeda >= proposedb)
+               tprice proposeda;
+               tprice proposedb;
+               if(alpha - beta == 1)
                {
-                  if(proposeda == proposedb)
-                  {
-                      if(uniform() < 0.5)
-                          proposeda++;
-                      else
-                          proposedb--;
-                  }
-                  tpreorderprofile pp;
-
-                  pp.B.add(tpreorder(proposedb,volume));
-                  if(info.mywallet().stocks() > volume / 2)
-                      pp.A.add(tpreorder(proposeda,
-                                std::min(info.mywallet().stocks()-volume/2,volume)));
-//cout << beta << "(" << proposedb << ") - " << alpha << "(" << proposeda << ")" << endl;
-                  return {pp,trequest::teraserequest(true),c};
+                   proposeda = alpha;
+                   proposedb = beta;
                }
+               else if(alpha - beta == 1)
+               {
+                   if(uniform() < 0.5)
+                   {
+                       proposeda = alpha;
+                       proposedb = beta+1;
+                   }
+                   else
+                   {
+                       proposeda = alpha-1;
+                       proposedb = beta;
+                   }
+               }
+               else
+               {
+                   proposeda = alpha-1;
+                   proposedb = beta+1;
+               }
+
+
+               tpreorderprofile pp;
+               pp.B.add(tpreorder(proposedb,volume));
+               pp.A.add(tpreorder(proposeda,volume));
+
+//std::clog << t << ":" << beta << "(" << proposedb << ") - " << alpha << "(" << proposeda
+//          << ") m=" << mi.mywallet().money() << " n=" << mi.mywallet().stocks() <<std::endl;
+               //return ord;
+               return {pp,trequest::teraserequest(true),c};
            }
            return trequest();
        }

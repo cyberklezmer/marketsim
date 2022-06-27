@@ -6,6 +6,7 @@
 #include <random>
 
 #include "marketsim.hpp"
+#include "msstrategies/marketorderplacer.hpp"
 #include "marketsim/competition.hpp"
 #include "marketsim/tests.hpp"
 #include "msstrategies/tadpmarketmaker.hpp"
@@ -16,6 +17,7 @@
 #include "msstrategies/parametricmm.hpp"
 #include "msstrategies/maslovorderplacer.hpp"
 #include "msstrategies/initialstrategy.hpp"
+#include "msstrategies/marketorderplacer.hpp"
 #include "msdss/rawds.hpp"
 
 using namespace marketsim;
@@ -26,7 +28,7 @@ int main()
     try
     {
         constexpr bool chronos = false;
-        constexpr bool logging = false;
+        constexpr bool logging = true;
         constexpr tabstime runningtime = 100;
         twallet endowment(5000,100);
         tmarketdef def;
@@ -36,10 +38,12 @@ int main()
         def.loggingfilter.fgetinfo = false;
         def.loggingfilter.fmarketdata = false;
         def.loggingfilter.ftick = false;
-        def.loggingfilter.fabstime = false;*/
+        def.loggingfilter.fabstime = false;
         def.loggingfilter.fsettle = true;
-        def.loggingfilter.fds = true;
+        def.loggingfilter.fds = true;*/
+        def.loggingfilter.fprotocol = true;
 
+        def.loggingfilter.fsettle = true;
         def.loggedstrategies.push_back(0);
         def.directlogging = true;
         def.demandupdateperiod = 0.1;
@@ -57,53 +61,35 @@ int main()
     // has more money than five times the price, it consumes. The volume of
     // the orders is always 10
 
-        competitor<naivemmstrategy<10>,chronos> nmm("naivka");
+        competitor<lessnaivemmstrategy<10,3600*5>,chronos> nmm("naivka");
 
         using testedstrategy = tgeneralpmm;
         competitor<testedstrategy,chronos> ts("tested");
         competitor<initialstrategy<90,110>,chronos,true> is("is");
 
 //competitor<maslovstrategy,chronos> m;
-        competitor<maslovorderplacer<100>,chronos> l("mop");
+        //competitor<cancellingmaslovorderplacer<100,20>,chronos> l("mop");
+        competitor<cancellingmarketorderplacer<100,true,true>,chronos> l("mop");
         twallet emptywallet = {0,0};
 std::vector<double> o;
-for(unsigned i = 0; i<20; i++)
+for(unsigned i = 0; i<1; i++)
 {
-        auto r = test<chronos,true,logging,rawds<3600,10>>({&is,&l,&nmm/*,&ts*/},2000,
+        auto r = test<chronos,true,logging,rawds<3600,3>>({&is,&l,&nmm/*,&ts*/},50,
                                                           {twallet::infinitewallet(),emptywallet,
-                                                           endowment /*,endowment*/},
+                                                            endowment/* ,endowment*/},
                                                            def);
-        o.push_back(r->fhistory(2000).p());
-        r->fhistory.output(std::cout,100);
+//for(unsigned j=0; j<r->fhistory.x().size(); j++)
+//{
+//    auto a = r->fhistory.x()[j];
+//    std::cout  << a.t << " " << a.a << " " << a.b << std::endl;
+//}
+//        o.push_back(r->fhistory(20000).p());
+//        r->protocol(std::clog,20000);
 }
 
-for(unsigned i = 0; i<o.size(); i++)
-    std::cout << o[i] << std::endl;
+//for(unsigned i = 0; i<o.size(); i++)
+//    std::cout << o[i] << std::endl;
 
-return 0;
-
-
-        tcompetitiondef cdef;
-        cdef.timeofrun = runningtime;
-        cdef.endowment = endowment;
-        cdef.marketdef = def;
-        cdef.samplesize = 30;
-
-
-
-        competition<chronos,true,logging>({&fss,&lts,&nmm,&ts}, cdef, std::clog);
-
-
-
-
-//std::cout << std::endl <<"With chronos: " << std::endl;
-//        testcompetetwo<tadpmarketmaker,naivemmstrategy,true,false>(1000);
-
-
-//        testsingle<tadpmarketmaker,false,false>(); // without chronos
-//        testcompete<tadpmarketmaker,false,true>(10);
-//        competesingle<tadpmarketmaker,false>();
-        return 0;
     }
     catch (std::exception& e) {
         std::cerr << e.what() << std::endl;
