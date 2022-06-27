@@ -51,7 +51,8 @@ int main()
         constexpr bool verbose = false;
 
         // change accordingly (one unit rougly corresponds to one second)
-        constexpr tabstime runningtime = 1000;
+        //constexpr tabstime runningtime = 1000;
+        constexpr tabstime runningtime = 10000;
         //constexpr tabstime runningtime = 8 * 3600;
 
         // change accordingly
@@ -92,9 +93,10 @@ int main()
         using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg>;
 
         using neuralstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, cons_step, volume, verbose>;
-        using greedystrategy = greedystrategy<verbose>;
+        using greedystrategy = greedystrategy<cons_lim, verbose>;
 
-        using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
+        using testedstrategy = greedystrategy;
+        //using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
 
         enum ewhattodo { esinglerunsinglestrategy,
                          erunall,
