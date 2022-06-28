@@ -48,7 +48,7 @@ int main()
         // if false, run only the tested strategy (without the naive mm)
         bool with_mm = true;
 
-        constexpr bool verbose = false;
+        constexpr bool verbose = true;  // neural net/strategy outputs to cout
 
         // change accordingly (one unit rougly corresponds to one second)
         constexpr tabstime runningtime = 1000;
@@ -88,8 +88,9 @@ int main()
 
         constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
         constexpr int stock_div = 10; // weight stock value difference by stock_div / stock
+        constexpr bool separately = true;  // if true, the weights are computed using the overall value
 
-        using wreturns_func = WeightedDiffReturn<n_steps, money_div, stock_div, verbose>;
+        using wreturns_func = WeightedDiffReturn<n_steps, money_div, stock_div, verbose, separately>;
         using dreturns_func = DiffReturn<n_steps>;
         using returns_func = wreturns_func;  // change to dreturns_funct to use returns that are not weighted
         

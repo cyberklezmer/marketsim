@@ -31,8 +31,8 @@ namespace marketsim {
                std::cout << "Beta: " << b << ", Alpha: " << a << std::endl;
             }
 
-            tprice bid = rand_actions ? get_random_int() : spread_size;
-            tprice ask = rand_actions ? get_random_int() : -spread_size;
+            tprice bid = rand_actions ? get_random_int() : -spread_size;
+            tprice ask = rand_actions ? get_random_int() : spread_size;
 
             tprice next_bid = b + bid;
             next_bid = (next_bid < 0) ? 1 : next_bid;
