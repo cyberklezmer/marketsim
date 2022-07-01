@@ -37,8 +37,22 @@ namespace marketsim {
             torch::Tensor cons = std::get<2>(curr);
             torch::Tensor returns = compute_returns(history, next_state);
 
-            state = modify_state(state);
+            /*TODO yes, but
+            // look into the past here!
+            // add it into prediction.
 
+            std::vector<torch::Tensor> large_state;
+            for (int i = idx; i < history.size(); ++i) {
+                auto entry = history.at(i);
+                auto s = std::get<0>(entry);
+                large_state.push_back(modify_state(s));
+            }
+            state = modify_state(state);
+            large_state.push_back(state);
+            state = torch::cat(large_state); */
+            
+            state = modify_state(state);
+            
             // main loop
             optimizer->zero_grad();
 
@@ -50,14 +64,14 @@ namespace marketsim {
             auto entropy = net->entropy(pred_actions);
 
             auto value_loss = advantages.pow(2).mean();
-            //auto value_loss = at::huber_loss(state_value, returns);
+            //auto value_loss = torch::huber_loss(state_value, returns);
             auto action_probs = net->action_log_prob(actions, cons, pred_actions);
             auto action_loss = -(advantages.detach() * action_probs + beta * entropy).mean(); //TODO minus správně?
 
-            //action_loss = at::clamp(action_loss, -2, 2);
+            //action_loss = torch::clamp(action_loss, -2, 2);
             
             auto loss = value_loss + action_loss;
-            loss = at::clamp(loss, -clamp, clamp);
+            loss = torch::clamp(loss, -clamp, clamp);
 
             loss.backward();
             optimizer->step();

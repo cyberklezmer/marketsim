@@ -25,16 +25,16 @@ namespace marketsim {
     }
 
     torch::Tensor sample_from_pb(const torch::Tensor& probas) {
-        return at::multinomial(probas, 1);
+        return torch::multinomial(probas, 1);
     }
 
     torch::Tensor normal_entropy(const torch::Tensor& stds) {
-        return at::mean(stds + std::log(2 * pi()) / 2 + 1 / 2);
+        return torch::mean(stds + std::log(2 * pi()) / 2 + 1 / 2);
     }
 
     torch::Tensor logit_entropy(const torch::Tensor& logits) {
-        auto expit = at::exp(logits);
-        return -at::mean(expit * logits);
+        auto expit = torch::exp(logits);
+        return -torch::mean(expit * logits);
     }
 }
 

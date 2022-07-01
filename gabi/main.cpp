@@ -82,8 +82,10 @@ int main()
         // greedy strategy settings
         constexpr bool random_strategy = true;  // choose bid/ask values randomly
         
-        using dnetwork = ACDiscrete<4, hidden_size, spread_lim, cons_step * cons_parts, cons_parts>;
-        using cnetwork = ACContinuous<4, hidden_size, 1, cons_mult>;
+        using state_layer = torch::nn::LSTM;
+
+        using dnetwork = ACDiscrete<4, hidden_size, spread_lim, cons_step * cons_parts, cons_parts, state_layer>;
+        using cnetwork = ACContinuous<4, hidden_size, 1, cons_mult, state_layer>;
         using network = cnetwork;  // change to dnetwork to use discrete actions
 
         constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
