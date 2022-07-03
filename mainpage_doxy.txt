@@ -35,11 +35,18 @@ The code of was exclusively written by Martin Smid and may be commercially used 
 
 \section Verstion history
 
+1.97
+
+- heuristic strategy added
+- minor conservative fixes
+
 1.96
 - New option marketsim::tloggingfilter.fprotocol, which, if true, prints a protocol of every run on the end of the log, see marketsim::tmarketdata::protocol
 
 - new template parameter \c cancelling of  marketsim::dsmaslovcompetition - if true (is default), then the limit orders are cancelled, so they do not grow with time
 
 - the bug, throwing quotations if they were the same as previous, corrected
+
+
 
 */

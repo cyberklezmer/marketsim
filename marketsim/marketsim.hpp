@@ -19,7 +19,7 @@ namespace marketsim
 {
 
 constexpr unsigned versionmajor=1;
-constexpr unsigned versionminor=96;
+constexpr unsigned versionminor=97;
 
 class error: public std::runtime_error
 {
@@ -48,11 +48,57 @@ struct statcounter
     void add(double x) { sum += x; sumsq += x*x; num++;}
     double average() const { return sum / num; }
     double var() const { return sumsq/num - average()*average(); }
-    double averagevar() const  { var() / num; }
+    double averagevar() const  { return var() / num; }
 
 };
 
 
+template <typename T>
+class finitedistribution
+{
+public:
+    void add(double p,const T& x)
+    {
+        item m = { p,x };
+        fx.insert(std::upper_bound( fx.begin(), fx.end(), m , cmp),                  m                );
+    }
+    double lowerCVaR(double alpha) const
+    {
+        double sum = 0;
+        double psum = 0;
+        for(auto it = fx.begin(); it != fx.end(); it++)
+        {
+            sum += it->x * it->p;
+            psum += it->p;
+            if(psum >= alpha)
+                break;
+        }
+        return sum/psum;
+    }
+
+    double mean() const { return lowerCVaR(1); }
+
+    double meanCVaR(double lambda, double alpha) const
+    {
+        return lambda * lowerCVaR(alpha) + (1-lambda) * mean();
+    }
+
+    bool check() const
+    {
+        double psum = 0;
+        for(auto it = fx.begin(); it != fx.end(); it++)
+            psum += it->p;
+        return fabs(psum) - 1 < 0.000000001;
+    }
+
+private:
+    struct item { double p; T x; };
+    static bool cmp(const item &a, const item &b)
+    {
+        return a.x < b.x;
+    }
+    std::vector<item> fx;
+};
 
 using tprice = int;
 

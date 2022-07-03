@@ -1,6 +1,7 @@
 #ifndef DSMASLOVCOMPETITION_HPP
 #define DSMASLOVCOMPETITION_HPP
 
+#include "marketsim/competition.hpp"
 #include "msstrategies/maslovorderplacer.hpp"
 #include "msstrategies/initialstrategy.hpp"
 #include "msdss/fairpriceds.hpp"
