@@ -1,9 +1,9 @@
 #include "marketsim.hpp"
 #include <torch/torch.h>
+#include "nets/utils.hpp"
 
 namespace marketsim {
 
-    using hist_entry = std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>;
 
     class BaseTrainer {
     public:
@@ -12,10 +12,10 @@ namespace marketsim {
     private:
         virtual void train(const std::vector<hist_entry>& history, torch::Tensor next_state) = 0;
 
-        virtual std::vector<torch::Tensor> predict_actions(torch::Tensor state) = 0;
+        virtual std::vector<torch::Tensor> predict_actions(const std::vector<hist_entry>& history, torch::Tensor state) = 0;
     };
 
-    template<typename TNet, int N, typename TReturns, bool use_entropy = false, int clamp = 2>
+    template<typename TNet, int N, typename TReturns, bool use_entropy = false, bool stack = false, int stack_dim = 0, int stack_size = 5, int clamp = 2>
     class NStepTrainer : BaseTrainer {
     public:
         NStepTrainer() : BaseTrainer(), net(std::make_unique<TNet>()), returns_func(), beta(0.01)
@@ -24,7 +24,7 @@ namespace marketsim {
         }
 
         void train(const std::vector<hist_entry>& history, torch::Tensor next_state) {
-            if (history.size() < N) {
+            if (history.size() < N + stack_size + 1) {
                 return;
             }
 
@@ -36,22 +36,15 @@ namespace marketsim {
             torch::Tensor actions = std::get<1>(curr);
             torch::Tensor cons = std::get<2>(curr);
             torch::Tensor returns = compute_returns(history, next_state);
-
-            /*TODO yes, but
-            // look into the past here!
-            // add it into prediction.
-
-            std::vector<torch::Tensor> large_state;
-            for (int i = idx; i < history.size(); ++i) {
-                auto entry = history.at(i);
-                auto s = std::get<0>(entry);
-                large_state.push_back(modify_state(s));
-            }
-            state = modify_state(state);
-            large_state.push_back(state);
-            state = torch::cat(large_state); */
             
-            state = modify_state(state);
+            if (stack) {
+                auto mod_states = get_modified_states(history, N + 1, stack_size);
+                adjust_state_size(mod_states);
+                state = stack_states(mod_states);
+            }
+            else {
+                state = modify_state(state);
+            }
             
             // main loop
             optimizer->zero_grad();
@@ -77,13 +70,51 @@ namespace marketsim {
             optimizer->step();
         }
     
-        std::vector<torch::Tensor> predict_actions(torch::Tensor state) {
+        std::vector<torch::Tensor> predict_actions(const std::vector<hist_entry>& history, torch::Tensor state) {
             torch::NoGradGuard no_grad;
-            torch::Tensor x = modify_state(state);
-            return net->predict_actions(x);
+
+            if (stack) {
+                auto mod_states = get_modified_states(history, state, stack_size);
+                adjust_state_size(mod_states);
+                state = stack_states(mod_states);
+            }
+            else {
+                state = modify_state(state);
+            }
+            return net->predict_actions(state);
         }
 
     private:
+        torch::Tensor stack_states(std::vector<torch::Tensor> states) {
+            return torch::cat(states, stack_dim);
+        }
+
+        void adjust_state_size(std::vector<torch::Tensor>& states) {  
+            if (stack_dim == 1) {
+                while (states.size() != stack_size) {
+                    states.insert(states.begin(), states.at(0));
+                }
+            }
+        }
+
+        std::vector<torch::Tensor> get_modified_states(const std::vector<hist_entry>& history, torch::Tensor state, int st_size) {
+            auto states = get_modified_states(history, 0, st_size - 1);
+            states.push_back(modify_state(state));
+            return states;
+        }
+
+        std::vector<torch::Tensor> get_modified_states(const std::vector<hist_entry>& history, int start, int st_size) {
+            int size = std::min(int(history.size()), st_size);
+            auto past = get_past_states(history, start, size);
+
+            // modify states in the vector
+            std::vector<torch::Tensor> modified_past;
+            std::transform(past.begin(), past.end(), std::back_inserter(modified_past),
+                           [&](torch::Tensor t) { return this->modify_state(t); });
+
+            return modified_past;
+        }
+
         torch::Tensor modify_state(torch::Tensor state) {
             torch::Tensor x = state.clone();
 
@@ -99,7 +130,9 @@ namespace marketsim {
             torch::Tensor tensor_returns = returns_func.compute_returns(history, next_state);
             double gamma = returns_func.get_gamma();
 
-            tensor_returns += gamma * net->predict_values(modify_state(next_state));
+            if (!stack || stack_dim != 1) {
+                tensor_returns += gamma * net->predict_values(modify_state(next_state));
+            }
             return tensor_returns;
         }
 

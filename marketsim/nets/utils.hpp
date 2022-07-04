@@ -3,8 +3,29 @@
 
 #include "marketsim.hpp"
 #include <torch/torch.h>
+using hist_entry = std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>;
 
 namespace marketsim {
+    std::vector<torch::Tensor> get_past_states(const std::vector<hist_entry>& history, int start, int steps) {
+        int idx = history.size() - start - steps;
+        std::vector<torch::Tensor> states;
+
+        for (int i = idx; i < idx + steps; ++i) {
+            auto entry = history.at(i);
+            states.push_back(std::get<0>(entry));
+        }
+
+        return states;
+    }
+
+    torch::Tensor stack_state_history(std::vector<torch::Tensor>& history, int axis) {
+        return torch::cat(history, axis);
+    }
+
+    torch::Tensor stack_state_history(std::vector<torch::Tensor>& history, torch::Tensor next_state, int axis) {
+        history.push_back(next_state);
+        return stack_state_history(history, axis);
+    }
 
     template <tprice finitprice = 100>
     std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice last_bid, tprice last_ask)

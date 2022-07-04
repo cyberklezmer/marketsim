@@ -7,7 +7,14 @@ torch::Tensor state_forward(torch::nn::LSTM layer, torch::Tensor x) {
     x = x.view({x.size(0), 1, -1});
 
     auto res = layer->forward(x);
-    return std::get<0>(res).index({Slice(), 0});
+    torch::Tensor out = std::get<0>(res).index({Slice(), 0});
+    
+    // get the last output
+    auto out_size = out.sizes()[0];
+    if (out_size != 1) {
+        out = out[out_size - 1].view({1, -1});
+    }
+    return out;
 }
 
 

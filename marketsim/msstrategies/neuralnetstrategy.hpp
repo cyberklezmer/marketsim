@@ -23,7 +23,7 @@ namespace marketsim {
             torch::Tensor next_state = this->construct_state(mi);
             net.train(history, next_state);
 
-            auto pred_actions = net.predict_actions(next_state);
+            auto pred_actions = net.predict_actions(history, next_state);
             torch::Tensor next_action = pred_actions.at(0);
             torch::Tensor next_cons = pred_actions.at(1);
 

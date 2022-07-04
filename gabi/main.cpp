@@ -68,6 +68,14 @@ int main()
         
         constexpr int cons_mult = 100;  // in case of continuous actions, the predicted value is multiplied by this number
 
+        constexpr bool stack = true;  // stack state to look into history
+        //constexpr int stack_dim = 0;
+        constexpr int stack_size = 5;
+        //constexpr int state_size = 4;
+
+        constexpr int stack_dim = 1;
+        constexpr int state_size = 4 * stack_size;
+
         // strategy settings
         // sell limits - note that if both money and stocks are low, the strategy will try to trade some
         constexpr int cons_lim = 500;  // don't consume if you have less than this
@@ -82,10 +90,11 @@ int main()
         // greedy strategy settings
         constexpr bool random_strategy = true;  // choose bid/ask values randomly
         
-        using state_layer = torch::nn::LSTM;
+        //using state_layer = torch::nn::LSTM;
+        using state_layer = torch::nn::Linear;
 
-        using dnetwork = ACDiscrete<4, hidden_size, spread_lim, cons_step * cons_parts, cons_parts, state_layer>;
-        using cnetwork = ACContinuous<4, hidden_size, 1, cons_mult, state_layer>;
+        using dnetwork = ACDiscrete<state_size, hidden_size, spread_lim, cons_step * cons_parts, cons_parts, state_layer>;
+        using cnetwork = ACContinuous<state_size, hidden_size, 1, cons_mult, state_layer>;
         using network = cnetwork;  // change to dnetwork to use discrete actions
 
         constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
@@ -96,7 +105,7 @@ int main()
         using dreturns_func = DiffReturn<n_steps>;
         using returns_func = wreturns_func;  // change to dreturns_funct to use returns that are not weighted
         
-        using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg>;
+        using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
 
         using neuralstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, cons_step, volume, verbose>;
         using greedystrategy = greedystrategy<cons_lim, verbose, random_strategy>;

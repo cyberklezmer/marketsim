@@ -1,11 +1,10 @@
 #include <torch/torch.h>
 #include <vector>
 #include "proba.hpp"
+#include "nets/utils.hpp"
 
 
 namespace marketsim {
-    using hist_entry = std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>;
-
     double get_money(torch::Tensor state) {
         return state[0][0].item<double>();
     }
