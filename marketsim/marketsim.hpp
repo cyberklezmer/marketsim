@@ -730,7 +730,8 @@ public:
     {
         return !feraserequest.possiblyerase()
                 && forderrequest.B.size() == 0
-                && forderrequest.A.size() == 0;
+                && forderrequest.A.size() == 0
+                && fconsumption == 0;
     }
 
     /// output to a stream
