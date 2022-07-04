@@ -8,12 +8,13 @@
 
 namespace marketsim {
 
-    template<typename TNet, int conslim, int keep_stocks, int spread_lim, int explore_cons, int volume = 10, bool verbose = true,
+    template<typename TNet, typename TOrder, int conslim, int spread_lim, int explore_cons, bool verbose = true,
              bool modify_c = true, bool explore = true, bool limspread = true>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
             net(),
+            order(),
             history(),
             last_bid(klundefprice),
             last_ask(khundefprice) {}
@@ -36,7 +37,19 @@ namespace marketsim {
             }
 
             history.push_back(std::make_tuple<>(next_state, next_action, next_cons));
-            return construct_order(mi, next_action, next_cons);
+            return order.construct_order(mi, next_action, next_cons);
+        }
+        
+        torch::Tensor construct_state(const tmarketinfo& mi) {
+                tprice m = mi.mywallet().money();
+                tprice s = mi.mywallet().stocks();
+
+                auto ab = get_alpha_beta(mi, last_bid, last_ask);
+                tprice a = std::get<0>(ab);
+                tprice b = std::get<1>(ab);
+                
+                std::vector<float> state_data = std::vector<float>{float(m), float(s), float(a), float(b)};
+                return torch::tensor(state_data).reshape({1,4});
         }
 
         torch::Tensor limit_spread(torch::Tensor next_action) {
@@ -59,19 +72,52 @@ namespace marketsim {
             return torch::tensor({next_cons}).reshape({1,1});
         }
 
-        torch::Tensor construct_state(const tmarketinfo& mi) {
-            tprice m = mi.mywallet().money();
-            tprice s = mi.mywallet().stocks();
+		tprice last_bid, last_ask;
 
-            auto ab = get_alpha_beta(mi, last_bid, last_ask);
-            tprice a = std::get<0>(ab);
-            tprice b = std::get<1>(ab);
+        TNet net;
+        TOrder order;
+        std::vector<std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>> history;
+    };
+
+    template <int volume = 10, bool verbose = false>
+    class neuralspeculatororder {
+    public:
+        neuralspeculatororder() : lim(0.5) {} 
+
+        trequest construct_order(const tmarketinfo& mi, const torch::Tensor& actions, const torch::Tensor& cons) {
+            double bpred = actions[0][0].item<double>();
+            double apred = actions[0][1].item<double>();
+            double conspred = cons[0][0].item<double>();
+
+            if (verbose) {
+                std::cout << "Bid: " << bpred << ", Ask: " << apred << ", Cons: " << conspred << std::endl;
+                std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks() << std::endl;
+            }
+
+            trequest o;
+            if (bpred > lim) {
+                o.addbuymarket(volume);
+            }
+
+            if (apred > lim) {
+                o.addsellmarket(volume);
+            }
+
+            o.setconsumption(int(conspred));
             
-            std::vector<float> state_data = std::vector<float>{float(m), float(s), float(a), float(b)};
-            return torch::tensor(state_data).reshape({1,4});
+            return o;
         }
+    
+    private:
+        double lim;
+    };
 
-        virtual trequest construct_order(const tmarketinfo& mi, const torch::Tensor& actions, const torch::Tensor& cons) {
+    template <int keep_stocks, int volume = 10, bool verbose = false>
+    class neuralmmorder {
+    public:
+        neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice) {}
+
+        trequest construct_order(const tmarketinfo& mi, const torch::Tensor& actions, const torch::Tensor& cons) {
             double bpred = actions[0][0].item<double>();
             double apred = actions[0][1].item<double>();
             double conspred = cons[0][0].item<double>();
@@ -109,13 +155,9 @@ namespace marketsim {
 
             return ot.to_request();
         }
-
-		tprice last_bid, last_ask;
-
-        TNet net;
-        std::vector<std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>> history;
+    private:
+        tprice last_bid, last_ask;
     };
-
 }
 
 #endif // NEURALNETSTRATEGY_HPP_

@@ -43,7 +43,7 @@ int main()
         constexpr bool chronos = false;
 
         // change accordingly
-        constexpr bool logging = false;
+        constexpr bool logging = true;
 
         // if false, run only the tested strategy (without the naive mm)
         bool with_mm = true;
@@ -68,13 +68,13 @@ int main()
         
         constexpr int cons_mult = 100;  // in case of continuous actions, the predicted value is multiplied by this number
 
-        constexpr bool stack = true;  // stack state to look into history
-        //constexpr int stack_dim = 0;
+        constexpr bool stack = false;  // stack state to look into history
+        constexpr int stack_dim = 0;
         constexpr int stack_size = 5;
-        //constexpr int state_size = 4;
+        constexpr int state_size = 4;
 
-        constexpr int stack_dim = 1;
-        constexpr int state_size = 4 * stack_size;
+        //constexpr int stack_dim = 1;
+        //constexpr int state_size = 4 * stack_size;
 
         // strategy settings
         // sell limits - note that if both money and stocks are low, the strategy will try to trade some
@@ -107,11 +107,20 @@ int main()
         
         using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
 
-        using neuralstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, cons_step, volume, verbose>;
+        // mm settings
+        using order = neuralmmorder<keep_stocks, volume, verbose>;
+        using neuralstrategy = neuralnetstrategy<trainer, order, cons_lim, spread_lim, cons_step, verbose>;
         using greedystrategy = greedystrategy<cons_lim, verbose, random_strategy>;
 
+        // speculator settings
+        using spec_order = neuralspeculatororder<volume, verbose>;
+        using spec_network = ACDiscrete<state_size, hidden_size, 2, cons_step * cons_parts, cons_parts, state_layer, true>;
+        using spec_trainer = NStepTrainer<spec_network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
+        using spec_neuralstrategy = neuralnetstrategy<spec_trainer, spec_order, cons_lim, spread_lim, cons_step, verbose, true, true, false>;
+
         //using testedstrategy = greedystrategy;
-        using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
+        //using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
+        using testedstrategy = spec_neuralstrategy;  // speculator
 
         enum ewhattodo { esinglerunsinglestrategy,
                          erunall,

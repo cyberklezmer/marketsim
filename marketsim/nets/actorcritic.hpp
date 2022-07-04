@@ -138,11 +138,11 @@ namespace marketsim {
         torch::nn::Linear actor_mu{nullptr}, actor_std{nullptr}, consumption_mu{nullptr}, consumption_std{nullptr};
     };
 
-    template <int state_size, int hidden_size, int action_h, int cons_max, int cons_div, typename TLayer>
+    template <int state_size, int hidden_size, int action_h, int cons_max, int cons_div, typename TLayer, bool speculator = false>
     struct ACDiscrete : ActorCriticBase<state_size, hidden_size, TLayer> {
         ACDiscrete() : 
             ActorCriticBase<state_size, hidden_size, TLayer>() {
-                int ba_size = action_h * 2 + 1;
+                int ba_size = speculator ? action_h : action_h * 2 + 1;
                 cons_step_size = int(std::ceil(cons_max / cons_div));
 
                 bid_actor = this->register_module("bid_actor", torch::nn::Linear(hidden_size, ba_size));
@@ -175,8 +175,10 @@ namespace marketsim {
             auto ask_logits = torch::exp(pred_actions.at(1));
             auto cons_logits = torch::exp(pred_actions.at(2));
 
-            torch::Tensor bid = sample_from_pb(bid_logits) - action_h;
-            torch::Tensor ask = sample_from_pb(ask_logits) - action_h;
+            int diff = speculator ? 0 : action_h;
+            torch::Tensor bid = sample_from_pb(bid_logits) - diff;
+            torch::Tensor ask = sample_from_pb(ask_logits) - diff;
+
             torch::Tensor cons = sample_from_pb(cons_logits) * cons_step_size;
 
             std::vector<torch::Tensor> res{
@@ -193,8 +195,10 @@ namespace marketsim {
             auto ask_logits = pred_actions.at(1);
             auto cons_logits = pred_actions.at(2);
 
-            torch::Tensor bid_target = (actions[0][0].reshape({1}) + action_h).to(torch::kLong);
-            torch::Tensor ask_target = (actions[0][1].reshape({1}) + action_h).to(torch::kLong);
+            int diff = speculator ? 0 : action_h;
+
+            torch::Tensor bid_target = (actions[0][0].reshape({1}) + diff).to(torch::kLong);
+            torch::Tensor ask_target = (actions[0][1].reshape({1}) + diff).to(torch::kLong);
             torch::Tensor cons_target = (consumption[0] / cons_step_size).to(torch::kLong);
 
             torch::Tensor loss = torch::nll_loss(bid_logits, bid_target);
