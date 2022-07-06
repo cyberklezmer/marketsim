@@ -5,11 +5,11 @@
 
 namespace marketsim {
 
-template <int volume = 1>
+template <int volume = 1, int eventsperhour = 3600>
 class naivemmstrategy: public teventdrivenstrategy
 {
 public:
-       naivemmstrategy(double interval=1)
+       naivemmstrategy(double interval=3600.0/ eventsperhour)
            : teventdrivenstrategy(interval)
        {
        }

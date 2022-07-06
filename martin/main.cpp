@@ -18,9 +18,17 @@
 #include "msstrategies/maslovorderplacer.hpp"
 #include "msstrategies/initialstrategy.hpp"
 #include "msstrategies/marketorderplacer.hpp"
+#include "msstrategies/heuristicstrategy.hpp"
 #include "msdss/rawds.hpp"
+#include "mscompetitions/luckockcompetition.hpp"
+#include "mscompetitions/dsmaslovcompetition.hpp"
 
 using namespace marketsim;
+
+double Phi(double x)
+{
+  return 0.5 * (1 + erf(x / sqrt(2)));
+}
 
 
 int main()
@@ -29,67 +37,66 @@ int main()
     {
         constexpr bool chronos = false;
         constexpr bool logging = true;
-        constexpr tabstime runningtime = 100;
+        constexpr tabstime runningtime = 3600;
         twallet endowment(5000,100);
         tmarketdef def;
 
-/*        def.loggingfilter.frequest = true;
-        def.loggingfilter.fsleep = false;
-        def.loggingfilter.fgetinfo = false;
-        def.loggingfilter.fmarketdata = false;
-        def.loggingfilter.ftick = false;
-        def.loggingfilter.fabstime = false;
-        def.loggingfilter.fsettle = true;
-        def.loggingfilter.fds = true;*/
         def.loggingfilter.fprotocol = true;
-
-        def.loggingfilter.fsettle = true;
-        def.loggedstrategies.push_back(0);
+//       def.loggedstrategies.push_back(2);
         def.directlogging = true;
         def.demandupdateperiod = 0.1;
 
-    competitor<firstsecondstrategy<40,10>,chronos,true> fss;
 
-    // this strategy simulates liquidity takers:
-    // 360 times per hour on average it puts a market order with volume 5 on average
-    competitor<liquiditytakers<360,5>,chronos,true> lts;
+        competitor<naivemmstrategy<10,1800>,chronos,true> n1("naivkapomala");
+        competitor<naivemmstrategy<10,3600>,chronos,true> n2("naivka");
+        competitor<naivemmstrategy<10,7200>,chronos,true> n3("naivka");
 
-
-    // competing strategies
-
-    // this strategy just wants to put orders into spread and when it
-    // has more money than five times the price, it consumes. The volume of
-    // the orders is always 10
-
-        competitor<lessnaivemmstrategy<10,3600*5>,chronos> nmm("naivka");
-
-        using testedstrategy = tgeneralpmm;
-        competitor<testedstrategy,chronos> ts("tested");
+        competitor<heuristicstrategy,chronos> ts("tested");
         competitor<initialstrategy<90,110>,chronos,true> is("is");
+//        competitor<cancellinguniformluckockstrategy<1,200,360,3600,true>,
+//                          chronos,true> cul("luckock");
+        competitor<cancellingmaslovorderplacer<100,100>,chronos,true> cul("corderplacer");
 
-//competitor<maslovstrategy,chronos> m;
-        //competitor<cancellingmaslovorderplacer<100,20>,chronos> l("mop");
-        competitor<cancellingmarketorderplacer<100,true,true>,chronos> l("mop");
-        twallet emptywallet = {0,0};
-std::vector<double> o;
-for(unsigned i = 0; i<1; i++)
-{
-        auto r = test<chronos,true,logging,rawds<3600,3>>({&is,&l,&nmm/*,&ts*/},50,
-                                                          {twallet::infinitewallet(),emptywallet,
-                                                            endowment/* ,endowment*/},
-                                                           def);
-//for(unsigned j=0; j<r->fhistory.x().size(); j++)
-//{
-//    auto a = r->fhistory.x()[j];
-//    std::cout  << a.t << " " << a.a << " " << a.b << std::endl;
-//}
-//        o.push_back(r->fhistory(20000).p());
-//        r->protocol(std::clog,20000);
-}
+        tcompetitiondef cdef;
+        cdef.timeofrun = 3600;
+        cdef.marketdef = def;
+        //cdef.marketdef.loggingfilter.fprotocol = true;
+        //luckockcompetition<false>({&ts,&n1,&n2,&n3}, endowment, cdef,std::clog );
+        dsmaslovcompetition<false>({&ts,&n1,&n2,&n3}, endowment, cdef,std::clog );
 
-//for(unsigned i = 0; i<o.size(); i++)
-//    std::cout << o[i] << std::endl;
+        int seed = 12121;
+        std::ostream& os=std::clog;
+        for(unsigned i=1; i<10; i++)
+        {
+            statcounter sc;
+            finitedistribution<double> fd;
+            std::vector<double> hist(30);
+            double histdelta = 1000.0;
+            std::ofstream dets("dets.csv");
+            unsigned n = 10;
+            for(unsigned j=0; j<n; j++)
+            {
+  //              gs.desiredmean = t;
+                auto r = test<chronos,true,logging,true,fairpriceds<3600,10>>(
+                                          {&is,&cul,&ts ,&n1,&n2,&n3},runningtime,
+                                          {twallet::infinitewallet(),
+                                           twallet::infinitewallet(),
+                                           endowment,endowment,endowment,endowment},
+                                           def, seed++, dets);
+                auto c = r->fstrategyinfos[2].totalconsumption();
+                sc.add(c);
+                fd.add(1.0/n,c);
+                hist[std::min(static_cast<unsigned>(c / histdelta),
+                              static_cast<unsigned>(hist.size()-1))]++;
+                //os << "," << c;
 
+            }
+            os << theuristicstrategysetting().desiredmean <<"," << sc.average() << "," << sqrt(sc.var()/sc.num)
+               << "," << fd.lowerCVaR(0.05);
+            for(unsigned i=0; i<hist.size(); i++)
+                os << "," << hist[i];
+            os << std::endl;
+        }
     }
     catch (std::exception& e) {
         std::cerr << e.what() << std::endl;

@@ -15,6 +15,8 @@ struct tcompetitiondef
     unsigned samplesize = 100;
     /// duration of a single run
     tabstime timeofrun = 1000;
+    int seed = 1;
+    int seeddelta = 123;
     /// market parameters
     tmarketdef marketdef = tmarketdef();
 };
@@ -68,6 +70,8 @@ inline std::vector<competitionresult>
        o << "," << competitors[j]->name() ;
     o << std::endl;
 
+    int seed = compdef.seed;
+
     rescsv << "turn,id,c,m,s,lastp" << std::endl;
 
     unsigned nobs = 0;
@@ -76,6 +80,8 @@ inline std::vector<competitionresult>
         o << i << ",";
 
         tmarket m(compdef.timeofrun,compdef.marketdef);
+        m.seed(seed);
+        seed += compdef.seeddelta;
 
         std::ofstream log;
         if(logging)

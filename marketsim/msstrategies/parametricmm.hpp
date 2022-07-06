@@ -183,14 +183,8 @@ public:
 
 
            double aint = std::min(tnow,fsetting.qaverageinterval);
-           double lambda;
-           if(aint < fsetting.qaverageinterval)
-               lambda = fsetting.initlambda;
-           else
-           {
-               tvolume sumq = info.history().sumq(tnow-aint,tnow);
-               lambda = std::max(1.0, sumq / aint / 2.0)*deltatau();
-           }
+           tvolume sumq = info.history().sumq(tnow-aint,tnow);
+           double lambda = std::max(1.0, sumq / aint / 2.0)*interval();
 //std::cout << "lambda=" << lambda << std::endl;
 
 if(0)

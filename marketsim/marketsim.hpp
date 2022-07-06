@@ -19,7 +19,7 @@ namespace marketsim
 {
 
 constexpr unsigned versionmajor=1;
-constexpr unsigned versionminor=96;
+constexpr unsigned versionminor=97;
 
 class error: public std::runtime_error
 {
@@ -48,9 +48,57 @@ struct statcounter
     void add(double x) { sum += x; sumsq += x*x; num++;}
     double average() const { return sum / num; }
     double var() const { return sumsq/num - average()*average(); }
+    double averagevar() const  { return var() / num; }
+
 };
 
 
+template <typename T>
+class finitedistribution
+{
+public:
+    void add(double p,const T& x)
+    {
+        item m = { p,x };
+        fx.insert(std::upper_bound( fx.begin(), fx.end(), m , cmp),                  m                );
+    }
+    double lowerCVaR(double alpha) const
+    {
+        double sum = 0;
+        double psum = 0;
+        for(auto it = fx.begin(); it != fx.end(); it++)
+        {
+            sum += it->x * it->p;
+            psum += it->p;
+            if(psum >= alpha)
+                break;
+        }
+        return sum/psum;
+    }
+
+    double mean() const { return lowerCVaR(1); }
+
+    double meanCVaR(double lambda, double alpha) const
+    {
+        return lambda * lowerCVaR(alpha) + (1-lambda) * mean();
+    }
+
+    bool check() const
+    {
+        double psum = 0;
+        for(auto it = fx.begin(); it != fx.end(); it++)
+            psum += it->p;
+        return fabs(psum) - 1 < 0.000000001;
+    }
+
+private:
+    struct item { double p; T x; };
+    static bool cmp(const item &a, const item &b)
+    {
+        return a.x < b.x;
+    }
+    std::vector<item> fx;
+};
 
 using tprice = int;
 
@@ -682,7 +730,8 @@ public:
     {
         return !feraserequest.possiblyerase()
                 && forderrequest.B.size() == 0
-                && forderrequest.A.size() == 0;
+                && forderrequest.A.size() == 0
+                && fconsumption == 0;
     }
 
     /// output to a stream
@@ -2209,6 +2258,8 @@ public:
 
     tprice lastdefineda() const { return fdata->lastdefineda(); }
 
+    double lastdefinedp() const { return fdata->lastdefinedp(); }
+
     /// returns current the-others-ask (see theoretical paper)
     tprice alpha() const
     {
@@ -2266,6 +2317,10 @@ protected:
         finterval = ainterval;
     }
 
+protected:
+    void startlearning() { flastlearningstart = abstime(); }
+    void stoplearning() { flastlearningend = abstime(); }
+
 private:
 //    tabstime step(tabstime t, bool firsttime);
 
@@ -2287,6 +2342,9 @@ private:
         sequel(info);
     }
     double finterval;
+
+    tabstime flastlearningstart;
+    tabstime flastlearningend;
 };
 
 
@@ -2517,7 +2575,7 @@ public:
     /// namely to store strategies, which failed to release control (\c chronos==true only).
     /// \return vector of booleans, corresponding to individual strategies, with \c true
     /// meaning that the corresponding strategy failed to release control.
-    template <bool chronos=true, typename D=tnodemandsupply>
+    template <bool chronos=true, typename D=tnodemandsupply, bool allowlearning=false>
     std::vector<bool> run(std::vector<competitorbase<chronos>*> competitors,
              std::vector<twallet> endowments,
              std::vector<tstrategy*>& garbage)
@@ -2634,8 +2692,18 @@ public:
 //                           double endt = ;
                            double dt = (::clock()-fclockstarteventtime) / CLOCKS_PER_SEC;
 
+                           if constexpr(allowlearning)
+                           {
+                               if(str->flastlearningstart >= t && str->flastlearningend > str->flastlearningstart)
+                               {
+                                   assert(str->flastlearningend <= t+dt);
+                                   dt -= str->flastlearningend - str->flastlearningstart;
+                                   assert(dt >= 0);
+                               }
+                           }
+
                            fmarketdata->fstrategyinfos[first].addcomptime(dt);
-                           ts[first] = t + dt + str->finterval + def().ticktime()
+                           ts[first] = t + std::max(dt,str->finterval) + def().ticktime()
                                                  + str->uniform() * def().epsilon;
                            rts[first] = t + dt;
     // std::cout << " calling event of strategy " << first << std::fixed << " at " << t  << "s took " << dt << "s" << std::endl;
