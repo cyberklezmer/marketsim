@@ -30,6 +30,42 @@ double Phi(double x)
   return 0.5 * (1 + erf(x / sqrt(2)));
 }
 
+class xxx : public teventdrivenstrategy
+{
+public:
+    xxx(tprice b=90, tprice a=100, tvolume v=1)
+        : teventdrivenstrategy(0), fb(b), fa(a), fv(v) {}
+    virtual trequest event(const tmarketinfo& info, tabstime t, trequestresult*)
+    {
+        if(t<5)
+        {
+            const twallet& w = info.mywallet();
+            assert(w.stocks() >= fv);
+            assert(w.money() >= fv * fb);
+
+            tpreorderprofile pp;
+
+            tpreorder p(fb,fv);
+            pp.B.add(p);
+            tpreorder o(fa,fv);
+            pp.A.add(o);
+            setinterval(1);
+            return trequest({pp,trequest::teraserequest(false),0});
+        }
+        else
+        {
+            trequest r;
+            r.addsellmarket(10);
+            return r;
+        }
+
+    }
+private:
+    tprice fb;
+    tprice fa;
+    tvolume fv;
+};
+
 
 int main()
 {
@@ -42,6 +78,7 @@ int main()
         tmarketdef def;
 
         def.loggingfilter.fprotocol = true;
+        def.loggingfilter.fsettle = true;
 //       def.loggedstrategies.push_back(2);
         def.directlogging = true;
         def.demandupdateperiod = 0.1;
@@ -52,18 +89,18 @@ int main()
         competitor<naivemmstrategy<10,7200>,chronos,true> n3("naivka");
 
         competitor<heuristicstrategy,chronos> ts("tested");
-        competitor<initialstrategy<90,110>,chronos,true> is("is");
+        competitor<xxx,chronos,true> is("is");
 //        competitor<cancellinguniformluckockstrategy<1,200,360,3600,true>,
 //                          chronos,true> cul("luckock");
         competitor<cancellingmaslovorderplacer<100,100>,chronos,true> cul("corderplacer");
 
         tcompetitiondef cdef;
-        cdef.timeofrun = 3600;
+        cdef.timeofrun = 15; //3600;
         cdef.marketdef = def;
         //cdef.marketdef.loggingfilter.fprotocol = true;
         //luckockcompetition<false>({&ts,&n1,&n2,&n3}, endowment, cdef,std::clog );
-        dsmaslovcompetition<false>({&ts,&n1,&n2,&n3}, endowment, cdef,std::clog );
-
+        dsmaslovcompetition<false,true>({&is,&ts,&n1,&n2,&n3}, endowment, cdef,std::clog );
+throw;
         int seed = 12121;
         std::ostream& os=std::clog;
         for(unsigned i=1; i<10; i++)
