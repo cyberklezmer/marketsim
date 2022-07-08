@@ -34,7 +34,7 @@ namespace marketsim {
                     auto entry = history.at(i);
                     torch::Tensor next = (i < hist_size - 1) ? std::get<0>(history.at(i + 1)) : next_state;
 
-                    double cons =  std::get<2>(entry).item<double>();
+                    double cons =  std::get<1>(entry).cons.item<double>();
                     double mdiff = get_money_diff(std::get<0>(entry), next);
                     double sdiff = get_stock_diff(std::get<0>(entry), next);
 

@@ -29,13 +29,14 @@ namespace marketsim {
             torch::Tensor next_cons = pred_actions.at(1);
 
             if (modify_c) {
-                next_cons = limit_cons(mi, next_cons);
+                limit_cons(mi, pred_actions);
             }
 
             if (limspread) {
-                next_action = limit_spread(next_action);
+                limit_spread(pred_actions);
             }
 
+            //TODO create reward
             history.push_back(std::make_tuple<>(next_state, next_action, next_cons));
             return order.construct_order(mi, next_action, next_cons);
         }
@@ -52,31 +53,31 @@ namespace marketsim {
                 return torch::tensor(state_data).reshape({1,4});
         }
 
-        torch::Tensor limit_spread(torch::Tensor next_action) {
-            double a1 = next_action[0][0].item<double>();
-            double a2 = next_action[0][1].item<double>();
+        void limit_spread(action_container<torch::Tensor>& next_action) {
+            double a1 = next_action.bid.item<double>();
+            double a2 = next_action.ask.item<double>();
             
             if ((a1 >= spread_lim) || (a1 <= -spread_lim)) {
-                next_action[0][0] = (a1 < 0) ? -spread_lim : spread_lim;
+                a1 = (a1 < 0) ? -spread_lim : spread_lim;
+                next_action.bid = torch::tensor({a1});
             }
             if ((a2 >= spread_lim) || (a2 <= -spread_lim)) {
-                next_action[0][1] = (a2 < 0) ? -spread_lim : spread_lim;
+                a2 = (a2 < 0) ? -spread_lim : spread_lim;
+                next_action.ask = torch::tensor({a2});
             }
-
-            return next_action;
         }
 
-        torch::Tensor limit_cons(const tmarketinfo& mi, torch::Tensor cons) {
-            double next_cons = cons[0][0].item<double>();
+        torch::Tensor limit_cons(const tmarketinfo& mi, action_container<torch::Tensor>& next_action) {
+            double next_cons = next_action.cons.item<double>();
             next_cons = modify_consumption<conslim, verbose, explore_cons, explore>(mi, next_cons);
-            return torch::tensor({next_cons}).reshape({1,1});
+            next_action.cons = torch::tensor({next_cons});
         }
 
 		tprice last_bid, last_ask;
 
         TNet net;
         TOrder order;
-        std::vector<std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>> history;
+        std::vector<hist_entry> history;
     };
 
     template <int volume = 10, bool verbose = false>

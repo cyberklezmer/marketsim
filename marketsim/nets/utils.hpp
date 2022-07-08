@@ -2,17 +2,25 @@
 #define NET_UTILS_HPP_
 
 #include "marketsim.hpp"
+#include "nets/actions.hpp"
 #include <torch/torch.h>
-using hist_entry = std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>;
 
 namespace marketsim {
+    struct hist_entry {
+        hist_entry(torch::Tensor state, action_container<action_tensors> actions, double reward) :
+            state(state), actions(actions), reward(reward) {}
+
+        torch::Tensor state;
+        action_container<action_tensors> actions;
+        double reward;
+    };
+
     std::vector<torch::Tensor> get_past_states(const std::vector<hist_entry>& history, int start, int steps) {
         int idx = history.size() - start - steps;
         std::vector<torch::Tensor> states;
 
         for (int i = idx; i < idx + steps; ++i) {
-            auto entry = history.at(i);
-            states.push_back(std::get<0>(entry));
+            states.push_back(history.at(i).state);
         }
 
         return states;

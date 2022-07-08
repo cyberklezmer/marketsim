@@ -9,6 +9,23 @@ namespace marketsim {
     using action_tensors = std::vector<torch::Tensor>;
     using ActFunc = torch::Tensor(torch::Tensor);
 
+    template <typename T>
+    class action_container {
+    public:
+        action_container(T bid, T ask, T cons) : bid(bid), ask(ask), cons(cons), flag_valid(false) {}
+        action_container(T bid, T ask, T cons, T bid_flag, T ask_flag) :
+            bid(bid), ask(ask), cons(cons), bid_flag(bid_flag), ask_flag(ask_flag), flag_valid(true) {}
+        
+        bool is_flag_valid() {
+            return flag_valid;
+        }
+
+        T bid, ask, cons;
+        T bid_flag, ask_flag;
+    private:
+        bool flag_valid;
+    };
+
     template <ActFunc MuActiv, ActFunc StdActiv, int hidden_size, int action_size, int output_scale = 1, int mu_scale = 1>
     class ContinuousActions : public torch::nn::Module {
     public:

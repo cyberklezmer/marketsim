@@ -1,9 +1,10 @@
 #include "marketsim.hpp"
 #include <torch/torch.h>
 #include "nets/utils.hpp"
+#include "nets/actions.hpp"
+
 
 namespace marketsim {
-
 
     class BaseTrainer {
     public:
@@ -12,7 +13,7 @@ namespace marketsim {
     private:
         virtual void train(const std::vector<hist_entry>& history, torch::Tensor next_state) = 0;
 
-        virtual std::vector<torch::Tensor> predict_actions(const std::vector<hist_entry>& history, torch::Tensor state) = 0;
+        virtual action_container<torch::Tensor> predict_actions(const std::vector<hist_entry>& history, torch::Tensor state) = 0;
     };
 
     template<typename TNet, int N, typename TReturns, bool use_entropy = false, bool stack = false, int stack_dim = 0, int stack_size = 5, int clamp = 2>
@@ -33,8 +34,7 @@ namespace marketsim {
 
             auto curr = history.at(idx);
             torch::Tensor state = std::get<0>(curr);
-            torch::Tensor actions = std::get<1>(curr);
-            torch::Tensor cons = std::get<2>(curr);
+            auto actions = std::get<1>(curr);
             torch::Tensor returns = compute_returns(history, next_state);
             
             if (stack) {
@@ -58,7 +58,7 @@ namespace marketsim {
 
             auto value_loss = advantages.pow(2).mean();
             //auto value_loss = torch::huber_loss(state_value, returns);
-            auto action_probs = net->action_log_prob(actions, cons, pred_actions);
+            auto action_probs = net->action_log_prob(actions, pred_actions);
             auto action_loss = -(advantages.detach() * action_probs + beta * entropy).mean(); //TODO minus správně?
 
             //action_loss = torch::clamp(action_loss, -2, 2);
@@ -70,7 +70,7 @@ namespace marketsim {
             optimizer->step();
         }
     
-        std::vector<torch::Tensor> predict_actions(const std::vector<hist_entry>& history, torch::Tensor state) {
+        action_container<torch::Tensor> predict_actions(const std::vector<hist_entry>& history, torch::Tensor state) {
             torch::NoGradGuard no_grad;
 
             if (stack) {
