@@ -47,6 +47,7 @@ The code of was exclusively written by Martin Smid and may be commercially used 
 
 - the bug, throwing quotations if they were the same as previous, corrected
 
-
+1.97
+- bug preventing market orders fixed
 
 */

@@ -19,7 +19,7 @@ namespace marketsim
 {
 
 constexpr unsigned versionmajor=1;
-constexpr unsigned versionminor=97;
+constexpr unsigned versionminor=98;
 
 class error: public std::runtime_error
 {
@@ -619,13 +619,13 @@ public:
         for(unsigned i=0; i<A.size(); i++)
         {
             const auto& a=A[i];
-            if(a.price == klundefprice)
+            if(a.price == khundefprice)
                 return false;
         }
         for(unsigned i=0; i<B.size(); i++)
         {
             const auto& b=B[i];
-            if(b.price == khundefprice)
+            if(b.price == klundefprice)
                 return false;
         }
         return true;
