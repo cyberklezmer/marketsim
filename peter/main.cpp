@@ -15,7 +15,7 @@
 #include "mscompetitions/originalcompetition.hpp"
 #include "msstrategies/technicalanalyst.hpp"
 #include "msstrategies/buyer.hpp"
-#include "msstrategies/tadpmarketmaker.hpp"
+#include "msstrategies/adpmarketmaker.hpp"
 
 using namespace marketsim;
 
@@ -117,7 +117,7 @@ int main()
             competitor<naivemmstrategy<1>, chronos> nmm1("naivka1");
             competitor<naivemmstrategy<10>, chronos> nmm10("naivk10");
             competitor<naivemmstrategy<50>, chronos> nmm50("naivk50");
-            competitor<tadpmarketmaker, chronos> adpmm("adpmm");
+            competitor<adpmarketmaker, chronos> adpmm("adpmm");
             competitor<ta_macd, chronos> macd("macd");
             competitor<buyer, chronos> buyer("buyer");
 
