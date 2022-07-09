@@ -5,11 +5,11 @@
 
 namespace marketsim {
 
-template <int volume = 1>
+template <int volume = 1, int eventsperhour = 3600>
 class naivemmstrategy: public teventdrivenstrategy
 {
 public:
-       naivemmstrategy(double interval=1)
+       naivemmstrategy(double interval=3600.0/ eventsperhour)
            : teventdrivenstrategy(interval)
        {
        }
@@ -49,7 +49,15 @@ public:
 
                   pp.B.add(tpreorder(proposedb,volume));
                   pp.A.add(tpreorder(proposeda,volume));
+
+                  trequest ord;
+                  ord.addbuylimit(proposedb, volume);
+                  ord.addselllimit(proposeda, volume);
+                  ord.setconsumption(c);
+
+
 //cout << beta << "(" << proposedb << ") - " << alpha << "(" << proposeda << ")" << endl;
+                  //return ord;
                   return {pp,trequest::teraserequest(true),c};
                }
            }

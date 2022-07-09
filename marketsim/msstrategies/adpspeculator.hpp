@@ -1,5 +1,5 @@
-#ifndef SPECULATOR_HPP
-#define SPECULATOR_HPP
+#ifndef ADPSPECULATOR_HPP
+#define ADPSPECULATOR_HPP
 
 #include "marketsim.hpp"
 #include <numeric>
@@ -8,7 +8,7 @@ namespace marketsim
 
 	///A speculative strategy based on approximate dynamic programming
 
-	class speculator : public teventdrivenstrategy
+	class adpspeculator : public teventdrivenstrategy
 	{
 		using Tvec = std::vector<double>;
 		using T2vec = std::vector<Tvec>;
@@ -16,10 +16,10 @@ namespace marketsim
 		using T4vec = std::vector<T3vec>;
 
 	public:
-		speculator()
+		adpspeculator()
 			: teventdrivenstrategy(1)
 		{
-			finitprice = 100;
+			initprice = 100;
 			qvol = 1;
 			bndmoney = 0, bndstocks = 0;
 			ldelta = 10, udelta = 15;
@@ -36,7 +36,7 @@ namespace marketsim
 			tprice alpha = mi.alpha();
 			tprice beta = mi.beta();
 			double p = (alpha != khundefprice && beta != klundefprice)
-				? (alpha + beta) / 2 : finitprice;
+				? (alpha + beta) / 2 : initprice;
 			if (firsttime)
 			{
 				//initialize W
@@ -45,7 +45,7 @@ namespace marketsim
 				for (int i = 0; i <= bndmoney; i++)
 					for (int j = 0; j <= bndstocks; j++)
 					{ 
-						W[i][j] = (i == 0 && i == j) ? 0 : (1.0 - pow(discfact, i + j * finitprice)) / (1.0 - discfact);
+						W[i][j] = (i == 0 && i == j) ? 0 : (1.0 - pow(discfact, i + j * initprice)) / (1.0 - discfact);
 						//W[i][j] = i + j * finitprice;
 					}
 				//initialize N
@@ -140,7 +140,7 @@ namespace marketsim
 			return ord;
 		}
 
-		tprice finitprice;
+		tprice initprice;
 		tvolume qvol;
 		double
 			discfact,
@@ -158,4 +158,4 @@ namespace marketsim
 } // namespace
 
 
-#endif // SPECULATOR_HPP
+#endif // ADPSPECULATOR_HPP

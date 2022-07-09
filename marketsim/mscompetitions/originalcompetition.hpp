@@ -4,6 +4,7 @@
 #include "marketsim/competition.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
 #include "msstrategies/liquiditytakers.hpp"
+#include "msstrategies/naivemmstrategy.hpp"
 
 namespace marketsim
 {

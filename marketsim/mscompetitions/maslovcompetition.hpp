@@ -2,6 +2,7 @@
 #define MASLOVCOMPETITION_HPP
 
 #include "marketsim/competition.hpp"
+#include "msstrategies/maslovstrategy.hpp"
 
 namespace marketsim
 {

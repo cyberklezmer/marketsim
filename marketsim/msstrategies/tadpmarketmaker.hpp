@@ -1,5 +1,5 @@
-#ifndef TADPMARKETMAKER_HPP
-#define TADPMARKETMAKER_HPP
+#ifndef ADPMARKETMAKER_HPP
+#define ADPMARKETMAKER_HPP
 
 #include "marketsim.hpp"
 #include<fstream>
@@ -10,7 +10,7 @@ namespace marketsim
 
 	///  A market making strategy based on approximate dynamic programming
 
-	class tadpmarketmaker : public teventdrivenstrategy
+	class adpmarketmaker : public teventdrivenstrategy
 	{
 		using Tvec = std::vector<double>;
 		using T2vec = std::vector<Tvec>;
@@ -18,7 +18,7 @@ namespace marketsim
 		using T4vec = std::vector<T3vec>;
 
 	public:
-		tadpmarketmaker() : teventdrivenstrategy(1)
+		adpmarketmaker() : teventdrivenstrategy(1)
 		{
 			initprice = 100, qvol = 1;
 			bndmoney = 0, bndstocks = 0, last_stocks = 0;
@@ -144,35 +144,12 @@ namespace marketsim
 			return ord;
 		}
 
-		//virtual void sequel(const tmarketinfo&)
-		//{
-		//	/*std::ofstream out_valfunc;
-		//	out_valfunc.open("valfunc.csv");
-		//	for(int i = 0; i < W.size(); i++)
-		//	{
-		//		for (int j = 0; j < W[0].size(); j++)
-		//			out_valfunc << W[i][j] << ",";
-		//		out_valfunc << "\n";
-		//	}*/
-
-		//	std::ofstream out_p;
-		//	out_p.open("probs.csv");
-		//	for (int i = 0; i < P[0].size(); i++)
-		//	{
-		//		for (int j = 0; j < P[0].size(); j++)
-		//			out_p << P[i][j][10][0] << ",";
-		//		out_p << "\n";
-		//	}
-		//	out_p << countKparam;
-		//	out_p.close();
-
-		//}
 
 		tprice initprice;
 		tvolume qvol;
 		double discfact, epsparam;
 		int Kparam, countKparam, bndmoney, bndstocks, ldelta, udelta;
-		int last_stocks;
+		tvolume last_stocks;
 		T2vec W;
 		T4vec N, P;
 		tprice last_bid, last_ask;
@@ -182,4 +159,4 @@ namespace marketsim
 } // namespace
 
 
-#endif // TADPMARKETMAKER_HPP
+#endif // ADPMARKETMAKER_HPP
