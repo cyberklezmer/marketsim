@@ -25,7 +25,8 @@ namespace marketsim {
         }
 
         void train(const std::vector<hist_entry>& history, torch::Tensor next_state) {
-            if (history.size() < N + stack_size + 1) {
+            int hist_min = stack ? stack_size + 1 : 0;
+            if (history.size() < N + hist_min) {
                 return;
             }
 
@@ -33,8 +34,8 @@ namespace marketsim {
             size_t idx = history.size() - N;
 
             auto curr = history.at(idx);
-            torch::Tensor state = std::get<0>(curr);
-            auto actions = std::get<1>(curr);
+            torch::Tensor state = curr.state;
+            auto actions = curr.actions;
             torch::Tensor returns = compute_returns(history, next_state);
             
             if (stack) {

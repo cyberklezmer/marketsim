@@ -16,7 +16,7 @@ namespace marketsim {
         action_container(T bid, T ask, T cons, T bid_flag, T ask_flag) :
             bid(bid), ask(ask), cons(cons), bid_flag(bid_flag), ask_flag(ask_flag), flag_valid(true) {}
         
-        bool is_flag_valid() {
+        bool is_flag_valid() const {
             return flag_valid;
         }
 

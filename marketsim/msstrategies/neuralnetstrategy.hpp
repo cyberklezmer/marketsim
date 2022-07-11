@@ -25,8 +25,6 @@ namespace marketsim {
             net.train(history, next_state);
 
             auto pred_actions = net.predict_actions(history, next_state);
-            torch::Tensor next_action = pred_actions.at(0);
-            torch::Tensor next_cons = pred_actions.at(1);
 
             if (modify_c) {
                 limit_cons(mi, pred_actions);
@@ -36,21 +34,20 @@ namespace marketsim {
                 limit_spread(pred_actions);
             }
 
-            //TODO create reward
-            history.push_back(std::make_tuple<>(next_state, next_action, next_cons));
-            return order.construct_order(mi, next_action, next_cons);
+            history.push_back(hist_entry(next_state, pred_actions));
+            return order.construct_order(mi, pred_actions);
         }
         
         torch::Tensor construct_state(const tmarketinfo& mi) {
-                tprice m = mi.mywallet().money();
-                tprice s = mi.mywallet().stocks();
+            tprice m = mi.mywallet().money();
+            tprice s = mi.mywallet().stocks();
 
-                auto ab = get_alpha_beta(mi, last_bid, last_ask);
-                tprice a = std::get<0>(ab);
-                tprice b = std::get<1>(ab);
-                
-                std::vector<float> state_data = std::vector<float>{float(m), float(s), float(a), float(b)};
-                return torch::tensor(state_data).reshape({1,4});
+            auto ab = get_alpha_beta(mi, last_bid, last_ask);
+            tprice a = std::get<0>(ab);
+            tprice b = std::get<1>(ab);
+            
+            std::vector<float> state_data = std::vector<float>{float(m), float(s), float(a), float(b)};
+            return torch::tensor(state_data).reshape({1,4});
         }
 
         void limit_spread(action_container<torch::Tensor>& next_action) {
@@ -85,10 +82,10 @@ namespace marketsim {
     public:
         neuralspeculatororder() : lim(0.5) {} 
 
-        trequest construct_order(const tmarketinfo& mi, const torch::Tensor& actions, const torch::Tensor& cons) {
-            double bpred = actions[0][0].item<double>();
-            double apred = actions[0][1].item<double>();
-            double conspred = cons[0][0].item<double>();
+        trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
+            double bpred = actions.bid.item<double>();
+            double apred = actions.ask.item<double>();
+            double conspred = actions.cons.item<double>();
 
             if (verbose) {
                 std::cout << "Bid: " << bpred << ", Ask: " << apred << ", Cons: " << conspred << std::endl;
@@ -118,10 +115,10 @@ namespace marketsim {
     public:
         neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice) {}
 
-        trequest construct_order(const tmarketinfo& mi, const torch::Tensor& actions, const torch::Tensor& cons) {
-            double bpred = actions[0][0].item<double>();
-            double apred = actions[0][1].item<double>();
-            double conspred = cons[0][0].item<double>();
+        trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
+            double bpred = actions.bid.item<double>();
+            double apred = actions.ask.item<double>();
+            double conspred = actions.cons.item<double>();
 
             auto ab = get_alpha_beta(mi, last_bid, last_ask);
             tprice a = std::get<0>(ab);
@@ -146,11 +143,15 @@ namespace marketsim {
                 print_state(mi, ot, bpred, apred);
             }
 
+            auto is_valid = [&](double what){ return !actions.is_flag_valid() || (what > 0.5); };
+            double bid_flag = actions.bid_flag.item<double>();
+            double ask_flag = actions.ask_flag.item<double>();
+
             // set last bid/ask values
-            if (ot.is_bid()) {
+            if (ot.is_bid() && is_valid(bid_flag)) {
                 last_bid = ot.get_bid();
             }
-            if (ot.is_ask()) {
+            if (ot.is_ask() && is_valid(ask_flag)) {
                 last_ask = ot.get_ask();
             }
 

@@ -32,11 +32,11 @@ namespace marketsim {
 
             for (int i = hist_size - N; i < hist_size; ++i) {
                     auto entry = history.at(i);
-                    torch::Tensor next = (i < hist_size - 1) ? std::get<0>(history.at(i + 1)) : next_state;
+                    torch::Tensor next = (i < hist_size - 1) ? history.at(i + 1).state : next_state;
 
-                    double cons =  std::get<1>(entry).cons.item<double>();
-                    double mdiff = get_money_diff(std::get<0>(entry), next);
-                    double sdiff = get_stock_diff(std::get<0>(entry), next);
+                    double cons =  entry.actions.cons.item<double>();
+                    double mdiff = get_money_diff(entry.state, next);
+                    double sdiff = get_stock_diff(entry.state, next);
 
                     returns += compute_reward(cons, mdiff, sdiff);
                     curr_gamma *= gamma;
@@ -76,8 +76,7 @@ namespace marketsim {
         virtual void init(const std::vector<hist_entry>& history, torch::Tensor next_state) {
             size_t idx = history.size() - N;
 
-            auto curr = history.at(idx);
-            torch::Tensor state = std::get<0>(curr);
+            torch::Tensor state = history.at(idx).state;
             double state_money = get_money(state);
             double state_stocks = get_stocks(state);
 

@@ -7,12 +7,11 @@
 
 namespace marketsim {
     struct hist_entry {
-        hist_entry(torch::Tensor state, action_container<action_tensors> actions, double reward) :
-            state(state), actions(actions), reward(reward) {}
+        hist_entry(torch::Tensor state, action_container<torch::Tensor> actions) :
+            state(state), actions(actions){}
 
         torch::Tensor state;
-        action_container<action_tensors> actions;
-        double reward;
+        action_container<torch::Tensor> actions;
     };
 
     std::vector<torch::Tensor> get_past_states(const std::vector<hist_entry>& history, int start, int steps) {
