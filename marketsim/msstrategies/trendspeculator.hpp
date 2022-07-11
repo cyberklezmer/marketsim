@@ -169,4 +169,4 @@ namespace marketsim
 		T3vec V;
 	};
 
-}
+		}
