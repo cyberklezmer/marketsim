@@ -34,6 +34,8 @@ namespace marketsim {
                 limit_spread(pred_actions);
             }
 
+            set_flags(pred_actions);
+
             history.push_back(hist_entry(next_state, pred_actions));
             return order.construct_order(mi, pred_actions);
         }
@@ -70,6 +72,22 @@ namespace marketsim {
             next_action.cons = torch::tensor({next_cons});
         }
 
+        void set_flags(action_container<torch::Tensor>& next_action) {
+            if (!next_action.is_flag_valid()) {
+                return;
+            }
+
+            double bid = next_action.bid_flag.item<double>();
+            double ask = next_action.ask_flag.item<double>();
+            double threshold = 0.5;
+
+            bid = (bid > threshold) ? 1.0 : 0.0;
+            ask = (ask > threshold) ? 1.0 : 0.0;
+            
+            next_action.bid_flag = torch::tensor({bid}).reshape({1,1});
+            next_action.ask_flag = torch::tensor({ask}).reshape({1,1});
+        }
+
 		tprice last_bid, last_ask;
 
         TNet net;
@@ -83,8 +101,8 @@ namespace marketsim {
         neuralspeculatororder() : lim(0.5) {} 
 
         trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
-            double bpred = actions.bid.item<double>();
-            double apred = actions.ask.item<double>();
+            double bpred = actions.bid_flag.item<double>();
+            double apred = actions.ask_flag.item<double>();
             double conspred = actions.cons.item<double>();
 
             if (verbose) {
@@ -143,7 +161,6 @@ namespace marketsim {
                 print_state(mi, ot, bpred, apred);
             }
 
-            auto is_valid = [&](double what){ return !actions.is_flag_valid() || (what > 0.5); };
             double bid_flag = (actions.is_flag_valid()) ? actions.bid_flag.item<double>() : 1.0;
             double ask_flag = (actions.is_flag_valid()) ? actions.ask_flag.item<double>() : 1.0;
             double threshold = 0.5;

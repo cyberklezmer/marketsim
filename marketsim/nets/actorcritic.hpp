@@ -68,6 +68,7 @@ namespace marketsim {
             ask_actor = this->register_module("ask_actor", std::make_shared<TAskActor>());
             cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>());
         }
+        virtual ~ActorCritic() {}
 
         virtual action_container<torch::Tensor> predict_actions(torch::Tensor x) {
             auto res = predict_actions_train(x);
@@ -162,5 +163,76 @@ namespace marketsim {
 
     private:
         std::shared_ptr<BinaryAction<hidden_size>> bid_flag, ask_flag;
+    };
+
+    template <int state_size, int hidden_size, typename TLayer, typename TConsActor>
+    class ActorCriticSpeculator : public ActorCriticBase<state_size, hidden_size, TLayer> {
+    public:
+        ActorCriticSpeculator() : ActorCriticBase<state_size, hidden_size, TLayer>(), zero_tensor(torch::zeros({1})) {
+            bid_ask_actor = this->register_module("bid_ask_actor", std::make_shared<DiscreteActions<hidden_size, 3>>());
+            cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>());
+        }
+            
+         virtual action_container<torch::Tensor> predict_actions(torch::Tensor x) {
+            auto pred = predict_actions_train(x);
+            torch::Tensor bid_ask = bid_ask_actor->sample_actions(pred.bid);
+
+            double bid = (bid_ask.item<int>() == 1) ? 1.0 : 0.0;
+            double ask = (bid_ask.item<int>() == 2) ? 1.0 : 0.0;
+            
+            return action_container<torch::Tensor>(
+                zero_tensor,
+                zero_tensor,
+                this->cons_actor->sample_actions(pred.cons),
+                torch::tensor({bid}),
+                torch::tensor({ask})
+            );
+        }
+
+        virtual action_container<action_tensors> predict_actions_train(torch::Tensor x) {
+            x = state_forward(this->state_actor, x);
+            x = torch::relu(x);
+
+            return action_container<action_tensors>(
+                this->bid_ask_actor->predict_actions(x),
+                action_tensors(),
+                this->cons_actor->predict_actions(x)
+            );
+        }
+
+        virtual torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
+                                              const action_container<action_tensors>& pred) {
+            torch::Tensor log_prob = cons_actor->action_log_prob(actions.cons, pred.cons);
+            
+            torch::Tensor true_target = construct_target(actions);
+            log_prob += bid_ask_actor->action_log_prob(true_target, pred.bid);
+
+            return log_prob;
+        }
+
+        virtual torch::Tensor entropy(const action_container<action_tensors>& pred) {
+            torch::Tensor res = cons_actor->entropy(pred.cons);
+            res += bid_ask_actor->entropy(pred.bid);
+
+            return res;
+        }
+        
+
+    private:
+        torch::Tensor construct_target(const action_container<torch::Tensor>& actions) {
+            double bid = actions.bid_flag.item<double>();
+            double ask = actions.ask_flag.item<double>();
+
+            assert((bid + ask) <= 1.001);
+            
+            double res = bid + 2 * ask;
+            std::cout << res << std::endl;
+
+            return torch::tensor({res});
+        }
+
+        torch::Tensor zero_tensor;
+        std::shared_ptr<DiscreteActions<hidden_size, 3>> bid_ask_actor;
+        std::shared_ptr<TConsActor> cons_actor;
     };
 }
