@@ -64,7 +64,7 @@ namespace marketsim {
             }
         }
 
-        torch::Tensor limit_cons(const tmarketinfo& mi, action_container<torch::Tensor>& next_action) {
+        void limit_cons(const tmarketinfo& mi, action_container<torch::Tensor>& next_action) {
             double next_cons = next_action.cons.item<double>();
             next_cons = modify_consumption<conslim, verbose, explore_cons, explore>(mi, next_cons);
             next_action.cons = torch::tensor({next_cons});
@@ -144,14 +144,15 @@ namespace marketsim {
             }
 
             auto is_valid = [&](double what){ return !actions.is_flag_valid() || (what > 0.5); };
-            double bid_flag = actions.bid_flag.item<double>();
-            double ask_flag = actions.ask_flag.item<double>();
+            double bid_flag = (actions.is_flag_valid()) ? actions.bid_flag.item<double>() : 1.0;
+            double ask_flag = (actions.is_flag_valid()) ? actions.ask_flag.item<double>() : 1.0;
+            double threshold = 0.5;
 
             // set last bid/ask values
-            if (ot.is_bid() && is_valid(bid_flag)) {
+            if (ot.is_bid() && (bid_flag > threshold)) {
                 last_bid = ot.get_bid();
             }
-            if (ot.is_ask() && is_valid(ask_flag)) {
+            if (ot.is_ask() && (ask_flag > threshold)) {
                 last_ask = ot.get_ask();
             }
 

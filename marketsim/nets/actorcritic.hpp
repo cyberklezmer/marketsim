@@ -64,17 +64,17 @@ namespace marketsim {
     class ActorCritic : public ActorCriticBase<state_size, hidden_size, TLayer> {
     public:
         ActorCritic() : ActorCriticBase<state_size, hidden_size, TLayer>() {
-            bid_actor = this->register_module("bid_actor", TBidActor());
-            ask_actor = this->register_module("ask_actor", TAskActor());
-            cons_actor = this->register_module("cons_actor", TConsActor());
+            bid_actor = this->register_module("bid_actor", std::make_shared<TBidActor>());
+            ask_actor = this->register_module("ask_actor", std::make_shared<TAskActor>());
+            cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>());
         }
 
         virtual action_container<torch::Tensor> predict_actions(torch::Tensor x) {
             auto res = predict_actions_train(x);
             return action_container<torch::Tensor>(
-                bid_actor.sample_actions(res.bid),
-                ask_actor.sample_actions(res.ask),
-                cons_actor.sample_actions(res.cons)
+                bid_actor->sample_actions(res.bid),
+                ask_actor->sample_actions(res.ask),
+                cons_actor->sample_actions(res.cons)
             );
         }
 
@@ -83,31 +83,31 @@ namespace marketsim {
             x = torch::relu(x);
 
             return action_container<action_tensors>(
-                bid_actor.predict_actions(x),
-                ask_actor.predict_actions(x),
-                cons_actor.predict_actions(x)
+                bid_actor->predict_actions(x),
+                ask_actor->predict_actions(x),
+                cons_actor->predict_actions(x)
             );
         }
 
         virtual torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
                                               const action_container<action_tensors>& pred) {
-            torch::Tensor res = bid_actor.action_log_prob(actions.bid, pred.bid);
-            res += ask_actor.action_log_prob(actions.ask, pred.ask);
-            res += cons_actor.action_log_prob(actions.cons, pred.cons);
+            torch::Tensor res = bid_actor->action_log_prob(actions.bid, pred.bid);
+            res += ask_actor->action_log_prob(actions.ask, pred.ask);
+            res += cons_actor->action_log_prob(actions.cons, pred.cons);
             return res;
         }
 
         virtual torch::Tensor entropy(const action_container<action_tensors>& pred) {
-            torch::Tensor res = bid_actor.entropy(pred.bid);
-            res += ask_actor.entropy(pred.ask);
-            res += cons_actor.entropy(pred.cons);
+            torch::Tensor res = bid_actor->entropy(pred.bid);
+            res += ask_actor->entropy(pred.ask);
+            res += cons_actor->entropy(pred.cons);
             return res;
         }
 
     protected:
-        TBidActor bid_actor{nullptr};
-        TAskActor ask_actor{nullptr};
-        TConsActor cons_actor{nullptr};
+        std::shared_ptr<TBidActor> bid_actor{nullptr};
+        std::shared_ptr<TAskActor> ask_actor{nullptr};
+        std::shared_ptr<TConsActor> cons_actor{nullptr};
     };
 
     template <int state_size, int hidden_size, typename TLayer, typename TBidActor, typename TAskActor, typename TConsActor>
@@ -116,15 +116,15 @@ namespace marketsim {
         using Base = ActorCritic<state_size, hidden_size, TLayer, TBidActor, TAskActor, TConsActor>;
 
         ActorCriticFlags() : ActorCritic<state_size, hidden_size, TLayer, TBidActor, TAskActor, TConsActor>() {
-            bid_flag = this->register_module("bid_flag", BinaryAction<hidden_size>());
-            ask_flag = this->register_module("ask_flag", BinaryAction<hidden_size>());
+            bid_flag = this->register_module("bid_flag", std::make_shared<BinaryAction<hidden_size>>());
+            ask_flag = this->register_module("ask_flag", std::make_shared<BinaryAction<hidden_size>>());
         }
 
         virtual action_container<torch::Tensor> predict_actions(torch::Tensor x) {
             auto pred = Base::predict_actions(x);
             
-            action_tensors bid_pred = bid_flag.predict_actions(x);
-            action_tensors ask_pred = ask_flag.predict_actions(x);
+            action_tensors bid_pred = bid_flag->predict_actions(x);
+            action_tensors ask_pred = ask_flag->predict_actions(x);
             return action_container<torch::Tensor>(pred.bid, pred.ask, pred.cons, bid_pred, ask_pred);
         }
 
@@ -133,30 +133,30 @@ namespace marketsim {
             x = torch::relu(x);
 
             return action_container<action_tensors>(
-                this->bid_actor.predict_actions(x),
-                this->ask_actor.predict_actions(x),
-                this->cons_actor.predict_actions(x),
-                this->bid_flag.predict_actions(x),
-                this->ask_flag.predict_actions(x)
+                this->bid_actor->predict_actions(x),
+                this->ask_actor->predict_actions(x),
+                this->cons_actor->predict_actions(x),
+                this->bid_flag->predict_actions(x),
+                this->ask_flag->predict_actions(x)
             );
         }
 
         virtual torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
                                               const action_container<action_tensors>& pred) {
             torch::Tensor log_prob = Base::action_log_prob(actions, pred);
-            log_prob += bid_flag.action_log_prob(actions.bid_flag, pred.bid_flag);
-            log_prob += ask_flag.action_log_prob(actions.ask_flag, pred.ask_flag);
+            log_prob += bid_flag->action_log_prob(actions.bid_flag, pred.bid_flag);
+            log_prob += ask_flag->action_log_prob(actions.ask_flag, pred.ask_flag);
             return log_prob;
         }
 
         virtual torch::Tensor entropy(const action_container<action_tensors>& pred) {
             torch::Tensor res = Base::entropy(pred);
-            res += bid_flag.entropy(pred.bid_flag);
-            res += ask_flag.entropy(pred.ask_flag);
+            res += bid_flag->entropy(pred.bid_flag);
+            res += ask_flag->entropy(pred.ask_flag);
             return res;
         }
 
     private:
-        BinaryAction<hidden_size> bid_flag, ask_flag;
+        std::shared_ptr<BinaryAction<hidden_size>> bid_flag, ask_flag;
     };
 }

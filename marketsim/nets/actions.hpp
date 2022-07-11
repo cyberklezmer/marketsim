@@ -7,7 +7,7 @@
 
 namespace marketsim {
     using action_tensors = std::vector<torch::Tensor>;
-    using ActFunc = torch::Tensor(torch::Tensor);
+    using ActFunc = torch::Tensor(const torch::Tensor&);
 
     template <typename T>
     class action_container {

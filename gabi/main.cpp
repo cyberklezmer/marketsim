@@ -21,6 +21,7 @@
 #include "nets/actorcritic.hpp"
 #include "nets/trainer.hpp"
 #include "nets/rewards.hpp"
+#include "nets/utils.hpp"
 
 #include <torch/torch.h>
 
@@ -93,8 +94,13 @@ int main()
         //using state_layer = torch::nn::LSTM;
         using state_layer = torch::nn::Linear;
 
-        using dnetwork = ACDiscrete<state_size, hidden_size, spread_lim, cons_step * cons_parts, cons_parts, state_layer>;
-        using cnetwork = ACContinuous<state_size, hidden_size, 1, cons_mult, state_layer>;
+        using bid_ask_discrete = DiscreteActions<hidden_size, 2 * spread_lim + 1, spread_lim>;
+        using cons_discrete = DiscreteActions<hidden_size, cons_parts + 1, 0, cons_step>;
+        using bid_ask_cont = ContinuousActions<tanh_activation, softplus_activation, hidden_size, 1>;
+        using cons_cont = ContinuousActions<softplus_activation, softplus_activation, hidden_size, 1, cons_mult>; 
+
+        using dnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete>;
+        using cnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_cont, bid_ask_cont, cons_cont>;
         using network = cnetwork;  // change to dnetwork to use discrete actions
 
         constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
@@ -114,13 +120,13 @@ int main()
 
         // speculator settings
         using spec_order = neuralspeculatororder<volume, verbose>;
-        using spec_network = ACDiscrete<state_size, hidden_size, 2, cons_step * cons_parts, cons_parts, state_layer, true>;
-        using spec_trainer = NStepTrainer<spec_network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
-        using spec_neuralstrategy = neuralnetstrategy<spec_trainer, spec_order, cons_lim, spread_lim, cons_step, verbose, true, true, false>;
+        //using spec_network = ACDiscrete<state_size, hidden_size, 2, cons_step * cons_parts, cons_parts, state_layer, true>;
+        //using spec_trainer = NStepTrainer<spec_network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
+        //using spec_neuralstrategy = neuralnetstrategy<spec_trainer, spec_order, cons_lim, spread_lim, cons_step, verbose, true, true, false>;
 
         //using testedstrategy = greedystrategy;
-        //using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
-        using testedstrategy = spec_neuralstrategy;  // speculator
+        using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
+        //using testedstrategy = spec_neuralstrategy;  // speculator
 
         enum ewhattodo { esinglerunsinglestrategy,
                          erunall,

@@ -14,6 +14,14 @@ namespace marketsim {
         action_container<torch::Tensor> actions;
     };
 
+    torch::Tensor tanh_activation(const torch::Tensor& t) {
+        return torch::tanh(t);
+    }
+
+    torch::Tensor softplus_activation(const torch::Tensor& t) {
+        return torch::nn::functional::softplus(t);
+    }
+
     std::vector<torch::Tensor> get_past_states(const std::vector<hist_entry>& history, int start, int steps) {
         int idx = history.size() - start - steps;
         std::vector<torch::Tensor> states;
