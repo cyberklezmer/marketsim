@@ -16,6 +16,7 @@
 #include "msstrategies/technicalanalyst.hpp"
 #include "msstrategies/buyer.hpp"
 #include "msstrategies/adpmarketmaker.hpp"
+#include "msstrategies/trendspeculator.hpp"
 
 using namespace marketsim;
 
@@ -33,7 +34,7 @@ int main()
         constexpr tabstime runningtime = 100;
 
         // change accordingly
-        twallet competitorsendowment(5000, 100);
+        twallet competitorsendowment(1000, 100);
 
         tmarketdef def;
 
@@ -120,15 +121,17 @@ int main()
             competitor<adpmarketmaker, chronos> adpmm("adpmm");
             competitor<ta_macd, chronos> macd("macd");
             competitor<buyer, chronos> buyer("buyer");
+            competitor<trendspeculator, chronos> trendspeculator("tspec");
 
             tcompetitiondef cdef;
             cdef.timeofrun = runningtime;
             cdef.marketdef = def;
             cdef.samplesize = 20;
             competition<chronos, true, logging>(
-                { &fss,&lts,&nmm1,&nmm10,&nmm50, &adpmm, &macd},
+                { &fss,&lts,&nmm1,&nmm10,&nmm50, &adpmm, &macd,&trendspeculator},
                 { twallet::infinitewallet(),twallet::infinitewallet(),
-                 competitorsendowment,competitorsendowment,competitorsendowment,competitorsendowment,competitorsendowment },
+                 competitorsendowment,competitorsendowment,competitorsendowment,competitorsendowment,
+                competitorsendowment,competitorsendowment },
                 cdef, std::clog);
 
         }
