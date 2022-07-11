@@ -121,11 +121,15 @@ namespace marketsim {
         }
 
         virtual action_container<torch::Tensor> predict_actions(torch::Tensor x) {
-            auto pred = Base::predict_actions(x);
+            auto pred = predict_actions_train(x);
             
-            action_tensors bid_pred = bid_flag->predict_actions(x);
-            action_tensors ask_pred = ask_flag->predict_actions(x);
-            return action_container<torch::Tensor>(pred.bid, pred.ask, pred.cons, bid_pred, ask_pred);
+            return action_container<torch::Tensor>(
+                this->bid_actor->sample_actions(pred.bid),
+                this->ask_actor->sample_actions(pred.ask), 
+                this->cons_actor->sample_actions(pred.cons),
+                this->bid_flag->sample_actions(pred.bid_flag),
+                this->ask_flag->sample_actions(pred.ask_flag)
+            );
         }
 
         virtual action_container<action_tensors> predict_actions_train(torch::Tensor x) {

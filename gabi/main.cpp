@@ -101,7 +101,8 @@ int main()
 
         using dnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete>;
         using cnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_cont, bid_ask_cont, cons_cont>;
-        using network = cnetwork;  // change to dnetwork to use discrete actions
+        using dflag_network = ActorCriticFlags<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete>;
+        using network = dflag_network;  // change to dnetwork to use discrete actions
 
         constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
         constexpr int stock_div = 10; // weight stock value difference by stock_div / stock

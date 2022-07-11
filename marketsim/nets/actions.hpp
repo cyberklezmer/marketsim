@@ -84,8 +84,8 @@ namespace marketsim {
 
         torch::Tensor action_log_prob(torch::Tensor true_actions, const action_tensors& pred_actions) {
             torch::Tensor logits = pred_actions.at(0);
-            true_actions = true_actions.to(torch::kLong);
             true_actions = true_actions / action_mult + action_offset;
+            true_actions = true_actions.to(torch::kLong).flatten();
 
             return -torch::nll_loss(logits, true_actions);
         }
@@ -118,8 +118,6 @@ namespace marketsim {
          
         torch::Tensor action_log_prob(torch::Tensor true_actions, const action_tensors& pred_actions) {
             torch::Tensor logits = pred_actions.at(0);
-            true_actions = true_actions.to(torch::kLong);
-
             return -torch::binary_cross_entropy_with_logits(logits, true_actions);
         }
 
