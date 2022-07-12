@@ -1,60 +1,50 @@
 #ifndef NEURALNETSTRATEGY_HPP_
 #define NEURALNETSTRATEGY_HPP_
 
+#include "nets/utils.hpp"
 #include "marketsim.hpp"
 #include <torch/torch.h>
 
 
 namespace marketsim {
 
-    std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice finitprice,
-                                             tprice last_bid, tprice last_ask);
-
-    template<typename TNet, int conslim, int keep_stocks, int spread_lim, int explore_cons, int volume = 10, bool verbose = true,
-             bool modify_c = true, bool explore = true>
+    template<typename TNet, typename TOrder, int conslim, int spread_lim, int explore_cons, bool verbose = true,
+             bool modify_c = true, bool explore = true, bool limspread = true>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
             net(),
+            order(),
             history(),
-			finitprice(100),
             last_bid(klundefprice),
-            last_ask(khundefprice),
-            round(0) {}
+            last_ask(khundefprice) {}
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
             torch::Tensor next_state = this->construct_state(mi);
             net.train(history, next_state);
 
-            auto pred_actions = net.predict_actions(next_state);
-            torch::Tensor next_action = pred_actions.at(0);
-            torch::Tensor next_cons = pred_actions.at(1);
+            auto pred_actions = net.predict_actions(history, next_state);
 
             if (modify_c) {
-                next_cons = this->modify_consumption(mi, next_cons);
+                limit_cons(mi, pred_actions);
             }
 
-            double a1 = next_action[0][0].item<double>();
-            double a2 = next_action[0][1].item<double>();
-            if ((a1 >= spread_lim) || (a1 <= -spread_lim)) {
-                next_action[0][0] = (a1 < 0) ? -spread_lim : spread_lim;
-            }
-            if ((a2 >= spread_lim) || (a2 <= -spread_lim)) {
-                next_action[0][1] = (a2 < 0) ? -spread_lim : spread_lim;
+            if (limspread) {
+                limit_spread(pred_actions);
             }
 
-            history.push_back(std::make_tuple<>(next_state, next_action, next_cons));
+            set_flags(pred_actions);
 
-            round += 1;
-            return construct_order(mi, next_action, next_cons);
+            history.push_back(hist_entry(next_state, pred_actions));
+            return order.construct_order(mi, pred_actions);
         }
-
-        virtual torch::Tensor construct_state(const tmarketinfo& mi) {
+        
+        torch::Tensor construct_state(const tmarketinfo& mi) {
             tprice m = mi.mywallet().money();
             tprice s = mi.mywallet().stocks();
 
-            auto ab = get_alpha_beta(mi, finitprice, last_bid, last_ask);
+            auto ab = get_alpha_beta(mi, last_bid, last_ask);
             tprice a = std::get<0>(ab);
             tprice b = std::get<1>(ab);
             
@@ -62,35 +52,93 @@ namespace marketsim {
             return torch::tensor(state_data).reshape({1,4});
         }
 
-        virtual torch::Tensor modify_consumption(const tmarketinfo& mi, const torch::Tensor& cons) {
-            double conspred = cons[0][0].item<double>();
-
-            torch::Tensor randn = torch::rand({1});
-            if ((randn < 0.1).item<bool>()) {
-                conspred = explore_cons;
-                if (verbose) {
-                    std::cout << "modify" << std::endl;
-                }
+        void limit_spread(action_container<torch::Tensor>& next_action) {
+            double a1 = next_action.bid.item<double>();
+            double a2 = next_action.ask.item<double>();
+            
+            if ((a1 >= spread_lim) || (a1 <= -spread_lim)) {
+                a1 = (a1 < 0) ? -spread_lim : spread_lim;
+                next_action.bid = torch::tensor({a1});
             }
-
-            double lim = mi.mywallet().money();// - mi.myorderprofile().B.value();
-            if ((lim - conspred) < conslim) {
-                conspred = 0.0;
+            if ((a2 >= spread_lim) || (a2 <= -spread_lim)) {
+                a2 = (a2 < 0) ? -spread_lim : spread_lim;
+                next_action.ask = torch::tensor({a2});
             }
-
-            if (conspred < 0) {
-                conspred = 0.0;
-            }
-
-            return torch::tensor({conspred}).reshape({1,1});
         }
 
-        virtual trequest construct_order(const tmarketinfo& mi, const torch::Tensor& actions, const torch::Tensor& cons) {
-            double bpred = actions[0][0].item<double>();
-            double apred = actions[0][1].item<double>();
-            double conspred = cons[0][0].item<double>();
+        void limit_cons(const tmarketinfo& mi, action_container<torch::Tensor>& next_action) {
+            double next_cons = next_action.cons.item<double>();
+            next_cons = modify_consumption<conslim, verbose, explore_cons, explore>(mi, next_cons);
+            next_action.cons = torch::tensor({next_cons});
+        }
 
-            auto ab = get_alpha_beta(mi, finitprice, last_bid, last_ask);
+        void set_flags(action_container<torch::Tensor>& next_action) {
+            if (!next_action.is_flag_valid()) {
+                return;
+            }
+
+            double bid = next_action.bid_flag.item<double>();
+            double ask = next_action.ask_flag.item<double>();
+            double threshold = 0.5;
+
+            bid = (bid > threshold) ? 1.0 : 0.0;
+            ask = (ask > threshold) ? 1.0 : 0.0;
+            
+            next_action.bid_flag = torch::tensor({bid}).reshape({1,1});
+            next_action.ask_flag = torch::tensor({ask}).reshape({1,1});
+        }
+
+		tprice last_bid, last_ask;
+
+        TNet net;
+        TOrder order;
+        std::vector<hist_entry> history;
+    };
+
+    template <int volume = 10, bool verbose = false>
+    class neuralspeculatororder {
+    public:
+        neuralspeculatororder() : lim(0.5) {} 
+
+        trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
+            double bpred = actions.bid_flag.item<double>();
+            double apred = actions.ask_flag.item<double>();
+            double conspred = actions.cons.item<double>();
+
+            if (verbose) {
+                std::cout << "Bid: " << bpred << ", Ask: " << apred << ", Cons: " << conspred << std::endl;
+                std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks() << std::endl;
+            }
+
+            trequest o;
+            if (bpred > lim) {
+                o.addbuymarket(volume);
+            }
+
+            if (apred > lim) {
+                o.addsellmarket(volume);
+            }
+
+            o.setconsumption(int(conspred));
+            
+            return o;
+        }
+    
+    private:
+        double lim;
+    };
+
+    template <int keep_stocks, int volume = 10, bool verbose = false>
+    class neuralmmorder {
+    public:
+        neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice) {}
+
+        trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
+            double bpred = actions.bid.item<double>();
+            double apred = actions.ask.item<double>();
+            double conspred = actions.cons.item<double>();
+
+            auto ab = get_alpha_beta(mi, last_bid, last_ask);
             tprice a = std::get<0>(ab);
             tprice b = std::get<1>(ab);
             if (verbose) {
@@ -107,86 +155,29 @@ namespace marketsim {
                 ask = bid + 1;
             }
 
-            tpreorderprofile pp;
-
-            trequest ord;
-            bool is_bid = false;
-            bool is_ask = false;
-			tprice m = mi.mywallet().money();
-            tprice s = mi.mywallet().stocks();
-
-            bool vol_enough = m > (bid * volume);
-            bool b_enough = m > bid;
-            bool stocks_enough = s > keep_stocks;
-
-            if (vol_enough || b_enough) {
-                int vol = vol_enough ? volume : 1;
-                ord.addbuylimit(bid, vol);
-                pp.B.add(tpreorder(bid, vol));
-                last_bid = bid;
-                is_bid = true;
-            }
-
-            if (stocks_enough) {
-			    ord.addselllimit(ask, volume);  //TODO u vsech resit jak presne dat na int
-                pp.A.add(tpreorder(ask, volume));
-                last_ask = ask;
-                is_ask = true;
-            }
-
-            // get out of low resources
-            if (!stocks_enough && !b_enough) {
-                if (verbose) {
-                    std::cout << "emergency" << std::endl;
-                }
-
-                last_bid = int(m / 2);
-                last_bid = std::min(last_bid, bid);
-                last_ask = a - 5;
-                ord.addbuylimit(last_bid, 1);
-                pp.B.add(tpreorder(last_bid, 1));
-                ord.addselllimit(last_ask, 1);
-                pp.A.add(tpreorder(last_ask, 1));
-                is_bid = true;
-                is_ask = true;
-            }
-
-            ord.setconsumption(int(conspred));
-
+            // create order template
+            auto ot = create_order<volume, keep_stocks, verbose>(mi, bid, ask, int(conspred));
             if (verbose) {
-                std::cout << "Bid: " << (is_bid ? std::to_string(last_bid) : std::string(" ")) << "(" << bpred << ")";
-                std::cout << ", Ask: " << (is_ask ? std::to_string(last_ask) : std::string(" ")) << "(" << apred << ")";
-                std::cout << ", Cons: " << int(conspred) << std::endl;
-                std::cout << "Wallet: " << m << ", Stocks: " << s << std::endl;
+                print_state(mi, ot, bpred, apred);
             }
 
+            double bid_flag = (actions.is_flag_valid()) ? actions.bid_flag.item<double>() : 1.0;
+            double ask_flag = (actions.is_flag_valid()) ? actions.ask_flag.item<double>() : 1.0;
+            double threshold = 0.5;
 
-            return {pp, trequest::teraserequest(true), int(conspred)};
-            //return ord;
+            // set last bid/ask values
+            if (ot.is_bid() && (bid_flag > threshold)) {
+                last_bid = ot.get_bid();
+            }
+            if (ot.is_ask() && (ask_flag > threshold)) {
+                last_ask = ot.get_ask();
+            }
+
+            return ot.to_request();
         }
-
-        int round;
-		tprice last_bid, last_ask;
-        double finitprice;
-
-        TNet net;
-        std::vector<std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>> history;
+    private:
+        tprice last_bid, last_ask;
     };
-
-    std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice finitprice,
-                                             tprice last_bid, tprice last_ask)
-    {
-			tprice alpha = mi.alpha();
-			tprice beta = mi.beta();
-            
-			double p = (alpha != khundefprice && beta != klundefprice)
-				? (alpha + beta) / 2 : finitprice;
-            
-			if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
-			if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
-
-            return std::make_pair<>(alpha, beta);
-    }
 }
 
 #endif // NEURALNETSTRATEGY_HPP_
