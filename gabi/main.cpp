@@ -33,6 +33,10 @@ int main()
     try
     {
         /* simulation settings */
+        
+        //using testedstrategy = greedystrat;
+        //using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
+        using testedstrategy = spec_neuralstrategy;  // speculator
 
         // change accordingly (but true is still beta),
         constexpr bool chronos = false;
@@ -52,10 +56,6 @@ int main()
         twallet endowment(5000,100);
 
         tmarketdef def;
-
-        //using testedstrategy = greedystrat;
-        //using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
-        using testedstrategy = spec_neuralstrategy;  // speculator
 
         enum ewhattodo { esinglerunsinglestrategy,
                          erunall,
