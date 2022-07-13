@@ -1,0 +1,3 @@
+/home/smid/MARKETSIM/marketsim/martin/bin/CMakeFiles/rebuild_cache.dir
+/home/smid/MARKETSIM/marketsim/martin/bin/CMakeFiles/testms.dir
+/home/smid/MARKETSIM/marketsim/martin/bin/CMakeFiles/edit_cache.dir

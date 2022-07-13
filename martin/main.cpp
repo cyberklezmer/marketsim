@@ -46,6 +46,7 @@ struct tvalueiterationmarketmakersetting
     int ndelta = 100;
 };
 
+
 tvalueiterationmarketmakersetting gs;
 
 
@@ -122,6 +123,7 @@ public:
     {
         assert(m >=0);
         assert(n >=0);
+
 
         int i = std::min(static_cast<int>(m / mdelta),mnodes - 2);
         int j = std::min(static_cast<int>(n / ndelta),nnodes - 2);
@@ -566,6 +568,13 @@ altEV = V(m,n)-E(LD)*b+E(LC)*a + (alpha + beta)/2.0 * (E(LD)-E(LC));
     gridapproxfn V;
 };
 
+
+double Phi(double x)
+{
+  return 0.5 * (1 + erf(x / sqrt(2)));
+}
+
+
 int main()
 {
     try
@@ -594,22 +603,38 @@ int main()
         competitor<cancellingmaslovorderplacer<100,100>,chronos,true> cul("corderplacer");
 
         std::ofstream det("details.txt");
-        gs.lambda = 0;
         std::ostream& os=std::clog;
         int seed = 234;
-        unsigned n=40;
-        for(unsigned lambda=0; lambda<=1; lambda++)
-            for(tabstime t=100; t >= 0.9999; t /= sqrt(10) /*  sqrt(sqrt(10)) */ )
+        unsigned n=400;
+        double origalpha = 0.05;
+        os << "t,lambda,alpha,mean,stderr,cvar"<<origalpha << std::endl;
+        for(int lambda=-1; lambda<=1; lambda++)
+            for(tabstime t=100 * sqrt(10); t >= 0.9999; t /=  sqrt(sqrt(10)) )
             {
                 gs.interval = t;
-                gs.lambda = lambda;
+                gs.lambda = fabs(lambda);
                 std::ostringstream s;
-                s << t << "," << lambda;
+                double alpha;
+                switch(lambda)
+                {
+                case -1:
+                    alpha = 1-Phi(-sqrt(-log(2*3.141592*t/3600.0*(1.0-origalpha))));
+                    break;
+                case 0 :
+                    alpha = 0;
+                    break;
+                case 1 :
+                    alpha = origalpha;
+                }
+                gs.alpha = alpha;
+                s << t << "," << gs.lambda << "," << alpha;
                 os << s.str();
                 det << s.str();
 
                 statcounter sc;
                 finitedistribution<double> fd;
+                std::vector<double> hist(30);
+                double histdelta = 1000.0;
                 for(unsigned j=0; j<n; j++)
                 {
                     auto r = test<chronos,true,logging,true,fairpriceds<3*3600,10>>(
@@ -621,10 +646,15 @@ int main()
                     auto c = r->fstrategyinfos[2].totalconsumption();
                     sc.add(c);
                     fd.add(1.0/n,c);
+                    hist[std::min(static_cast<unsigned>(c / histdelta),
+                                  static_cast<unsigned>(hist.size()-1))]++;
                     //os << "," << c;
                 }
                 os << "," << sc.average() << "," << sqrt(sc.var()/sc.num)
-                   << "," << fd.lowerCVaR(gs.alpha) << std::endl;
+                   << "," << fd.lowerCVaR(origalpha);
+                for(unsigned i=0; i<hist.size(); i++)
+                    os << "," << hist[i];
+                os << std::endl;
             }
     }
     catch (std::exception& e) {
@@ -649,6 +679,7 @@ int main()
 
     return 0;
 }
+
 
 
 
