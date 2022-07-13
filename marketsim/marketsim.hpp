@@ -19,7 +19,7 @@ namespace marketsim
 {
 
 constexpr unsigned versionmajor=1;
-constexpr unsigned versionminor=98;
+constexpr unsigned versionminor=99;
 
 class error: public std::runtime_error
 {
