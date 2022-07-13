@@ -1391,7 +1391,7 @@ public:
 /// is or is not \p builtin. \p S have to dispose of a default constructor.
 /// (I wonder now why this definition is two-stage one,
 /// maybe for some other versions of competitor class.s...).
-template<typename S, bool chronos = true, bool nowarmup = false>
+template<typename S, bool chronos = false, bool nowarmup = false>
 class competitor : public competitorbase<chronos>
 {
     const std::string fname;
@@ -3281,7 +3281,7 @@ inline int tmarketdef::findduration(unsigned nstrategies, const tmarketdef& def,
 
         // tbd create infinitywallet
         std::vector<twallet> e(nstrategies,twallet::infinitewallet());
-        competitor<calibratingstrategy> c;
+        competitor<calibratingstrategy,true> c;
         std::vector<competitorbase<true>*> s;
         for(unsigned j=0; j<nstrategies; j++)
             s.push_back(&c);

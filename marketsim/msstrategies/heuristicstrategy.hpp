@@ -34,7 +34,7 @@ struct theuristicstrategysetting
 };
 
 /// @tparam estimatezero=false is experimental
-template <bool estimatezero=true>
+template <bool estimatezero=false>
 class heuristicstrategy : public teventdrivenstrategy
 {
 public:
