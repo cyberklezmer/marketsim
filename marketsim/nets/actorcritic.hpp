@@ -226,7 +226,6 @@ namespace marketsim {
             assert((bid + ask) <= 1.001);
             
             double res = bid + 2 * ask;
-            std::cout << res << std::endl;
 
             return torch::tensor({res});
         }
