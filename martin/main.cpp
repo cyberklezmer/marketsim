@@ -88,14 +88,14 @@ int main()
         competitor<naivemmstrategy<10,3600>,chronos,true> n2("naivka");
         competitor<naivemmstrategy<10,7200>,chronos,true> n3("naivka");
 
-        competitor<heuristicstrategy,chronos> ts("tested");
+        competitor<heuristicstrategy<false>,chronos> ts("tested");
         competitor<xxx,chronos,true> is("is");
 //        competitor<cancellinguniformluckockstrategy<1,200,360,3600,true>,
 //                          chronos,true> cul("luckock");
         competitor<cancellingmaslovorderplacer<100,100>,chronos,true> cul("corderplacer");
 
         tcompetitiondef cdef;
-        cdef.timeofrun = 15; //3600;
+        cdef.timeofrun = 3600;
         cdef.marketdef = def;
         //cdef.marketdef.loggingfilter.fprotocol = true;
         //luckockcompetition<false>({&ts,&n1,&n2,&n3}, endowment, cdef,std::clog );

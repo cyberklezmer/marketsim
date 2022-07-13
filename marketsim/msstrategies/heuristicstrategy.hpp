@@ -15,7 +15,7 @@ struct theuristicstrategysetting
     // CVaR level (CVaR determines the risk part)
     double alpha = 0.05;
     // interval of reentry before it starts to be determined by volume
-    tabstime initinterval = 1;
+    tabstime initinterval = 0.1;
     // time over which the volumes are averaged when estimating future volume
     double qaverageinterval = 100;
     // the strategy tries to se up the time interval so that the overall buy and sell
@@ -33,6 +33,8 @@ struct theuristicstrategysetting
     double safetyfactor = 1;
 };
 
+/// @tparam estimatezero=false is experimental
+template <bool estimatezero=true>
 class heuristicstrategy : public teventdrivenstrategy
 {
 public:
@@ -54,11 +56,31 @@ public:
         teventdrivenstrategy(s.initinterval),
         fsetting(s)
     {}
+private:
+    struct qhist
+    {
+        unsigned n = 0;
+        double sum = 0;
+        unsigned nnz = 0;
+        double sumnz = 0;
+        // just to comply with evaluate
+        qhist(unsigned) : n(0), sum(0), nnz(0)
+        {
+        }
+        static void record(const tsnapshot& s, qhist& qh)
+        {
+            qh.n++;
+            qh.sum += s.q;
+            if(s.q > 0)
+                qh.nnz++;
+        }
+    };
+
 
     virtual trequest event(const tmarketinfo& mi, tabstime tnow, trequestresult*)
     {
         // check for the last kown price
-        double ldp = mi.lastdefinedp();
+//        double ldp = mi.lastdefinedp();
         // check for alpha and beta
         tprice alpha = mi.alpha();
         tprice beta = mi.beta();
@@ -96,10 +118,22 @@ public:
             // interval over which we will averate
             double aint = std::min(tnow,fsetting.qaverageinterval);
 
+
+
             // sum the trades over the interval
-            tvolume sumq = mi.history().sumq(tnow-aint,tnow);
+            qhist qh = mi.history().evaluate<qhist,qhist::record>(tnow-aint,tnow);
+            tvolume sumq = qh.sum;
             // ... and estimate the intensity of buying (assumed the same as for selling)
-            double intensity = std::max(1.0, sumq / aint / 2.0)*interval();
+            double intensity;
+            double nzratio = static_cast<double>(qh.nnz) / qh.n;
+            if constexpr(estimatezero)
+            {
+               auto iplus = std::max(1.0, qh.sumnz / (aint * nzratio )  / 2.0)*interval();
+               // approximating exp(-\lambda) by exp(-iplus)
+               intensity = (iplus-1) * (1-exp(-iplus)) + 1;
+            }
+            else
+               intensity = std::max(1.0, sumq / aint / 2.0)*interval();
 
             assert(intensity > 0);
 
@@ -117,7 +151,7 @@ public:
             possiblylog("Calling evaluateV:",s.str());
 
             // now find "optimal" a,b,c,v,w
-            args opt=optimize(mi,m,n,alpha,beta,intensity);
+            args opt=optimize(mi,m,n,alpha,beta,intensity, nzratio);
 
             // this should not happen, but to be sure....
             if(opt.isnan())
@@ -161,7 +195,8 @@ public:
 
 private:
 
-    args optimize(const tmarketinfo& info, tprice m, tvolume n, tprice alpha, tprice beta, double lambda)
+    args optimize(const tmarketinfo& info, tprice m, tvolume n,
+                  tprice alpha, tprice beta, double lambda, double nzratio)
     {
        args opt;
        // go through all possible a,b,...
@@ -248,7 +283,17 @@ private:
                                 p *= lambda / i;
                                 sump += p;
                             }
-
+                            if constexpr(estimatezero)
+                            {
+                                double origp0 = LC[0];
+                                double truezratio = std::max(0.0,(1.0-nzratio) - origp0);
+                                if(truezratio > 0.0)
+                                {
+                                   LC[0] += truezratio;
+                                   for(unsigned i=1; i<LC.size(); i++)
+                                       LC[i] *= (1-origp0-truezratio) / (1-origp0);
+                                }
+                            }
                             // the same for D
                             p = exp(-lambda);
                             sump = p;
@@ -270,6 +315,17 @@ private:
                                 sump += p;
                             }
 
+                            if constexpr(estimatezero)
+                            {
+                                double origp0 = LD[0];
+                                double truezratio = std::max(0.0,(1.0-nzratio) - origp0);
+                                if(truezratio > 0.0)
+                                {
+                                   LD[0] += truezratio;
+                                   for(unsigned i=1; i<LD.size(); i++)
+                                       LD[i] *= (1-origp0-truezratio) / (1-origp0);
+                                }
+                            }
 
                             // and now the distribution of our possible earinigs
                             finitedistribution<double> dist;
