@@ -17,8 +17,8 @@ namespace marketsim
 			discfact = 0.999;
 			a_last = khundefprice, a = khundefprice;
 			vol_last = 0;
-			E_stddev = 1, F_stddev = 1;
-			E_mean = 0, F_mean = 0;
+			E_mean = 0, E_stddev = 1;
+			F_mean = 0, F_stddev = 1;
 			p_m = 0.01, k_m = 100, lambda_m = 3;
 		}
 
@@ -74,12 +74,12 @@ namespace marketsim
 									double prob = pr_e * pr_f * pr_c * (y ? (1 - p_m) : p_m);
 
 									expv += v + discfact *
-										W[std::max<int>(0, m + y * k_m * c - v * (a + round(coefs[0] + coefs[1] * (v - 1) + e)))]
-										[std::max(0, a + f)] * prob;
+										W[std::max<int>(0, m + y * k_m * c - v * (a + round(coefs[0] + 
+											coefs[1] * (v - 1) + e)))][std::max(0, a + f)] * prob;
 
 									expv_opt += vol_best + discfact *
-										W[std::max<int>(0, m + y * k_m * c - vol_best * (a + round(coefs[0] + coefs[1] * (vol_best - 1) + e)))]
-										[std::max(0, a + f)] * prob;
+										W[std::max<int>(0, m + y * k_m * c - vol_best * (a + round(coefs[0] + 
+											coefs[1] * (vol_best - 1) + e)))][std::max(0, a + f)] * prob;
 								}	
 							}
 						}
@@ -126,7 +126,7 @@ namespace marketsim
 		double discfact;
 		T2vec W;
 		double E_stddev, F_stddev, E_mean, F_mean;
-		double p_m = 0.01, k_m = 100, lambda_m = 3;
+		double p_m, k_m, lambda_m;
 	};
 
 }
