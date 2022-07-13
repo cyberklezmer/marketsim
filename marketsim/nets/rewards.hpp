@@ -1,11 +1,10 @@
 #include <torch/torch.h>
 #include <vector>
 #include "proba.hpp"
+#include "nets/utils.hpp"
 
 
 namespace marketsim {
-    using hist_entry = std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>;
-
     double get_money(torch::Tensor state) {
         return state[0][0].item<double>();
     }
@@ -33,11 +32,11 @@ namespace marketsim {
 
             for (int i = hist_size - N; i < hist_size; ++i) {
                     auto entry = history.at(i);
-                    torch::Tensor next = (i < hist_size - 1) ? std::get<0>(history.at(i + 1)) : next_state;
+                    torch::Tensor next = (i < hist_size - 1) ? history.at(i + 1).state : next_state;
 
-                    double cons =  std::get<2>(entry).item<double>();
-                    double mdiff = get_money_diff(std::get<0>(entry), next);
-                    double sdiff = get_stock_diff(std::get<0>(entry), next);
+                    double cons =  entry.actions.cons.item<double>();
+                    double mdiff = get_money_diff(entry.state, next);
+                    double sdiff = get_stock_diff(entry.state, next);
 
                     returns += compute_reward(cons, mdiff, sdiff);
                     curr_gamma *= gamma;
@@ -69,7 +68,7 @@ namespace marketsim {
         double gamma, curr_gamma;
     };
 
-    template <int N, int TMinM, int TMinS, bool verbose = false>
+    template <int N, int TMinM, int TMinS, bool verbose = false, bool separately = true>
     class WeightedDiffReturn : public DiffReturn<N> {
     public:
         WeightedDiffReturn() : DiffReturn<N>(), mdiff_mult(1.0), sdiff_mult(1.0) {}
@@ -77,13 +76,20 @@ namespace marketsim {
         virtual void init(const std::vector<hist_entry>& history, torch::Tensor next_state) {
             size_t idx = history.size() - N;
 
-            auto curr = history.at(idx);
-            torch::Tensor state = std::get<0>(curr);
+            torch::Tensor state = history.at(idx).state;
             double state_money = get_money(state);
             double state_stocks = get_stocks(state);
 
-            mdiff_mult = TMinM / (state_money + 100);
-            sdiff_mult = TMinS / (state_stocks + 1);
+            if (separately) {
+                mdiff_mult = TMinM / (state_money + 100);
+                sdiff_mult = TMinS / (state_stocks + 1);
+            }
+            else {
+                double value = get_beta(state) * state_stocks + state_money;
+                mdiff_mult = TMinM / value + 1;
+                sdiff_mult = mdiff_mult;
+            }
+
             //mdiff_mult = 20 * (-std::atan(state_money / 500) + pi() / 2);
             //sdiff_mult = 1 * (-std::atan(state_stocks - 10) + pi() / 2);
         }

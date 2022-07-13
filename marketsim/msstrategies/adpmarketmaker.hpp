@@ -1,5 +1,5 @@
-#ifndef TADPMARKETMAKER_HPP
-#define TADPMARKETMAKER_HPP
+#ifndef ADPMARKETMAKER_HPP
+#define ADPMARKETMAKER_HPP
 
 #include "marketsim.hpp"
 #include<fstream>
@@ -10,7 +10,7 @@ namespace marketsim
 
 	///  A market making strategy based on approximate dynamic programming
 
-	class tadpmarketmaker : public teventdrivenstrategy
+	class adpmarketmaker : public teventdrivenstrategy
 	{
 		using Tvec = std::vector<double>;
 		using T2vec = std::vector<Tvec>;
@@ -18,10 +18,10 @@ namespace marketsim
 		using T4vec = std::vector<T3vec>;
 
 	public:
-		tadpmarketmaker() : teventdrivenstrategy(1)
+		adpmarketmaker() : teventdrivenstrategy(1)
 		{
 			initprice = 100, qvol = 1;
-			bndmoney = 0, bndstocks = 0, n = 0;
+			bndmoney = 0, bndstocks = 0, last_stocks = 0;
 			ldelta = 15, udelta = 15;
 			N = P = T4vec(2, T3vec(2, T2vec(ldelta + udelta + 1, Tvec(ldelta + udelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
@@ -65,7 +65,7 @@ namespace marketsim
 						N[0][0][a][b] = Kparam - N[1][0][a][b] - N[0][1][a][b];
 					}
 				}
-				n = mi.mywallet().stocks();
+				last_stocks = mi.mywallet().stocks();
 			}
 
 
@@ -77,10 +77,10 @@ namespace marketsim
             tprice db = std::min(std::max(mi.history().b(t) - beta, alpha - beta - udelta), alpha - beta + ldelta);
 
 			//update information (c,d) about the last action of the market maker
-			int c = 0, d = 0, diff = mi.mywallet().stocks() - n;
+			int c = 0, d = 0, diff = mi.mywallet().stocks() - last_stocks;
 			if (diff > 0) c = 1;
 			if (diff < 0) d = 1;
-			n += diff;
+			last_stocks += diff;
 
 			//update and normalize N
 			N[c][d][da - (beta - alpha - ldelta)][db - (alpha - beta - udelta)]++;
@@ -124,7 +124,7 @@ namespace marketsim
 					}
 
 			b_best = m > 0 ? b_best : klundefprice;
-			a_best = n > 0 ? a_best : khundefprice;
+			a_best = s > 0 ? a_best : khundefprice;
 			last_ask = a_best;
 			last_bid = b_best;
 
@@ -132,9 +132,9 @@ namespace marketsim
 			double w = epsparam * v + (1.0 - epsparam) * W[m][s];
 			W[m][s] = w;
 			for (int m_ind = 0; m_ind < W.size(); m_ind++)
-				W[m_ind][n] = (m_ind < m) ? std::min(W[m_ind][n], w) : std::max(W[m_ind][n], w);
+				W[m_ind][s] = (m_ind < m) ? std::min(W[m_ind][s], w) : std::max(W[m_ind][s], w);
 			for (int s_ind = 0; s_ind < W[0].size(); s_ind++)
-				W[m][s_ind] = (s_ind < n) ? std::min(W[m][s_ind], w) : std::max(W[m][s_ind], w);
+				W[m][s_ind] = (s_ind < s) ? std::min(W[m][s_ind], w) : std::max(W[m][s_ind], w);
 
 
 			trequest ord;
@@ -144,35 +144,12 @@ namespace marketsim
 			return ord;
 		}
 
-		virtual void sequel(const tmarketinfo&)
-		{
-			/*std::ofstream out_valfunc;
-			out_valfunc.open("valfunc.csv");
-			for(int i = 0; i < W.size(); i++)
-			{
-				for (int j = 0; j < W[0].size(); j++)
-					out_valfunc << W[i][j] << ",";
-				out_valfunc << "\n";
-			}*/
-
-			std::ofstream out_p;
-			out_p.open("probs.csv");
-			for (int i = 0; i < P[0].size(); i++)
-			{
-				for (int j = 0; j < P[0].size(); j++)
-					out_p << P[i][j][10][0] << ",";
-				out_p << "\n";
-			}
-			out_p << countKparam;
-			out_p.close();
-
-		}
 
 		tprice initprice;
 		tvolume qvol;
 		double discfact, epsparam;
 		int Kparam, countKparam, bndmoney, bndstocks, ldelta, udelta;
-		int n;
+		tvolume last_stocks;
 		T2vec W;
 		T4vec N, P;
 		tprice last_bid, last_ask;
@@ -182,4 +159,4 @@ namespace marketsim
 } // namespace
 
 
-#endif // TADPMARKETMAKER_HPP
+#endif // ADPMARKETMAKER_HPP

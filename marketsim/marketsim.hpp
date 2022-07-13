@@ -19,7 +19,7 @@ namespace marketsim
 {
 
 constexpr unsigned versionmajor=1;
-constexpr unsigned versionminor=96;
+constexpr unsigned versionminor=98;
 
 class error: public std::runtime_error
 {
@@ -48,11 +48,57 @@ struct statcounter
     void add(double x) { sum += x; sumsq += x*x; num++;}
     double average() const { return sum / num; }
     double var() const { return sumsq/num - average()*average(); }
-    double averagevar() const  { var() / num; }
+    double averagevar() const  { return var() / num; }
 
 };
 
 
+template <typename T>
+class finitedistribution
+{
+public:
+    void add(double p,const T& x)
+    {
+        item m = { p,x };
+        fx.insert(std::upper_bound( fx.begin(), fx.end(), m , cmp),                  m                );
+    }
+    double lowerCVaR(double alpha) const
+    {
+        double sum = 0;
+        double psum = 0;
+        for(auto it = fx.begin(); it != fx.end(); it++)
+        {
+            sum += it->x * it->p;
+            psum += it->p;
+            if(psum >= alpha)
+                break;
+        }
+        return sum/psum;
+    }
+
+    double mean() const { return lowerCVaR(1); }
+
+    double meanCVaR(double lambda, double alpha) const
+    {
+        return lambda * lowerCVaR(alpha) + (1-lambda) * mean();
+    }
+
+    bool check() const
+    {
+        double psum = 0;
+        for(auto it = fx.begin(); it != fx.end(); it++)
+            psum += it->p;
+        return fabs(psum) - 1 < 0.000000001;
+    }
+
+private:
+    struct item { double p; T x; };
+    static bool cmp(const item &a, const item &b)
+    {
+        return a.x < b.x;
+    }
+    std::vector<item> fx;
+};
 
 using tprice = int;
 
@@ -573,13 +619,13 @@ public:
         for(unsigned i=0; i<A.size(); i++)
         {
             const auto& a=A[i];
-            if(a.price == klundefprice)
+            if(a.price == khundefprice)
                 return false;
         }
         for(unsigned i=0; i<B.size(); i++)
         {
             const auto& b=B[i];
-            if(b.price == khundefprice)
+            if(b.price == klundefprice)
                 return false;
         }
         return true;
@@ -684,7 +730,8 @@ public:
     {
         return !feraserequest.possiblyerase()
                 && forderrequest.B.size() == 0
-                && forderrequest.A.size() == 0;
+                && forderrequest.A.size() == 0
+                && fconsumption == 0;
     }
 
     /// output to a stream
@@ -724,13 +771,13 @@ public:
     tjumpprocess(const S& s) : fx(1,s) {}
 
 
-    template <double F(const S&)>
-    double evaluate(tabstime astart, tabstime aend) const
+    template <typename T, void F(const S&, T& x)>
+    T evaluate(tabstime astart, tabstime aend) const
     {
         if(!fx.size())
             return 0;
 
-        tvolume ret = 0;
+        T ret(0);
         S val(aend);
         auto it = std::lower_bound(fx.begin(),fx.end(),val,cmp);
         if(it==fx.end())
@@ -738,7 +785,7 @@ public:
         for(;;)
         {
             if(it->t >= astart)
-                ret += F(*it);
+                F(*it, ret);
             else
                 break;
             if(it==fx.begin())
@@ -818,7 +865,7 @@ struct tsnapshot
         else
             return (a+b) / 2.0;
     }
-    static double getq(const tsnapshot& s) { return s.q; }
+    static void getq(const tsnapshot& s, double& x) { x += s.q; }
     tsnapshot(tprice ab, tprice aa, tabstime at, tvolume aq, tvolume bvol, tvolume avol)
          : b(ab), a(aa), t(at), q(aq), Bvol(bvol), Avol(avol) {}
     tsnapshot(tabstime at) : b(klundefprice), a(khundefprice), t(at), q(0), Bvol(0), Avol(0) {}
@@ -836,7 +883,7 @@ public:
     /// sums trades in [\p astart, \p aend)
     double sumq(tabstime astart,tabstime aend) const
     {
-        return this->tjumpprocess<tsnapshot>::evaluate<tsnapshot::getq>(astart,aend);
+        return this->tjumpprocess<tsnapshot>::evaluate<double, tsnapshot::getq>(astart,aend);
     }
 
 
@@ -961,8 +1008,8 @@ struct tdsevent
     tdsevent(tabstime at): t(at),demand(0), supply(0) {}
     tdsevent(tabstime at, tprice ademand, tvolume asupply )
         : t(at),demand(ademand), supply(asupply) {}
-    static double getdemand(const tdsevent& e) { return e.demand; }
-    static double getsupply(const tdsevent& e) { return e.supply; }
+    static void getdemand(const tdsevent& e, double& x) { x += e.demand; }
+    static void getsupply(const tdsevent& e, double& x) { x += e.supply; }
 };
 
 
@@ -981,7 +1028,7 @@ public:
         tprice famount;
         tconsumptionevent(tabstime at) : t(at), famount(0) {}
         tconsumptionevent(tabstime at,tprice amount): t(at), famount(amount) {}
-        static double getc(const tconsumptionevent& e) { return e.famount; }
+        static void getc(const tconsumptionevent& e, double& c) { c += e.famount; }
     };
 
     /// record about a trade
@@ -1000,8 +1047,8 @@ public:
         tradingevent(tabstime at, tprice amoneydelta, tvolume astockdelta, unsigned apartner)
             : t(at), moneydelta(amoneydelta), stockdelta(astockdelta), partner(apartner)
              {}
-        static double getstockpurchase(const tradingevent& e) { return std::max(0,e.stockdelta); }
-        static double getstockselling(const tradingevent& e) { return std::max(0,-e.stockdelta); }
+        static void getstockpurchase(const tradingevent& e, double& x) { x += std::max(0,e.stockdelta); }
+        static void getstockselling(const tradingevent& e, double& x) { x+= std::max(0,-e.stockdelta); }
     };
 
 
@@ -1052,7 +1099,8 @@ public:
     /// computes the sum of all consumptions
     tprice totalconsumption() const
     {
-        return fconsumption.evaluate<tconsumptionevent::getc>(0,std::numeric_limits<tabstime>::max());
+
+        return fconsumption.evaluate<double, tconsumptionevent::getc>(0,std::numeric_limits<tabstime>::max());
 /*        tprice c = 0;
         for(unsigned k=0; k<fconsumption.size(); k++)
             c += fconsumption[k].famount;
@@ -1343,7 +1391,7 @@ public:
 /// is or is not \p builtin. \p S have to dispose of a default constructor.
 /// (I wonder now why this definition is two-stage one,
 /// maybe for some other versions of competitor class.s...).
-template<typename S, bool chronos = true, bool nowarmup = false>
+template<typename S, bool chronos = false, bool nowarmup = false>
 class competitor : public competitorbase<chronos>
 {
     const std::string fname;
@@ -2114,7 +2162,7 @@ public:
                 o << fstrategyinfos[i].name();
                 for(unsigned j=1; j<=nsnaps; j++)
                     o << "," << fstrategyinfos[i].consumption().evaluate
-                           <tstrategyinfo::tconsumptionevent::getc>((j-1)*dt,j * dt);
+                           <double, tstrategyinfo::tconsumptionevent::getc>((j-1)*dt,j * dt);
                 o << std::endl;
             }
 
@@ -2127,7 +2175,7 @@ public:
                 o << fstrategyinfos[i].name();
                 for(unsigned j=1; j<=nsnaps; j++)
                     o << "," << fstrategyinfos[i].tradinghistory().evaluate
-                           <tstrategyinfo::tradingevent::getstockpurchase>((j-1)*dt,j * dt);
+                           <double, tstrategyinfo::tradingevent::getstockpurchase>((j-1)*dt,j * dt);
                 o << std::endl;
             }
 
@@ -2139,7 +2187,7 @@ public:
                 o << fstrategyinfos[i].name();
                 for(unsigned j=1; j<=nsnaps; j++)
                     o << "," << fstrategyinfos[i].tradinghistory().evaluate
-                           <tstrategyinfo::tradingevent::getstockselling>((j-1)*dt,j * dt);
+                           <double, tstrategyinfo::tradingevent::getstockselling>((j-1)*dt,j * dt);
                 o << std::endl;
             }
 
@@ -2151,7 +2199,7 @@ public:
                 o << fstrategyinfos[i].name();
                 for(unsigned j=1; j<=nsnaps; j++)
                     o << "," << fstrategyinfos[i].dshistory().evaluate
-                           <tdsevent::getdemand>((j-1)*dt,j * dt);
+                           <double, tdsevent::getdemand>((j-1)*dt,j * dt);
                 o << std::endl;
             }
 
@@ -2163,7 +2211,7 @@ public:
                 o << fstrategyinfos[i].name();
                 for(unsigned j=1; j<=nsnaps; j++)
                     o << "," << fstrategyinfos[i].dshistory().evaluate
-                           <tdsevent::getsupply>((j-1)*dt,j * dt);
+                           <double, tdsevent::getsupply>((j-1)*dt,j * dt);
                 o << std::endl;
             }
             o << std::endl;
@@ -3233,7 +3281,7 @@ inline int tmarketdef::findduration(unsigned nstrategies, const tmarketdef& def,
 
         // tbd create infinitywallet
         std::vector<twallet> e(nstrategies,twallet::infinitewallet());
-        competitor<calibratingstrategy> c;
+        competitor<calibratingstrategy,true> c;
         std::vector<competitorbase<true>*> s;
         for(unsigned j=0; j<nstrategies; j++)
             s.push_back(&c);

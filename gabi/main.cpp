@@ -13,16 +13,11 @@
 #include "msstrategies/naivemmstrategy.hpp"
 #include "msstrategies/liquiditytakers.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"
-#include "msstrategies/neuralnetstrategy.hpp"
-#include "msstrategies/greedystrategy.hpp"
 #include "msstrategies/initialstrategy.hpp"
 #include "msstrategies/maslovstrategy.hpp"
 
-#include "nets/actorcritic.hpp"
-#include "nets/trainer.hpp"
-#include "nets/rewards.hpp"
-
 #include <torch/torch.h>
+#include "config.hpp"
 
 using namespace marketsim;
 
@@ -38,6 +33,10 @@ int main()
     try
     {
         /* simulation settings */
+        
+        //using testedstrategy = greedystrat;
+        //using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
+        using testedstrategy = spec_neuralstrategy;  // speculator
 
         // change accordingly (but true is still beta),
         constexpr bool chronos = false;
@@ -48,53 +47,15 @@ int main()
         // if false, run only the tested strategy (without the naive mm)
         bool with_mm = true;
 
-        constexpr bool verbose = false;
-
         // change accordingly (one unit rougly corresponds to one second)
         constexpr tabstime runningtime = 1000;
+        //constexpr tabstime runningtime = 5000;
         //constexpr tabstime runningtime = 8 * 3600;
 
         // change accordingly
         twallet endowment(5000,100);
 
         tmarketdef def;
-
-        /* neural net settings */
-        // state and actions
-        constexpr int hidden_size = 256;  // number of neurons in a layer
-        constexpr int n_steps = 5;  // returns are 5 steps into the future
-        constexpr int spread_lim = 5;  // actions are only alpha +- spread_lim, beta +- spread_lim
-        
-        constexpr int cons_mult = 100;  // in case of continuous actions, the predicted value is multiplied by this number
-
-        // strategy settings
-        // sell limits - note that if both money and stocks are low, the strategy will try to trade some
-        constexpr int cons_lim = 500;  // don't consume if you have less than this
-        constexpr int keep_stocks = 10;  // don't sell if you have less than 10
-
-        constexpr int volume = 10;  // volume for bids and asks
-
-        constexpr int cons_step = 125;  // for discrete actions, the max consumption is cons_parts * cons_step
-        constexpr int cons_parts = 4;  // number of consumption steps
-        constexpr bool entropy_reg = true;  // entropy regularization for more exploration
-        
-        using dnetwork = ACDiscrete<4, hidden_size, spread_lim, cons_step * cons_parts, cons_parts>;
-        using cnetwork = ACContinuous<4, hidden_size, 1, cons_mult>;
-        using network = cnetwork;  // change to dnetwork to use discrete actions
-
-        constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
-        constexpr int stock_div = 10; // weight stock value difference by stock_div / stock
-
-        using wreturns_func = WeightedDiffReturn<n_steps, money_div, stock_div, verbose>;
-        using dreturns_func = DiffReturn<n_steps>;
-        using returns_func = wreturns_func;  // change to dreturns_funct to use returns that are not weighted
-        
-        using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg>;
-
-        using neuralstrategy = neuralnetstrategy<trainer, cons_lim, keep_stocks, spread_lim, cons_step, volume, verbose>;
-        using greedystrategy = greedystrategy<verbose>;
-
-        using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
 
         enum ewhattodo { esinglerunsinglestrategy,
                          erunall,
@@ -131,7 +92,7 @@ int main()
         competitor<testedstrategy,chronos> ts(name);
 
         std::string gname = "greedy";
-        competitor<greedystrategy,chronos> gs(name);
+        competitor<greedystrat,chronos> gs(name);
 
         std::string masl = "maslov";
         competitor<maslovstrategy,chronos> ms(masl);

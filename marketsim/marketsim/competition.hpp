@@ -14,7 +14,11 @@ struct tcompetitiondef
     /// number of runs within the competition
     unsigned samplesize = 100;
     /// duration of a single run
-    tabstime timeofrun = 1000;
+    tabstime timeofrun = 3600;
+    int seed = 1;
+    int seeddelta = 123;
+    /// used e.g. to prefix log files
+    std::string id = "";
     /// market parameters
     tmarketdef marketdef = tmarketdef();
 };
@@ -68,6 +72,8 @@ inline std::vector<competitionresult>
        o << "," << competitors[j]->name() ;
     o << std::endl;
 
+    int seed = compdef.seed;
+
     rescsv << "turn,id,c,m,s,lastp" << std::endl;
 
     unsigned nobs = 0;
@@ -76,12 +82,14 @@ inline std::vector<competitionresult>
         o << i << ",";
 
         tmarket m(compdef.timeofrun,compdef.marketdef);
+        m.seed(seed);
+        seed += compdef.seeddelta;
 
         std::ofstream log;
         if(logging)
         {
             std::ostringstream os;
-            os << "log" << i << ".csv";
+            os << compdef.id << "log" << i << ".csv";
             log.open(os.str());
             m.setlogging(log,m.def().loggingfilter);
         }
@@ -152,7 +160,7 @@ inline std::vector<competitionresult>
 
 template <bool chronos=true, bool calibrate = true, bool logging = false,
           typename D = tnodemandsupply>
-inline void competition(std::vector<competitorbase<chronos>*> competitors,
+inline std::vector<competitionresult> competition(std::vector<competitorbase<chronos>*> competitors,
                                   std::vector<twallet> endowments,
                                   const tcompetitiondef& cd,
                                   std::ostream& protocol
@@ -180,6 +188,7 @@ inline void competition(std::vector<competitorbase<chronos>*> competitors,
    if(garbage.size())
         std::clog << garbage.size()
             << " overrun strategies in garbage, sorry for memory leaks." << std::endl;
+   return res;
 }
 
 

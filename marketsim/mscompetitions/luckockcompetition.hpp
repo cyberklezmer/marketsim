@@ -22,7 +22,7 @@ inline void luckockcompetition(std::vector<competitorbase<chronos>*> acompetitor
     competitors.push_back(&initial);
     endowments.push_back(twallet::infinitewallet());
 
-    competitor<cancellinguniformluckockstrategy<1,200,360,3600,false>,
+    competitor<cancellinguniformluckockstrategy<1,200,360,3600,true>,
                       chronos,true> cul("luckock");
     competitors.push_back(&cul);
 

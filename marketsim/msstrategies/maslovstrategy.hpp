@@ -2,65 +2,74 @@
 #define MASLOVSTRATEGY_HPP
 
 #include "marketsim.hpp"
+#include "msstrategies/cancellingdsstrategy.hpp"
+
 
 namespace marketsim
 {
 
-template <int eventspersec, int volatilityperc,int windowsize>
+template <int volume, int eventsperhour,int windowsize>
 class generalmaslovstrategy: public teventdrivenstrategy
 {
 public:
        generalmaslovstrategy()
-           : teventdrivenstrategy(1.0 / std::max( eventspersec, 1))
+           : teventdrivenstrategy(0),fpd(volume)
        {
-           fsigma = sqrt(pow(volatilityperc / 100,2) / ( 24 * 3600* 365 ) * interval());
        }
 
-       virtual trequest event(const tmarketinfo&, tabstime, trequestresult* last)
+       virtual trequest event(const tmarketinfo& mi, tabstime, trequestresult*)
        {
             possiblylog("event procedure entered","by maslovstrategy");
-           if(!last)
-               flogfair = 2+3 * uniform();
 
-           flogfair += w(engine()) * fsigma;
-           double logprice = flogfair
-               + static_cast<double>(windowsize) * (uniform() - 0.5)/ 2.0;
-           bool buy = uniform() > 0.5;
-           tprice lprice = static_cast<tprice>(exp(logprice) + 0.5);
-           tpreorderprofile pp;
-           if(buy)
-           {
-               // we add this condition only to avoid useless formatting in case logging
-               // does not take place
-               if(market()->islogging())
-               {
-                   std::ostringstream ls;
-                   ls << "Lim. price: " << lprice;
-                   possiblylog("Buy limit order requested.",ls.str());
+            double constexpr eventspersec = eventsperhour / 3600.0;
+            setinterval(-log(uniform()) / eventspersec );
+
+            double ldp = mi.lastdefinedp();
+            if(!isnan(ldp))
+            {
+
+                bool buy = uniform() > 0.5;
+                double offset = (uniform() - 0.5) * windowsize;
+
+                tprice lprice = std::max(1,static_cast<tprice>(ldp + offset + 0.5));
+
+                tvolume v = fpd(engine());
+                tpreorderprofile pp;
+                if(buy)
+                {
+                   if(market()->islogging())
+                   {
+                      std::ostringstream ls;
+                      ls << "Lim. price: " << lprice;
+                      possiblylog("Buy limit order requested.",ls.str());
+                   }
+                   tpreorder p(lprice,v);
+                   pp.B.add(p);
                }
-               tpreorder p(lprice,1);
-               pp.B.add(p);
+               else
+               {
+                   if(market()->islogging())
+                   {
+                       std::ostringstream ls;
+                       ls << "Lim. price: " << lprice;
+                       possiblylog("sell limit order requested.",ls.str());
+                   }
+                   tpreorder o(lprice,v);
+                   pp.A.add(o);
+               }
+               return trequest({pp,trequest::teraserequest(false),0});
            }
            else
-           {
-               if(market()->islogging())
-               {
-                   std::ostringstream ls;
-                   ls << "Lim. price: " << lprice;
-                   possiblylog("sell limit order requested.",ls.str());
-               }
-               tpreorder o(lprice,1);
-               pp.A.add(o);
-           }
-           return trequest({pp,trequest::teraserequest(false),0});
+               return trequest();
        }
 private:
-    double flogfair;
-    double fsigma;
-    std::normal_distribution<> w;
+       std::poisson_distribution<> fpd;
 };
 
-using maslovstrategy = generalmaslovstrategy<10,30,10>;
+using maslovstrategy = generalmaslovstrategy<10,3600,10>;
+
+template <int volume, int eventsperhour, int meanlifesec, int windowsize>
+using cancellingmaslovstrategy = cancellingstrategy<generalmaslovstrategy<volume, eventsperhour, windowsize>, meanlifesec>;
 
 } // namespace
 #endif // MASLOVSTRATEGY_HPP
