@@ -28,6 +28,8 @@ struct competitionresult
 {
     /// total (raw) consumption achieved
     statcounter consumption;
+    /// total (raw) consumption achieved
+    statcounter value;
     /// number of runs
     unsigned nruns = 0;
     /// number of runs ended by exception
@@ -117,17 +119,15 @@ inline std::vector<competitionresult>
             {
                 o << "1,OK," << rest*100 << "%,";
                 auto r = m.results();
-                double p = r->fhistory.p(std::numeric_limits<double>::max());
+                double p = r->lastdefinedp();
                 for(unsigned j=0; j<n; j++)
                 {
                     auto& tr= r->fstrategyinfos[j];
-//                    auto& e = es[j];
-//                    double m = (tr.wallet().money() - e.money());
+                    double m = tr.wallet().money() - endowments[j].money();
+                    double n = tr.wallet().stocks() - endowments[j].stocks();
                     double c = tr.totalconsumption();
 
-//                    double v = c + m;
-//                    if(!isnan(p))
-//                          v += p * (tr.wallet().stocks() - e.stocks());
+                    double v = c + m + n*p;
                     o << c << ",";
                     rescsv << i << "," << competitors[j]->name() << j << ","
                            << c << "," << tr.wallet().money() << ","
@@ -136,6 +136,8 @@ inline std::vector<competitionresult>
                         rescsv << p;
                     rescsv << std::endl;
                     ress[j].consumption.add(c);
+                    if(!isnan(v))
+                        ress[j].value.add(v);
                     ress[j].nruns++;
                     if(tr.isendedbyexception())
                         ress[j].nexcepts++;
