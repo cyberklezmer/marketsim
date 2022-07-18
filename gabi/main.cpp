@@ -35,8 +35,8 @@ int main()
         /* simulation settings */
         
         //using testedstrategy = greedystrat;
-        //using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
-        using testedstrategy = spec_neuralstrategy;  // speculator
+        using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
+        //using testedstrategy = spec_neuralstrategy;  // speculator
 
         // change accordingly (but true is still beta),
         constexpr bool chronos = false;

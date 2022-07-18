@@ -30,7 +30,12 @@ namespace marketsim {
 
     // strategy settings
     // sell limits - note that if both money and stocks are low, the strategy will try to trade some
-    constexpr int cons_lim = 500;  // don't consume if you have less than this
+    constexpr bool use_fixed_consumption = true;
+    constexpr int fixed_cons = 200;
+    constexpr int with_stocks = true;
+    constexpr bool explore = !use_fixed_consumption;
+
+    constexpr int cons_lim = use_fixed_consumption ? 5000 : 500;  // don't consume if you have less than this
     constexpr int keep_stocks = 10;  // don't sell if you have less than 10
 
     constexpr int volume = 10;  // volume for bids and asks
@@ -50,9 +55,9 @@ namespace marketsim {
     using bid_ask_cont = ContinuousActions<tanh_activation, softplus_activation, hidden_size, 1>;
     using cons_cont = ContinuousActions<softplus_activation, softplus_activation, hidden_size, 1, cons_mult>; 
 
-    using dnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete>;
-    using cnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_cont, bid_ask_cont, cons_cont>;
-    using dflag_network = ActorCriticFlags<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete>;
+    using dnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete, !use_fixed_consumption>;
+    using cnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_cont, bid_ask_cont, cons_cont, !use_fixed_consumption>;
+    using dflag_network = ActorCriticFlags<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete, !use_fixed_consumption>;
     using network = dflag_network;  // change to dnetwork to use discrete actions
 
     constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
@@ -61,19 +66,19 @@ namespace marketsim {
 
     using wreturns_func = WeightedDiffReturn<n_steps, money_div, stock_div, verbose, separately>;
     using dreturns_func = DiffReturn<n_steps>;
-    using returns_func = wreturns_func;  // change to dreturns_funct to use returns that are not weighted
+    using returns_func = dreturns_func;  // change to dreturns_funct to use returns that are not weighted
     
     using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
 
     // mm settings
     using order = neuralmmorder<keep_stocks, volume, verbose>;
-    using neuralstrategy = neuralnetstrategy<trainer, order, cons_lim, spread_lim, cons_step, verbose>;
+    using neuralstrategy = neuralnetstrategy<trainer, order, cons_lim, spread_lim, cons_step, verbose, true, explore, true, !use_fixed_consumption, fixed_cons, with_stocks>;
     using greedystrat = greedystrategy<cons_lim, verbose, random_strategy>;
 
     // speculator settings
     using spec_order = neuralspeculatororder<volume, verbose>;
-    using spec_network = ActorCriticSpeculator<state_size, hidden_size, state_layer, cons_discrete>;
+    using spec_network = ActorCriticSpeculator<state_size, hidden_size, state_layer, cons_discrete, !use_fixed_consumption>;
     using spec_trainer = NStepTrainer<spec_network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
-    using spec_neuralstrategy = neuralnetstrategy<spec_trainer, spec_order, cons_lim, spread_lim, cons_step, verbose, true, true, false>;
+    using spec_neuralstrategy = neuralnetstrategy<spec_trainer, spec_order, cons_lim, spread_lim, cons_step, verbose, true, explore, false, !use_fixed_consumption, fixed_cons, with_stocks>;
 
 }

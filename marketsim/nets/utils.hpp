@@ -57,7 +57,7 @@ namespace marketsim {
             return std::make_pair<>(alpha, beta);
     }
 
-    template <int conslim, bool verbose = false, int explore_cons = 0, bool explore = false>
+    template <int conslim, bool verbose = false, bool with_stocks = false, int explore_cons = 0, bool explore = false>
     double modify_consumption(const tmarketinfo& mi, double conspred) {
             // try to do some nonzero consumption
             if (explore) {
@@ -72,7 +72,9 @@ namespace marketsim {
             }
 
             // don't consume if money low
-            double lim = mi.mywallet().money();// - mi.myorderprofile().B.value();
+            double lim = mi.mywallet().money();
+            lim = with_stocks ? lim + mi.beta() * mi.mywallet().stocks() : lim;
+
             if ((lim - conspred) < conslim) {
                 conspred = 0.0;
             }
@@ -148,7 +150,7 @@ namespace marketsim {
         std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks() << std::endl;
     }
 
-    template <int volume, int keep_stocks, bool verbose = false, bool erase = true>
+    template <int volume, int keep_stocks, bool verbose = false, bool emergency = true, bool erase = true>
     ordertemplate create_order(const tmarketinfo& mi, tprice bid, tprice ask, tprice cons) {
 			ordertemplate ot(erase);
             
@@ -169,7 +171,7 @@ namespace marketsim {
             }
 
             // get out of low resources
-            if (!stocks_enough && !b_enough) {
+            if (emergency && !stocks_enough && !b_enough) {
                 if (verbose) {
                     std::cout << "emergency" << std::endl;
                 }
