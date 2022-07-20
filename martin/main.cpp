@@ -9,7 +9,7 @@
 #include "msstrategies/marketorderplacer.hpp"
 #include "marketsim/competition.hpp"
 #include "marketsim/tests.hpp"
-#include "msstrategies/tadpmarketmaker.hpp"
+#include "msstrategies/adpmarketmaker.hpp"
 #include "msstrategies/naivemmstrategy.hpp"
 #include "msstrategies/lessnaivemmstrategy.hpp"
 #include "msstrategies/firstsecondstrategy.hpp"

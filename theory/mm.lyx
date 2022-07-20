@@ -6,6 +6,9 @@
 \origin unavailable
 \textclass article
 \use_default_options true
+\begin_modules
+theorems-ams
+\end_modules
 \maintain_unincluded_children false
 \language english
 \language_package default
@@ -29,6 +32,7 @@
 \bibtex_command default
 \index_command default
 \paperfontsize default
+\spacing single
 \use_hyperref false
 \papersize default
 \use_geometry false
@@ -44,6 +48,7 @@
 \use_package undertilde 1
 \cite_engine basic
 \cite_engine_type default
+\biblio_style plain
 \use_bibtopic false
 \use_indices false
 \paperorientation portrait
@@ -88,7 +93,708 @@ Martin Šmíd, Peter Hron, Gabriela Suchopárová, Karel Vrbenský
 \end_layout
 
 \begin_layout Section*
-Market Maker
+Decision problem
+\end_layout
+
+\begin_layout Standard
+Consider an agent trading on a limit order market, at a times 
+\begin_inset Formula $0=\tau_{0}<\tau_{1}<\dots.$
+\end_inset
+
+At time 
+\begin_inset Formula $\tau_{i}$
+\end_inset
+
+ putting a set of buy limit orders 
+\begin_inset Formula $A_{i}=(a_{i}^{1},\dots,a_{i}^{\mu_{i}})$
+\end_inset
+
+, 
+\begin_inset Formula $a_{i}^{j}\in\mathbb{N},$
+\end_inset
+
+ with volumes 
+\begin_inset Formula $V_{i}=(v_{i}^{1},\dots,v_{i}^{\mu_{i}})$
+\end_inset
+
+, and sell limit orders orders 
+\begin_inset Formula $B_{i}=(b_{i}^{1},\dots,b_{i}^{\nu_{t}})$
+\end_inset
+
+ with volumes 
+\begin_inset Formula $W_{i}=(w_{i}^{1},\dots,w_{i}^{\nu_{i}})$
+\end_inset
+
+ and possibly consuming 
+\begin_inset Formula $c_{i}\in\mathbb{N}_{0}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+We assume that the agent maximizes
+\begin_inset Formula 
+\begin{equation}
+V=\sum_{i=0}^{\infty}\eta^{\tau_{i}}c_{i}\label{eq:cons-1}
+\end{equation}
+
+\end_inset
+
+where 
+\begin_inset Formula $\eta<1$
+\end_inset
+
+ is a discount factor very close to one.
+ Denote 
+\begin_inset Formula $m_{i}$
+\end_inset
+
+ and 
+\begin_inset Formula $n_{i}$
+\end_inset
+
+ the amount of money, stock respectively, held at time 
+\begin_inset Formula $\tau_{i}$
+\end_inset
+
+.
+ Denote 
+\begin_inset Formula $\xi_{i}$
+\end_inset
+
+ the state of the market at 
+\begin_inset Formula $\tau_{i}$
+\end_inset
+
+.
+ At each time 
+\begin_inset Formula $\tau_{i}$
+\end_inset
+
+ the actions 
+\begin_inset Formula $U_{i}=(c_{i},A_{i},B_{i},V_{i},W_{i})$
+\end_inset
+
+ have to fulfill
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{multline}
+0\leq c_{i}\leq m,\qquad(A_{i},B_{i},V_{i},W_{i})\in X(m_{i}-c,n_{i})\cap Y(\xi_{i})\\
+X(m,n)=\{(A,B,V,W):m-\sum_{i=1}^{\dim(B)}B_{i}W_{i}\geq0,n-\sum_{i=1}^{\dim(A)}A_{i}\geq0\}\label{eq:adef-1}
+\end{multline}
+
+\end_inset
+
+ where 
+\begin_inset Formula $Y$
+\end_inset
+
+ varies from application to application (we take 
+\begin_inset Formula $\sum_{i=1}^{0}=0$
+\end_inset
+
+).
+ 
+\end_layout
+
+\begin_layout Standard
+Without harming reality, we may assume 
+\begin_inset Formula $\Delta\tau_{i}$
+\end_inset
+
+ to be i.i.d.
+ (deterministic or random) small time intervals for which the market is
+ able to process the requests (if taking actions in larger and/or heterogeneous
+ intervals were optimal, than we could simply take no action at the remaining
+ instants).
+ In this case, we have 
+\begin_inset Formula $V=\sum_{i=0}^{\infty}\gamma c_{i}$
+\end_inset
+
+ where 
+\begin_inset Formula $\gamma=\mathbb{E}\eta^{\Delta\tau}$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+The Bellman equation is then 
+\begin_inset Formula 
+\begin{multline}
+V(m,n,\xi)=\max_{U\in(\{0,\dots,m\}\times X(m-c,n))\cap Y(\xi)}[c\\
++\gamma\mathbb{E}(V(m-c-D'B+C'A,n+D'\mathbf{1}-C\mathbf{1},\Xi)|\xi,A,B,V,W)\label{eq:bellm-2}
+\end{multline}
+
+\end_inset
+
+where 
+\begin_inset Formula $X$
+\end_inset
+
+ is given by (
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:adef-1"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), 
+\begin_inset Formula $C$
+\end_inset
+
+ and 
+\begin_inset Formula $D$
+\end_inset
+
+ is the vector of actually sold, bought, respectively, stocks and 
+\begin_inset Formula $\Xi$
+\end_inset
+
+ is the state of the market.
+ Note that the distribution of 
+\begin_inset Formula $C,D$
+\end_inset
+
+ and even 
+\begin_inset Formula $\Xi$
+\end_inset
+
+ depends on the quotes 
+\begin_inset Formula $A$
+\end_inset
+
+ and 
+\begin_inset Formula $B$
+\end_inset
+
+ and their volumes 
+\begin_inset Formula $V$
+\end_inset
+
+ and 
+\begin_inset Formula $W$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Proposition
+It holds that
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+\begin_inset Formula $V(0,0,\xi)=0$
+\end_inset
+
+ (no possibility to earn anything).
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset Formula $V(m,n,\xi)$
+\end_inset
+
+ is increasing in 
+\begin_inset Formula $m$
+\end_inset
+
+ with 
+\begin_inset Formula $\Delta{}_{m}V\geq1$
+\end_inset
+
+ (once a strategy 
+\begin_inset Formula $u$
+\end_inset
+
+ is optimal for 
+\begin_inset Formula $V(m,n,\xi)$
+\end_inset
+
+ and the strategy to consume 
+\begin_inset Formula $c=1$
+\end_inset
+
+ and use 
+\begin_inset Formula $u$
+\end_inset
+
+ brings value 
+\begin_inset Formula $1+V(m_{1},n,\xi)$
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset Formula $V(m,n,\xi)$
+\end_inset
+
+ is non-decreasing in 
+\begin_inset Formula $n$
+\end_inset
+
+, provided that 
+\begin_inset Formula $\Xi$
+\end_inset
+
+ is independent of process 
+\begin_inset Formula $n$
+\end_inset
+
+ (once a strategy 
+\begin_inset Formula $u$
+\end_inset
+
+ is optimal for 
+\begin_inset Formula $V(m,n_{1},r)$
+\end_inset
+
+ and 
+\begin_inset Formula $n_{2}>n_{1},$
+\end_inset
+
+ the strategy 
+\begin_inset Formula $u$
+\end_inset
+
+ is feasible for the new problem as we just keep 
+\begin_inset Formula $n_{2}-n_{1}$
+\end_inset
+
+ stocks forever; hence 
+\begin_inset Formula $V(m,n_{2},R)\geq V(m,n_{2},r)$
+\end_inset
+
+)
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+Further, denote 
+\begin_inset Formula 
+\[
+\mathbb{V}(m,n,\xi)=\max_{(A,B,V,W)\in X(m,n)\cap Y(\xi)}\mathbb{E}(V(m-D'B+C'A,n+D'\mathbf{1}-C\mathbf{1},\Xi)|\xi,A,B,V,W)
+\]
+
+\end_inset
+
+ and note that the Bellman equation may be rewritten as 
+\begin_inset Formula 
+\[
+V(m,n,\xi)=m+\max_{k\in\{0,\dots,m\}}F_{n,\xi}(k),\qquad F_{n,\xi}(k)=\gamma\mathbb{V}(k,n,\xi)-k
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Proposition
+It holds that
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+\begin_inset Formula $\Delta F_{n,\xi}(k)\geq\gamma-1$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+If 
+\begin_inset Formula $F$
+\end_inset
+
+ possesses a global maximum at 
+\begin_inset Formula $M=M(n,\xi),$
+\end_inset
+
+then, for any 
+\begin_inset Formula $m\geq k$
+\end_inset
+
+ , 
+\begin_inset Formula $m-K$
+\end_inset
+
+ is the optimal consumption and 
+\begin_inset Formula 
+\[
+V(m,n,\xi)=m+F_{n,\xi}(M)=m-M+\gamma\mathbb{V}(M,n,\xi)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+It follows that, once there is a global maximum of 
+\begin_inset Formula $F$
+\end_inset
+
+ at 
+\begin_inset Formula $M$
+\end_inset
+
+, then 
+\begin_inset Formula $F(M)\geq F(M+x)\geq F(M)-(1-\gamma)x$
+\end_inset
+
+, i.e.
+ on the right of 
+\begin_inset Formula $M$
+\end_inset
+
+, 
+\begin_inset Formula $F$
+\end_inset
+
+ finds itself in a very narrow cone; thus, approximation errors could impact
+ the optimal consumption to a great deal, so zo value iteration algorithms
+ without modifications are not suitable here.
+\end_layout
+
+\begin_layout Standard
+Further, we assume that 
+\begin_inset Formula $V$
+\end_inset
+
+ is concave both in 
+\begin_inset Formula $m$
+\end_inset
+
+.
+ This assumption intuitively makes sense, as putting a single additional
+ dollar or stock into the business probably helps the business less and
+ less as the capital grows.
+ Given this assumption 
+\begin_inset Formula $F$
+\end_inset
+
+ either has a global maximum or takes supremum in infinity.
+ Let us assume the former.
+ In this case, 
+\begin_inset Formula $M$
+\end_inset
+
+ is finite and 
+\begin_inset Formula $M$
+\end_inset
+
+ is non-decreasing in 
+\begin_inset Formula $m\leq M$
+\end_inset
+
+, which implies no consumption once 
+\begin_inset Formula $m\leq M$
+\end_inset
+
+ and consumption 
+\begin_inset Formula $m-M$
+\end_inset
+
+ otherwise.
+ The Bellman equation is then
+\begin_inset Formula 
+\begin{multline*}
+\mathbb{V}(m,n,\xi)=\max_{(A,B,V,W)\in X(m,n)\cap Y(\xi)}[c(n,\xi)+\\
+\gamma\mathbb{E}(V(m-D'B+C'A-c(n,\xi),n+D'\mathbf{1}-C\mathbf{'1},\Xi)|\xi,A,B,V,W)],\\
+c(n,\xi)=\max(0,m-M(n,\xi)).
+\end{multline*}
+
+\end_inset
+
+This implies that, for 
+\begin_inset Formula $m\geq M(n,\xi)$
+\end_inset
+
+, 
+\begin_inset Formula $V(m,n,\xi)=V(M(n,\xi),n,\xi)+m-M(n,\xi)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Due to the problems with approximation, mentioned above, we propose a heuristic
+ consisting in 
+\begin_inset Quotes eld
+\end_inset
+
+hard-wirinig
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Formula $K$
+\end_inset
+
+ and approximating 
+\begin_inset Formula $V$
+\end_inset
+
+ only in 
+\begin_inset Formula $\{m\leq M(n,\xi$
+\end_inset
+
+)} and force concavity of V.
+ Further, we use only midpoint price 
+\begin_inset Formula $p$
+\end_inset
+
+ out of 
+\begin_inset Formula $\xi$
+\end_inset
+
+, which is the in our opinion minimum needed for evaluation of stock held
+ – it can be roughly assumed that, for larger 
+\begin_inset Formula $n$
+\end_inset
+
+, that 
+\begin_inset Formula $V(m,n+1,\xi)\geq V(m,n,\xi)+p$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+In particular, we set 
+\begin_inset Formula $M$
+\end_inset
+
+ by means of a 
+\begin_inset Quotes eld
+\end_inset
+
+minimal security stock inventory
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Formula $I$
+\end_inset
+
+ as 
+\begin_inset Formula $M(p)=Ip$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Subsection*
+Simplest Heuristics - Linear approximation
+\end_layout
+
+\begin_layout Standard
+Here we would approximate 
+\begin_inset Formula $V$
+\end_inset
+
+ by a 
+\begin_inset Quotes eld
+\end_inset
+
+Taylor expansion
+\begin_inset Quotes erd
+\end_inset
+
+
+\begin_inset Formula 
+\[
+V(m+x,n+y,p)\doteq V(m,n,p)+\Delta_{m}V(m,n,p)(x-m)+\Delta_{n}V(m,n,p)(y-n)
+\]
+
+\end_inset
+
+If we further assume 
+\begin_inset Formula $\text{\ensuremath{\Delta_{n}V=p\Delta_{n}V} }$
+\end_inset
+
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\xout off
+\uuline off
+\uwave off
+\noun off
+\color none
+(here we in fact evaluate the stock by its current price) and approximate
+ 
+\begin_inset Formula $V$
+\end_inset
+
+ in 
+\begin_inset Formula $(m-c(m,p),n)$
+\end_inset
+
+, our maximization turns to be 
+\begin_inset Formula 
+\[
+\max\mathbb{E}\left(v_{0}+\phi[(C'A-D'B)+p(D'\mathbf{1}-C\mathbf{'1})]\right)
+\]
+
+\end_inset
+
+for some 
+\begin_inset Formula $\phi,$
+\end_inset
+
+ which, thanks to the monotonicity of 
+\begin_inset Formula $V$
+\end_inset
+
+, gives the same optimal solution as 
+\begin_inset Formula 
+\[
+\max\mathbb{E}[(C'A-D'B)+p(D'\mathbf{1}-C\mathbf{'1})]=\max[\mathbb{E}C'A-\mathbb{E}D'B)+p(\mathbb{E}D'\mathbf{1}-\mathbb{E}C\mathbf{'1})]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection*
+Concave Approximation
+\end_layout
+
+\begin_layout Standard
+Further, we assume linearity of 
+\begin_inset Formula $V$
+\end_inset
+
+ in 
+\begin_inset Formula $n$
+\end_inset
+
+ from some point 
+\begin_inset Formula $N=I.$
+\end_inset
+
+ We then have
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+V(m,n,\xi)\doteq\begin{cases}
+W(m,n,p) & m\leq M(p),n\leq N\\
+W(M,n,p)+m-M(p) & m>M(p),n\leq N\\
+W(m,N,p)+p(n-N) & m\leq M(p),n>N\\
+W(M,N,p)+(m-M(p))+p(n-N) & m>M(p),n>N
+\end{cases}
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $W(m,n,p)=W(m,n,p;\theta)$
+\end_inset
+
+ is a suitable concave parametric function such that 
+\begin_inset Formula $W(0,0,p)=0$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Introduction - notes
+\end_layout
+
+\begin_layout Enumerate
+In extreme case the customers are willing to buy/sell for given prices (not
+ implemented), MM earns enormously , speculators would not earn
+\end_layout
+
+\begin_layout Enumerate
+In middle case when customers put limit orders around the current price
+ (Maslov), the opportunity for MMs is less but still exists.
+ prices are more or less random walk, speculators would not earn
+\end_layout
+
+\begin_layout Enumerate
+In the case when the investors do not look at the current price and put
+ limit orders around a fundamental price (Luckock), the opportunity for
+ MM is greater than above.
+ As prices are mean-reverting, speculators could earn
+\end_layout
+
+\begin_layout Enumerate
+Competition between MM shrinks spreads (so diminish the overall earning)
+\end_layout
+
+\begin_layout Enumerate
+Summarized: MM alone should earn, speculators rarely
+\end_layout
+
+\begin_layout Enumerate
+What MM earns on? Its aim is always to be on advantageous positions in the
+ queue of orders.
+ The quotes should be as great as possible (but he has to posses of enough
+ money)
+\end_layout
+
+\begin_layout Enumerate
+What speculator earns on? Buying stock, which he sells for higher price
+ and vide versa.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+A heuristic
+\end_layout
+
+\begin_layout Standard
+Say that 
+\begin_inset Formula $\Xi_{t}$
+\end_inset
+
+ si strictly stationary.
+ This is clearly not the case in practice, but can serve as an approximation
+ for day horizons.
+ Say that 
+\begin_inset Formula 
+\[
+\pi(m,n,\xi)=(A,B,V,W)(m,n,\xi)
+\]
+
+\end_inset
+
+ be a stationary policy 
+\end_layout
+
+\begin_layout Section*
+Decision problem
 \end_layout
 
 \begin_layout Standard
