@@ -13,8 +13,8 @@ class marketorderplacer: public tdsprocessingstrategy<demand,supply>
 public:
      virtual trequest dsevent(const tdsevent& ds, const tmarketinfo& mi, tabstime t)
      {
-          bool buy = ds.demand > 0;
-          bool sell = ds.supply > 0;
+          bool buy = ds.ds.d > 0;
+          bool sell = ds.ds.s > 0;
           if(buy && sell)
                assert(1);
 
@@ -25,64 +25,23 @@ public:
 
           if(buy)
           {
-              const auto& A = mi.orderbook().A;
-              tprice lp = klundefprice;
-              tprice cost = 0;
-              tvolume av = 0;
-              if(A.size()==0)
+              if(mi.orderbook().A.size()==0)
               {
                   if(ldb != klundefprice)
-                  {
-                      tvolume ov = ds.demand / ldb + 1;
-                      ret.addbuylimit(ldb,ov);
-                  }
-                  // else
-                  // std::cout << "ldb == klundefprice" << std::endl;
+                      ret.addbuylimit(ldb,ds.ds.d);
               }
               else
-              {
-                  for(unsigned i=0; i<A.size(); i++)
-                  {
-                      av += A[i].volume;
-                      cost += A[i].volume * A[i].price;
-                      lp = A[i].price;
-                      if(cost >= ds.demand)
-                          break;
-                  }
-                  tprice remaining = ds.demand - cost;
-                  // we add one as maybe he will have spare money - if not, thn only the
-                  // order will be shortened
-                  tvolume ov = remaining <= 0 ? av : av + (remaining/lp) + 1;
-                  ret.addbuylimit(lp,ov);
-              }
-           }
+                  ret.addbuymarket(ds.ds.d);
+          }
           else // buy
           {
-              const auto& B = mi.orderbook().B;
-              tprice lp = khundefprice;
-              tvolume av = 0;
-              if(B.size()==0)
+              if(mi.orderbook().B.size()==0)
               {
                   if(lda != khundefprice)
-                  {
-                      ret.addselllimit(lda,ds.supply);
-                  }
-                //  else
-                //    std::cout << "lda == khundefprice" << std::endl;
-
+                      ret.addselllimit(lda,ds.ds.s);
               }
               else
-              {
-                  for(unsigned i=0; i<B.size(); i++)
-                  {
-                      av += B[i].volume;
-                      lp = B[i].price;
-                      if(av >= ds.supply)
-                          break;
-                  }
-                  tvolume ov = ds.supply;
-                  ret.addselllimit(lp,ov);
-              }
+                  ret.addsellmarket(ds.ds.s);
            }
            return ret;
        }

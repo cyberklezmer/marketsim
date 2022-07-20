@@ -23,34 +23,20 @@ public:
            double delta = w(engine()) * fsigma * sqrt(1.0 / ( 24 * 3600 * 365 ) * dt);
            flogfair += delta;
            flastt = t;
-           if(ds.demand==0 || ds.supply==0)
+           trequest ret;
+           if(ds.ds.d>0 || ds.ds.s>0)
            {
                tprice lprice = static_cast<tprice>(exp(flogfair) + 0.5)
                        + (uniform() - 0.5) * fwindowsize;
                if(lprice < 1)
                    lprice = 1;
                tpreorderprofile pp;
-               if(ds.demand != 0)
-               {
-                   auto lda = info.lastdefineda();
-                   tvolume buyablevolume= lda == khundefprice ? 0 : ds.demand / lda;
-                   if(buyablevolume)
-                   {
-                      tpreorder p(lprice,buyablevolume);
-                      pp.B.add(p);
-                   }
-               }
-               else
-               {
-                   if(ds.supply > 0 && info.lastdefinedb() != klundefprice)
-                   {
-                       tpreorder o(lprice,ds.supply);
-                       pp.A.add(o);
-                   }
-               }
-               return trequest({pp,trequest::teraserequest(false),0});
+               if(ds.ds.d > 0)
+                  ret.addbuylimit(lprice,ds.ds.d);
+               if(ds.ds.s > 0)
+                  ret.addselllimit(lprice,ds.ds.s);
            }
-           return trequest();
+           return ret;
        }
 private:
     double flogfair;

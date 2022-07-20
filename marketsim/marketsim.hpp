@@ -995,21 +995,35 @@ public:
     }
 };
 
+struct tdsrecord
+{
+    tvolume d;
+    tvolume s;
+    tvolume stocksgranted;
+    tprice moneygranted;
+    bool check() const
+    {
+        if(d>0)
+            return s==0 && stocksgranted == 0;
+        if(s>0)
+            return d==0 && moneygranted == 0;
+        return true;
+    }
+};
+
 
 /// record about a demand/supply
 struct tdsevent
 {
     /// time of the trade
     tabstime t;
-    /// money from d/s
-    tprice demand;
-    /// increase/decrease of the (stock) inventory
-    tvolume supply;
-    tdsevent(tabstime at): t(at),demand(0), supply(0) {}
-    tdsevent(tabstime at, tprice ademand, tvolume asupply )
-        : t(at),demand(ademand), supply(asupply) {}
-    static void getdemand(const tdsevent& e, double& x) { x += e.demand; }
-    static void getsupply(const tdsevent& e, double& x) { x += e.supply; }
+    /// dsrecord
+    tdsrecord ds;
+    tdsevent(tabstime at): t(at),ds({0,0,0,0}) {}
+    tdsevent(tabstime at, tdsrecord ads )
+        : t(at),ds(ads) {}
+    static void getdemand(const tdsevent& e, double& x) { x += e.ds.d;}
+    static void getsupply(const tdsevent& e, double& x) { x += e.ds.s;}
 };
 
 
@@ -1083,11 +1097,11 @@ public:
         fwallet.changestocks(stockdelta);
     }
     /// accessor
-    void addds(tprice demand, tvolume supply, tabstime t)
+    void addds(tdsrecord r, tabstime t)
     {
-        fds.add(tdsevent(t, demand, supply));
-        fwallet.changemoney(demand);
-        fwallet.changestocks(supply);
+        fds.add(tdsevent(t, r));
+        fwallet.changemoney(r.moneygranted);
+        fwallet.changestocks(r.stocksgranted);
     }
     /// accessor
     const twallet& wallet() const { return fwallet; }
@@ -1223,11 +1237,7 @@ class tmarket;
 class tmarketinfo;
 class tmarketdata;
 
-struct tdsrecord
-{
-    tvolume d;
-    tvolume s;
-};
+
 
 class tdsbase
 {
@@ -1251,7 +1261,7 @@ public:
 class tnodemandsupply : public tdsbase
 {
     friend class tmarket;
-    virtual tdsrecord delta(tabstime, const tmarketdata&) { return {0,0}; }
+    virtual tdsrecord delta(tabstime, const tmarketdata&) { return {0,0,0,0}; }
 };
 
 
@@ -2888,6 +2898,14 @@ private:
     }
     void distributeds(const tdsrecord& ds, const std::vector<tstrategy*> strategies, tabstime t)
     {
+        if(!ds.check())
+        {
+            std::ostringstream s;
+            s << "Invalid ds record: d=" << ds.d << " s=" << ds.s
+              << " moneygranted=" << ds.moneygranted
+              << " stocksgranted=" << ds.stocksgranted;
+            throw marketsimerror(s.str());
+        }
         if(ds.d > 0)
         {
             unsigned numd = 0;
@@ -2901,7 +2919,7 @@ private:
                 {
                     if(strategies[i]->acceptsdemand())
                     {
-                        if(theone==0)
+                        if(theone==i)
                         {
                             int owner = findstrategy(strategies[i]->fid);
                             std::ostringstream s1;
@@ -2910,7 +2928,7 @@ private:
                             s2 << "Demand: " << ds.d;
 
                             possiblylog(floggingfilter.fds,0,s1.str(),s2.str());
-                            fmarketdata->fstrategyinfos[owner].addds(ds.d,0,t);
+                            fmarketdata->fstrategyinfos[owner].addds(ds,t);
                             break;
                         }
                         else
@@ -2921,7 +2939,7 @@ private:
             else
                 throw marketsimerror("No strategy to pass demand to");
         }
-        if(ds.s>0)
+        else // ds.d > 0
         {
             unsigned nums = 0;
             for(unsigned i=0; i< strategies.size(); i++)
@@ -2934,7 +2952,7 @@ private:
                 {
                     if(strategies[i]->acceptssupply())
                     {
-                        if(theone==0)
+                        if(theone==i)
                         {
                             int owner = findstrategy(strategies[i]->fid);
                             std::ostringstream s1;
@@ -2943,7 +2961,7 @@ private:
                             s2 << "Supply: " << ds.s;
 
                             possiblylog(floggingfilter.fds,0,s1.str(),s2.str());
-                            fmarketdata->fstrategyinfos[owner].addds(0,ds.s,t);
+                            fmarketdata->fstrategyinfos[owner].addds(ds,t);
                             break;
                         }
                         else

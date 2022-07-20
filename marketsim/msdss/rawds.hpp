@@ -15,7 +15,7 @@ public:
     {}
     virtual tdsrecord delta(tabstime t, const tmarketdata& md)
     {
-        tdsrecord ret = {0,0};
+        tdsrecord ret = {0,0,0,0};
         if(t > lastt)
         {
             double lambda = feventsperhour / 3600.0;
@@ -25,25 +25,13 @@ public:
             {
                 bool buy = uniform() > 0.5;
                 auto volume = pd(engine());
-                if(volume)
+                auto a = md.lastdefineda();
+                if(volume && a != khundefprice)
                 {
                     if(buy)
-                    {
-                        auto a = md.lastdefineda();
-                        if(a != khundefprice)
-                        {
-                            ret = { volume * a,0 };
-                        }
-                    }
+                        ret = { volume,0, volume*a,0 };
                     else
-                    {
-                        auto b = md.lastdefinedb();
-                        if(b != klundefprice)
-                        {
-                            ret = { 0,volume };
-                        }
-
-                    }
+                        ret = { 0,volume, 0, volume };
                 }
             }
             lastt = t;
