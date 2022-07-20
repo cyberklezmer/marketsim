@@ -9,7 +9,7 @@ namespace marketsim {
 
 
     template <int conslim, bool verbose = false, bool rand_actions = false, int cons = 500, int volume = 10,
-              int keep_stocks = 10, int spread_size = 5>
+              int keep_stocks = 10, int spread_size = 5, bool with_stocks = false>
     class greedystrategy : public teventdrivenstrategy {
     public:
         greedystrategy() :
@@ -40,7 +40,7 @@ namespace marketsim {
             tprice next_ask = a + ask;
             next_ask = (next_ask < 0) ? 1 : next_ask;
 
-            int next_cons = modify_consumption<conslim, verbose>(mi, cons);
+            int next_cons = modify_consumption<conslim, verbose, with_stocks>(mi, cons);
             auto ot = create_order<volume, keep_stocks, verbose>(mi, next_bid, next_ask, next_cons);
             if (verbose) {
                 print_state(mi, ot, bid, ask);

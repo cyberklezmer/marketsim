@@ -9,7 +9,8 @@
 namespace marketsim {
 
     template<typename TNet, typename TOrder, int conslim, int spread_lim, int explore_cons, bool verbose = true,
-             bool modify_c = true, bool explore = true, bool limspread = true>
+             bool modify_c = true, bool explore = true, bool limspread = true, bool train_cons = true, int fixed_cons = 200,
+             bool with_stocks = false>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
@@ -67,8 +68,8 @@ namespace marketsim {
         }
 
         void limit_cons(const tmarketinfo& mi, action_container<torch::Tensor>& next_action) {
-            double next_cons = next_action.cons.item<double>();
-            next_cons = modify_consumption<conslim, verbose, explore_cons, explore>(mi, next_cons);
+            double next_cons = train_cons ? next_action.cons.item<double>() : fixed_cons;
+            next_cons = modify_consumption<conslim, verbose, with_stocks, explore_cons, explore>(mi, next_cons);
             next_action.cons = torch::tensor({next_cons});
         }
 
@@ -95,7 +96,7 @@ namespace marketsim {
         std::vector<hist_entry> history;
     };
 
-    template <int volume = 10, bool verbose = false>
+    template <int volume = 10, bool verbose = false, bool with_stocks = false>
     class neuralspeculatororder {
     public:
         neuralspeculatororder() : lim(0.5) {} 
@@ -128,7 +129,7 @@ namespace marketsim {
         double lim;
     };
 
-    template <int keep_stocks, int volume = 10, bool verbose = false>
+    template <int keep_stocks, int volume = 10, bool verbose = false, bool emergency = true>
     class neuralmmorder {
     public:
         neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice) {}
@@ -156,7 +157,7 @@ namespace marketsim {
             }
 
             // create order template
-            auto ot = create_order<volume, keep_stocks, verbose>(mi, bid, ask, int(conspred));
+            auto ot = create_order<volume, keep_stocks, verbose, emergency>(mi, bid, ask, int(conspred));
             if (verbose) {
                 print_state(mi, ot, bpred, apred);
             }
