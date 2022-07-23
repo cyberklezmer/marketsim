@@ -10,9 +10,11 @@
 #include "marketsim/tests.hpp"
 #include "msstrategies/naivemmstrategy.hpp"
 #include "msstrategies/maslovstrategy.hpp"
+#include "msstrategies/heuristicstrategy.hpp"
 #include "msstrategies/stupidtraders.hpp"
 #include "mscompetitions/dsmaslovcompetition.hpp"
 #include "mscompetitions/originalcompetition.hpp"
+#include "mscompetitions/separatecompetition.hpp"
 #include "msstrategies/technicalanalyst.hpp"
 #include "msstrategies/buyer.hpp"
 #include "msstrategies/adpmarketmaker.hpp"
@@ -34,7 +36,7 @@ int main()
         constexpr tabstime runningtime = 100;
 
         // change accordingly
-        twallet competitorsendowment(1000, 100);
+        twallet competitorsendowment(5000, 100);
 
         tmarketdef def;
 
@@ -53,11 +55,12 @@ int main()
             edetailedcompetiton,
             emaslovcompetition,
             eoriginalcompetition,
-            ebuyerscompetition
+            ebuyerscompetition,
+            ezicompetition
         };
 
         // change accordingly
-        ewhattodo whattodo = edetailedcompetiton;
+        ewhattodo whattodo = ezicompetition;
 
         switch (whattodo)
         {
@@ -134,6 +137,27 @@ int main()
                 competitorsendowment,competitorsendowment },
                 cdef, std::clog);
 
+        }
+        break;
+        case ezicompetition:
+        {
+            competitor<naivemmstrategy<10>> cm("naivka");
+            competitor<heuristicstrategy<false>> h("heuristic");
+            competitor<adpmarketmaker> am("adpmm");
+
+            def.loggingfilter.fprotocol = true;
+            def.directlogging = true;
+            tcompetitiondef cdef;
+            cdef.samplesize = 10;
+            cdef.timeofrun = 100;
+
+            competitor<cancellingmaslovstrategy<10, 3600, 360, 30>> msf("maslovfast");
+            competitor<cancellinguniformluckockstrategy<10, 200, 360, 3600, false>> lsf("luckockfast");
+
+            competitor<cancellingmaslovstrategy<10, 900, 360, 30>> mss("maslovslow");
+            competitor<cancellinguniformluckockstrategy<10, 200, 360, 90, false>> lss("luckockslow");
+
+            separatecompetition<logging>({&cm,&am}, { &msf,&lsf,&mss,&lss }, cdef, twallet(5000, 100));
         }
         break;
         case emaslovcompetition:

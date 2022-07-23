@@ -20,12 +20,12 @@ namespace marketsim
 	public:
 		adpmarketmaker() : teventdrivenstrategy(1)
 		{
-			initprice = 100, qvol = 1;
-			bndmoney = 0, bndstocks = 0, last_stocks = 0;
-			ldelta = 15, udelta = 15;
+			initprice = 100, qvol = 10;
+			last_stocks = 0;
+			ldelta = 5, udelta = 10;
 			N = P = T4vec(2, T3vec(2, T2vec(ldelta + udelta + 1, Tvec(ldelta + udelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
-			Kparam = 3000, epsparam = 0.2, discfact = 0.999;
+			Kparam = 3000, epsparam = 0.7, discfact = 0.9;
 		}
 
 	private:
@@ -95,33 +95,34 @@ namespace marketsim
 			//calculate value function
 			double v = 0.0;
 			tprice m = mi.mywallet().money(); tvolume s = mi.mywallet().stocks();
-			tprice a_best = p + 1, b_best = std::min<tprice>(m, p - 1), c_best = 0;
+			tprice a_best = p + 1, b_best = std::min<tprice>(m, p - 1);
+			tprice cons = 0;
+			if (m > 5 * p) cons = m - 5 * p;
 
-			for (tprice c = 0; c + b_best * qvol <= m; c++)
-				for (tprice b = std::max(alpha - udelta, 1); (b < alpha) && (m - c - b * qvol >= 0); b++)
-					for (tprice a = beta + udelta; (a > b) && (a > beta); a--)
-					{
-						tprice da = std::min(std::max(a - alpha, beta - alpha - ldelta), beta - alpha + udelta),
-							db = std::min(std::max(b - beta, alpha - beta - udelta), alpha - beta + ldelta),
-							da_best = std::min(std::max(a_best - alpha, beta - alpha - ldelta), beta - alpha + udelta),
-							db_best = std::min(std::max(b_best - beta, alpha - beta - udelta), alpha - beta + ldelta);
+			for (tprice b = std::max(alpha - udelta, 1); (b < alpha) && (m - cons - b * qvol >= 0); b++)
+				for (tprice a = beta + udelta; (a > b) && (a > beta); a--)
+				{
+					tprice da = std::min(std::max(a - alpha, beta - alpha - ldelta), beta - alpha + udelta),
+						db = std::min(std::max(b - beta, alpha - beta - udelta), alpha - beta + ldelta),
+						da_best = std::min(std::max(a_best - alpha, beta - alpha - ldelta), beta - alpha + udelta),
+						db_best = std::min(std::max(b_best - beta, alpha - beta - udelta), alpha - beta + ldelta);
 
-						double u = 0.0, u_best = 0.0;
-						for (int C = 0; C <= 1; C++)
-							for (int D = 0; (D <= 1) && (s + (D - C) * qvol >= 0); D++)
-							{
-								int C_hat = C * qvol, D_hat = D * qvol;
-								u_best += c_best + discfact * W[m - c_best - D_hat * b_best + C_hat * a_best][s + D_hat - C_hat] *
-									P[C][D][da_best - (beta - alpha - ldelta)][db_best - (alpha - beta - udelta)];
-								u += c + discfact * W[m - c - D_hat * b + C_hat * a][s + D_hat - C_hat] * 
-									P[C][D][da - (beta - alpha - ldelta)][db - (alpha - beta - udelta)];
-							}
-						if (u_best < u)
+					double u = 0.0, u_best = 0.0;
+					for (int C = 0; C <= 1 && (s - C * qvol >= 0); C++)
+						for (int D = 0; (D <= 1); D++)
 						{
-							a_best = a; b_best = b; c_best = c;
-							v = u;
+							int C_hat = C * qvol, D_hat = D * qvol;
+							u_best += discfact * W[m - cons - D_hat * b_best + C_hat * a_best][s + D_hat - C_hat] *
+								P[C][D][da_best - (beta - alpha - ldelta)][db_best - (alpha - beta - udelta)];
+							u += discfact * W[m - cons - D_hat * b + C_hat * a][s + D_hat - C_hat] *
+								P[C][D][da - (beta - alpha - ldelta)][db - (alpha - beta - udelta)];
 						}
+					if (u_best < u)
+					{
+						a_best = a; b_best = b;
+						v = u;
 					}
+				}
 
 			b_best = m > 0 ? b_best : klundefprice;
 			a_best = s > 0 ? a_best : khundefprice;
@@ -140,7 +141,7 @@ namespace marketsim
 			trequest ord;
 			if(b_best != klundefprice) ord.addbuylimit(b_best, qvol);
 			if(a_best != khundefprice) ord.addselllimit(a_best, qvol);
-			ord.setconsumption(c_best);
+			ord.setconsumption(cons);
 			return ord;
 		}
 
