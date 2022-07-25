@@ -82,7 +82,7 @@ int main()
             competitor<stupidtrader<std::numeric_limits<tvolume>::max(), 3600, true>> ab("allbuyer");
             competitor<buyer> ts("buyer");
 
-            separatebszicomp<true, logging>({&ts,&ub,&ab});
+            separatebszicomp<true, logging>({/*&ts,*/&ub,&ab});
 
 /*        constexpr bool chronos = false;
         constexpr bool logging = true;
