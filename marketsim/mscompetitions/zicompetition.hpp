@@ -7,7 +7,7 @@
 namespace marketsim
 {
 
-template <bool chronos=false, bool logging = false>
+template <bool chronos=false, bool logging = false, typename D=tnodemandsupply>
 std::vector<competitionresult> zicompetition(
         std::vector<competitorbase<chronos>*> acompetitors,
         competitorbase<chronos>* zicompetitor,
@@ -25,7 +25,7 @@ std::vector<competitionresult> zicompetition(
     competitors.push_back(zicompetitor);
     endowments.push_back(twallet::infinitewallet());
 
-    return competition<chronos,true,logging>(competitors,endowments,adef,protocol);
+    return competition<chronos,true,logging,D>(competitors,endowments,adef,protocol);
 }
 
 }

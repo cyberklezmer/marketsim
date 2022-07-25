@@ -999,8 +999,8 @@ struct tdsrecord
 {
     tvolume d;
     tvolume s;
-    tvolume stocksgranted;
     tprice moneygranted;
+    tvolume stocksgranted;
     bool check() const
     {
         if(d>0)
@@ -2915,11 +2915,12 @@ private:
             if(numd > 0)
             {
                 unsigned theone = numd*uniform();
+                unsigned j=0;
                 for(unsigned i=0; i< strategies.size(); i++)
                 {
                     if(strategies[i]->acceptsdemand())
                     {
-                        if(theone==i)
+                        if(theone==j++)
                         {
                             int owner = findstrategy(strategies[i]->fid);
                             std::ostringstream s1;
@@ -2948,11 +2949,12 @@ private:
             if(nums > 0)
             {
                 unsigned theone = nums*uniform();
+                unsigned j=0;
                 for(unsigned i=0; i< strategies.size(); i++)
                 {
                     if(strategies[i]->acceptssupply())
                     {
-                        if(theone==i)
+                        if(theone==j++)
                         {
                             int owner = findstrategy(strategies[i]->fid);
                             std::ostringstream s1;

@@ -28,7 +28,11 @@ struct competitionresult
 {
     /// total (raw) consumption achieved
     statcounter consumption;
-    /// total (raw) consumption achieved
+    /// total final stock inventory
+    statcounter stocks;
+    /// total final money inventory
+    statcounter money;
+    /// total end value achieved
     statcounter value;
     /// number of runs
     unsigned nruns = 0;
@@ -136,6 +140,8 @@ inline std::vector<competitionresult>
                         rescsv << p;
                     rescsv << std::endl;
                     ress[j].consumption.add(c);
+                    ress[j].stocks.add(n);
+                    ress[j].money.add(m);
                     if(!isnan(v))
                         ress[j].value.add(v);
                     ress[j].nruns++;

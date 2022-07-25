@@ -6,7 +6,7 @@
 namespace marketsim
 {
 
-template <int volume, int intervalms, bool buyer>
+template <int volume, int eventsperhour, bool buyer>
 class stupidtrader: public teventdrivenstrategy
 {
 public:
@@ -15,10 +15,10 @@ public:
        {
        }
 
-       virtual trequest event(const tmarketinfo& info, tabstime t, trequestresult* lrr)
+       virtual trequest event(const tmarketinfo& info, tabstime , trequestresult* lrr )
        {
            if(!lrr)
-               setinterval(intervalms / 1000.0);
+               setinterval(eventsperhour / 3600);
            trequest r;
 
            if constexpr(buyer)
@@ -33,7 +33,7 @@ public:
                       r.addbuymarket(v);
                }
            }
-           else
+           else // buyer
            {
                auto mystocks = info.mywallet().stocks();
                if(mystocks > 0)

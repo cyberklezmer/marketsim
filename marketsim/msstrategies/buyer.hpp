@@ -127,6 +127,9 @@ namespace marketsim
 		T2vec W;
 		double E_stddev, F_stddev, E_mean, F_mean;
 		double p_m, k_m, lambda_m;
-	};
+        private:
+
+               virtual bool acceptsdemand() const  { return true; }
+        };
 
 }

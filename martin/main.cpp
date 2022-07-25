@@ -6,6 +6,7 @@
 #include <random>
 
 #include "marketsim.hpp"
+#include "msstrategies/stupidtraders.hpp"
 #include "msstrategies/marketorderplacer.hpp"
 #include "marketsim/competition.hpp"
 #include "marketsim/tests.hpp"
@@ -19,9 +20,13 @@
 #include "msstrategies/initialstrategy.hpp"
 #include "msstrategies/marketorderplacer.hpp"
 #include "msstrategies/heuristicstrategy.hpp"
+#include "msstrategies/buyer.hpp"
 #include "msdss/rawds.hpp"
 #include "mscompetitions/luckockcompetition.hpp"
 #include "mscompetitions/dsmaslovcompetition.hpp"
+#include "mscompetitions/zicompetition.hpp"
+#include "mscompetitions/separatecompetition.hpp"
+#include "mscompetitions/bscompetitions.hpp"
 
 using namespace marketsim;
 
@@ -71,7 +76,15 @@ int main()
 {
     try
     {
-        constexpr bool chronos = false;
+            constexpr bool logging = true;
+
+            competitor<stupidtrader<1, 3600, true>> ub("unitbuyer");
+            competitor<stupidtrader<std::numeric_limits<tvolume>::max(), 3600, true>> ab("allbuyer");
+            competitor<buyer> ts("buyer");
+
+            separatebszicomp<true, logging>({&ts,&ub,&ab});
+
+/*        constexpr bool chronos = false;
         constexpr bool logging = true;
         constexpr tabstime runningtime = 3600;
         twallet endowment(5000,100);
@@ -100,7 +113,6 @@ int main()
         //cdef.marketdef.loggingfilter.fprotocol = true;
         //luckockcompetition<false>({&ts,&n1,&n2,&n3}, endowment, cdef,std::clog );
         dsmaslovcompetition<false,true>({&is,&ts,&n1,&n2,&n3}, endowment, cdef,std::clog );
-throw;
         int seed = 12121;
         std::ostream& os=std::clog;
         for(unsigned i=1; i<10; i++)
@@ -133,7 +145,7 @@ throw;
             for(unsigned i=0; i<hist.size(); i++)
                 os << "," << hist[i];
             os << std::endl;
-        }
+        } */
     }
     catch (std::exception& e) {
         std::cerr << e.what() << std::endl;
