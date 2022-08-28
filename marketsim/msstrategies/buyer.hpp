@@ -17,9 +17,9 @@ namespace marketsim
 			discfact = 0.999;
 			a_last = khundefprice, a = khundefprice;
 			vol_last = 0;
-			E_mean = 0, E_stddev = 1;
-			F_mean = 0, F_stddev = 1;
-			p_m = 0.01, k_m = 100, lambda_m = 3;
+			E_mean = 0, E_stddev = 1; //parameters of normally distributed shift of the price impact
+			F_mean = 0, F_stddev = 1; //parameters of normally distributed shift of the ask
+			p_m = 0.01, k_m = 100, lambda_m = 3; // Poisson parameters for arrival of new money
 		}
 
 	private:
@@ -46,7 +46,7 @@ namespace marketsim
 				if (diff_s > 0) outs.push_back(1.0 * (diff_m - a_last) / diff_s);
 				auto coefs = ins.size() > 5 ? getRegressCoef(ins, outs) : Tvec{0,2};
 
-				tvolume vol_best = 0;
+				tvolume v_best = 0;
 				double w = 0;
 
 				for (tvolume v = 0; round(coefs[0] + coefs[1] * (v - 1) + E_stddev) < m; v++)
@@ -65,7 +65,7 @@ namespace marketsim
 								boost::math::cdf(normal(F_mean, F_stddev), f + 0.5) -
 								boost::math::cdf(normal(F_mean, F_stddev), f - 0.5);
 
-							for (int c = std::max<int>(0, lambda_m - 4*sqrt(lambda_m)); c < lambda_m + 4 * sqrt(lambda_m); c++)
+							for (int c = std::max<int>(0, lambda_m - 4*sqrt(lambda_m)); c <= lambda_m + 4 * sqrt(lambda_m); c++)
 							{ 
 								double pr_c = boost::math::pdf(poisson(lambda_m), c);
 
@@ -75,26 +75,26 @@ namespace marketsim
 
 									expv += v + discfact *
 										W[std::max<int>(0, m + y * k_m * c - v * (a + round(coefs[0] + 
-											coefs[1] * (v - 1) + e)))][std::max(0, a + f)] * prob;
+											coefs[1] * (v - 1)) + e))][std::max(0, a + f)] * prob;
 
-									expv_opt += vol_best + discfact *
-										W[std::max<int>(0, m + y * k_m * c - vol_best * (a + round(coefs[0] + 
-											coefs[1] * (vol_best - 1) + e)))][std::max(0, a + f)] * prob;
+									expv_opt += v_best + discfact *
+										W[std::max<int>(0, m + y * k_m * c - v_best * (a + round(coefs[0] + 
+											coefs[1] * (v_best - 1)) + e))][std::max(0, a + f)] * prob;
 								}	
 							}
 						}
 					}
 					if (expv > expv_opt)
 					{
-						vol_best = v;
+						v_best = v;
 						w = expv;
 					}
 				}
 
 				W[m][a] = w;
 				trequest req;
-				req.addbuymarket(vol_best);
-				vol_last = vol_best;
+				req.addbuymarket(v_best);
+				vol_last = v_best;
 				return req;
 			}
 

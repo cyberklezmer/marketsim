@@ -20,12 +20,12 @@ namespace marketsim
 	public:
 		adpmarketmaker() : teventdrivenstrategy(1)
 		{
-			initprice = 100, qvol = 10;
+			initprice = 100, qvol = 1;
 			last_stocks = 0;
-			ldelta = 5, udelta = 10;
+			ldelta = 20, udelta = 40;
 			N = P = T4vec(2, T3vec(2, T2vec(ldelta + udelta + 1, Tvec(ldelta + udelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
-			Kparam = 3000, epsparam = 0.7, discfact = 0.9;
+			Kparam = 3000, epsparam = 0.2, discfact = 0.99998;
 		}
 
 	private:
@@ -48,7 +48,6 @@ namespace marketsim
 					for (int j = 0; j <= bndstocks; j++)
 					{ 
 						W[i][j] = (i == 0 && i == j) ? 0 : (1.0 - pow(discfact, i + j * initprice)) / (1.0 - discfact);
-						//W[i][j] = i + j * finitprice;	
 					}
 				}
 				//initialize N
@@ -99,7 +98,7 @@ namespace marketsim
 			tprice cons = 0;
 			if (m > 5 * p) cons = m - 5 * p;
 
-			for (tprice b = std::max(alpha - udelta, 1); (b < alpha) && (m - cons - b * qvol >= 0); b++)
+			for (tprice b = std::max(alpha - udelta, 1); (b < alpha) && (m - cons - std::max(b,b_best) * qvol >= 0); b++)
 				for (tprice a = beta + udelta; (a > b) && (a > beta); a--)
 				{
 					tprice da = std::min(std::max(a - alpha, beta - alpha - ldelta), beta - alpha + udelta),

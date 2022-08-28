@@ -32,7 +32,7 @@ namespace marketsim
 				bnd_money = info.mywallet().money() * 10;
 				bnd_stocks = info.mywallet().stocks() + 100;
 
-				int no_trends = int(std::pow(3, trend_size));
+				int no_trends = std::pow<int>(3, trend_size);
 				shift_freq = shift_distr = T2vec(no_trends, Tvec(2 * max_jump + 1, 0.0));
 				V = T3vec(bnd_money + 1, T2vec(bnd_stocks + 1, Tvec(no_trends, 0.0)));
 
@@ -96,32 +96,27 @@ namespace marketsim
 
 					double v = 0.0;
 					auto m = info.mywallet().money(), s = info.mywallet().stocks();
-					int d_best = 0, c_best = 0;
+					int d_best = 0, cons = m - 5 * p_curr > 0 ? m - 5 * p_curr : 0;
 
 					for (int d = -1; d <= 1 && s - qvol >= 0; d++)
 					{
-						for (int c = 0; m - c - qvol * alpha >= 0; c++)
+						double expv = 0.0, expv_best = 0.0;
+						for (int q = -max_jump; q <= max_jump; q++)
 						{
-							double expv = 0.0, expv_best = 0.0;
-							for (int q = -max_jump; q <= max_jump; q++)
-							{
-								expv += c +
-									discfact * V[m - d * (p_curr + q)][s + d][h] * shift_distr[h][q + max_jump];
-								expv_best += c_best +
-									discfact * V[m - d * (p_curr + q)][s + d_best][h] * shift_distr[h][q + max_jump];
-							}
-
-							if (expv > expv_best)
-							{
-								c_best = c;
-								d_best = d;
-								v = expv;
-							}
+							expv += discfact * V[m - d * (p_curr + q)][s + d][h] * shift_distr[h][q + max_jump];
+							expv_best += discfact * V[m - d * (p_curr + q)][s + d_best][h] * shift_distr[h][q + max_jump];
 						}
+
+						if (expv > expv_best)
+						{
+							d_best = d;
+							v = expv;
+						}
+
 					}
 
 					V[m][s][h] = v;
-					req.setconsumption(c_best);
+					req.setconsumption(cons);
 					if (d_best == 1) req.addbuymarket(qvol);
 					else if (d_best == -1) req.addsellmarket(qvol);
 				}

@@ -33,7 +33,8 @@ int main()
         constexpr bool logging = false;
 
         // change accordingly (one unit rougly corresponds to one second)
-        constexpr tabstime runningtime = 100;
+        constexpr tabstime runningtime = 3600;
+        constexpr int nsimulations = 10;
 
         // change accordingly
         twallet competitorsendowment(5000, 100);
@@ -121,6 +122,7 @@ int main()
             competitor<naivemmstrategy<1>, chronos> nmm1("naivka1");
             competitor<naivemmstrategy<10>, chronos> nmm10("naivk10");
             competitor<naivemmstrategy<50>, chronos> nmm50("naivk50");
+            competitor<heuristicstrategy<false>> h("heuristic");
             competitor<adpmarketmaker, chronos> adpmm("adpmm");
             competitor<ta_macd, chronos> macd("macd");
             competitor<buyer, chronos> buyer("buyer");
@@ -129,12 +131,12 @@ int main()
             tcompetitiondef cdef;
             cdef.timeofrun = runningtime;
             cdef.marketdef = def;
-            cdef.samplesize = 20;
+            cdef.samplesize = nsimulations;
             competition<chronos, true, logging>(
-                { &fss,&lts,&nmm1,&nmm10,&nmm50, &adpmm, &macd,&trendspeculator},
+                { &fss,&lts,&nmm1,&nmm10,&nmm50, &adpmm, &macd, &h},
                 { twallet::infinitewallet(),twallet::infinitewallet(),
                  competitorsendowment,competitorsendowment,competitorsendowment,competitorsendowment,
-                competitorsendowment,competitorsendowment },
+                competitorsendowment, competitorsendowment },
                 cdef, std::clog);
 
         }
@@ -148,8 +150,8 @@ int main()
             def.loggingfilter.fprotocol = true;
             def.directlogging = true;
             tcompetitiondef cdef;
-            cdef.samplesize = 10;
-            cdef.timeofrun = 100;
+            cdef.samplesize = nsimulations;
+            cdef.timeofrun = runningtime;
 
             competitor<cancellingmaslovstrategy<10, 3600, 360, 30>> msf("maslovfast");
             competitor<cancellinguniformluckockstrategy<10, 200, 360, 3600, false>> lsf("luckockfast");
@@ -157,7 +159,7 @@ int main()
             competitor<cancellingmaslovstrategy<10, 900, 360, 30>> mss("maslovslow");
             competitor<cancellinguniformluckockstrategy<10, 200, 360, 90, false>> lss("luckockslow");
 
-            separatecompetition<logging>({&cm,&am}, { &msf,&lsf,&mss,&lss }, cdef, twallet(5000, 100));
+            separatecompetition<logging>({&cm,&am,&h}, { &msf,&lsf,&mss,&lss }, cdef, twallet(5000, 100));
         }
         break;
         case emaslovcompetition:
