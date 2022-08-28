@@ -28,8 +28,9 @@ namespace marketsim
 				
 			if (!lastresult)
 			{
+
 				m = info.mywallet().money(), s = info.mywallet().stocks(), a = info.a(), vol_last = 0;
-				int bnd_ask = 10000, bnd_m = 10000; //change to sth dynamic
+				int bnd_ask = 1000, bnd_m = 100000; //change to sth dynamic
 				W = T2vec(bnd_m + 1, Tvec(bnd_ask + 1, 0.0));
 				for (int i = 1; i <= bnd_m; i++)
 					for (int j = 1; j <= bnd_ask; j++)
@@ -44,7 +45,8 @@ namespace marketsim
 			{
 				if (vol_last > 0) ins.push_back(vol_last);
 				if (diff_s > 0) outs.push_back(1.0 * (diff_m - a_last) / diff_s);
-				auto coefs = ins.size() > 5 ? getRegressCoef(ins, outs) : Tvec{0,2};
+				auto coefs = ins.size() > 5 && ins.size() == outs.size() ? 
+					getRegressCoef(ins, outs) : Tvec{0,2};
 
 				tvolume vol_best = 0;
 				double w = 0;

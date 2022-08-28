@@ -17,6 +17,7 @@
 #include "msstrategies/buyer.hpp"
 #include "msstrategies/adpmarketmaker.hpp"
 #include "msstrategies/trendspeculator.hpp"
+#include "mscompetitions/bscompetitions.hpp"
 
 using namespace marketsim;
 
@@ -28,7 +29,7 @@ int main()
         constexpr bool chronos = false;
 
         // change accordingly
-        constexpr bool logging = false;
+        constexpr bool logging = true;
 
         // change accordingly (one unit rougly corresponds to one second)
         constexpr tabstime runningtime = 100;
@@ -57,7 +58,7 @@ int main()
         };
 
         // change accordingly
-        ewhattodo whattodo = edetailedcompetiton;
+        ewhattodo whattodo = ebuyerscompetition;
 
         switch (whattodo)
         {
@@ -152,8 +153,12 @@ int main()
         break;
         case ebuyerscompetition:
         {
-            /// work under progress
-            competitor<stupidtrader<1, 2, true>, chronos> st("st");
+
+            competitor<stupidtrader<1, 3600, true>> ub("unitbuyer");
+            competitor<stupidtrader<std::numeric_limits<tvolume>::max(), 3600, true>> ab("allbuyer");
+            competitor<buyer> ts("buyer");
+
+            separatebszicomp<true, logging>({ &ts,&ub,&ab });
         }
         break;
         default:
