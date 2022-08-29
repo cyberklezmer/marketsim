@@ -9,7 +9,7 @@
 #include <torch/torch.h>
 
 namespace marketsim {
-    constexpr bool verbose = false;  // neural net/strategy outputs to cout
+    constexpr bool verbose = true;  // neural net/strategy outputs to cout
 
 
     /* neural net settings */
@@ -31,11 +31,13 @@ namespace marketsim {
     // strategy settings
     // sell limits - note that if both money and stocks are low, the strategy will try to trade some
     constexpr bool use_fixed_consumption = true;
+    constexpr bool use_naive_cons = true;  // consumption like in naive mm
+
     constexpr int fixed_cons = 200;
     constexpr int with_stocks = true;
     constexpr bool explore = !use_fixed_consumption;
 
-    constexpr int cons_lim = use_fixed_consumption ? 5000 : 500;  // don't consume if you have less than this
+    constexpr int cons_lim = use_fixed_consumption ? 13000 : 500;  // don't consume if you have less than this
     constexpr int keep_stocks = 10;  // don't sell if you have less than 10
 
     constexpr int volume = 10;  // volume for bids and asks
@@ -58,7 +60,7 @@ namespace marketsim {
     using dnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete, !use_fixed_consumption>;
     using cnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_cont, bid_ask_cont, cons_cont, !use_fixed_consumption>;
     using dflag_network = ActorCriticFlags<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete, !use_fixed_consumption>;
-    using network = dflag_network;  // change to dnetwork to use discrete actions
+    using network = dnetwork;  // change to dnetwork to use discrete actions
 
     constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
     constexpr int stock_div = 10; // weight stock value difference by stock_div / stock
@@ -72,13 +74,13 @@ namespace marketsim {
 
     // mm settings
     using order = neuralmmorder<keep_stocks, volume, verbose>;
-    using neuralstrategy = neuralnetstrategy<trainer, order, cons_lim, spread_lim, cons_step, verbose, true, explore, true, !use_fixed_consumption, fixed_cons, with_stocks>;
+    using neuralstrategy = neuralnetstrategy<trainer, order, cons_lim, spread_lim, cons_step, verbose, true, explore, true, !use_fixed_consumption, fixed_cons, with_stocks, use_naive_cons>;
     using greedystrat = greedystrategy<cons_lim, verbose, random_strategy>;
 
     // speculator settings
     using spec_order = neuralspeculatororder<volume, verbose>;
     using spec_network = ActorCriticSpeculator<state_size, hidden_size, state_layer, cons_discrete, !use_fixed_consumption>;
     using spec_trainer = NStepTrainer<spec_network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
-    using spec_neuralstrategy = neuralnetstrategy<spec_trainer, spec_order, cons_lim, spread_lim, cons_step, verbose, true, explore, false, !use_fixed_consumption, fixed_cons, with_stocks>;
+    using spec_neuralstrategy = neuralnetstrategy<spec_trainer, spec_order, cons_lim, spread_lim, cons_step, verbose, true, explore, false, !use_fixed_consumption, fixed_cons, with_stocks, use_naive_cons>;
 
 }

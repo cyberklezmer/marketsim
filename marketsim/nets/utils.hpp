@@ -43,18 +43,25 @@ namespace marketsim {
     }
 
     template <tprice finitprice = 100>
+    tprice get_p(const tmarketinfo& mi) {
+        tprice a = mi.alpha();
+        tprice b = mi.beta();
+        return (a != khundefprice && b != klundefprice) ? (a + b) / 2 : finitprice;
+    }
+
+    template <tprice finitprice = 100>
     std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice last_bid, tprice last_ask)
     {
-			tprice alpha = mi.alpha();
-			tprice beta = mi.beta();
-            
-			double p = (alpha != khundefprice && beta != klundefprice)
-				? (alpha + beta) / 2 : finitprice;
-            
-			if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
-			if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
+        tprice alpha = mi.alpha();
+        tprice beta = mi.beta();
+        
+        double p = (alpha != khundefprice && beta != klundefprice)
+            ? (alpha + beta) / 2 : finitprice;
+        
+        if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
+        if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
 
-            return std::make_pair<>(alpha, beta);
+        return std::make_pair<>(alpha, beta);
     }
 
     template <int conslim, bool verbose = false, bool with_stocks = false, int explore_cons = 0, bool explore = false>
@@ -147,7 +154,8 @@ namespace marketsim {
         std::cout << "Bid: " << (ot.is_bid() ? std::to_string(ot.get_bid()) : std::string(" ")) << "(" << bpred << ")";
         std::cout << ", Ask: " << (ot.is_ask() ? std::to_string(ot.get_ask()) : std::string(" ")) << "(" << apred << ")";
         std::cout << ", Cons: " << (ot.is_cons() ? ot.get_cons() : 0) << std::endl;
-        std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks() << std::endl;
+        std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks();
+        std::cout << ", Value: " << mi.mywallet().money() + mi.mywallet().stocks() * mi.beta() << std::endl;
     }
 
     template <int volume, int keep_stocks, bool verbose = false, bool emergency = true, bool erase = true>

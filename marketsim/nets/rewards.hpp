@@ -99,7 +99,7 @@ namespace marketsim {
                 std::cout << "Returns - Cons: " << cons << ", Mdiff: " << mdiff_mult << ", Sdiff: " << sdiff_mult << std::endl;
             }
 
-            return cons + mdiff_mult * mdiff + sdiff_mult * sdiff;
+            return cons + this->get_gamma() * (mdiff_mult * mdiff + sdiff_mult * sdiff);
         }
 
         double mdiff_mult;

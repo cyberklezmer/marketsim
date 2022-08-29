@@ -15,6 +15,7 @@
 #include "msstrategies/firstsecondstrategy.hpp"
 #include "msstrategies/initialstrategy.hpp"
 #include "msstrategies/maslovstrategy.hpp"
+#include "mscompetitions/separatecompetition.hpp"
 
 #include <torch/torch.h>
 #include "config.hpp"
@@ -45,7 +46,7 @@ int main()
         constexpr bool logging = true;
 
         // if false, run only the tested strategy (without the naive mm)
-        bool with_mm = true;
+        bool with_mm = false;
 
         // change accordingly (one unit rougly corresponds to one second)
         constexpr tabstime runningtime = 1000;
@@ -160,7 +161,8 @@ int main()
                 cdef.marketdef = def;
 
                 if(whattodo==emaslovcompetition)
-                    dsmaslovcompetition<chronos,logging>(competitors, endowment, cdef, std::clog);
+                    //dsmaslovcompetition<chronos,logging>(competitors, endowment, cdef, std::clog);
+                    separatezicomp<logging>({&ts});
                 else
                     originalcompetition<chronos,logging>(competitors, endowment, cdef, std::clog);
             }
