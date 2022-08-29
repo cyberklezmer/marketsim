@@ -42,157 +42,68 @@ namespace marketsim {
         return stack_state_history(history, axis);
     }
 
+    bool bid_defined(tprice bid) { return bid != klundefprice; }
+    bool ask_defined(tprice ask) { return ask != khundefprice; }
+
     template <tprice finitprice = 100>
     tprice get_p(const tmarketinfo& mi) {
         tprice a = mi.alpha();
         tprice b = mi.beta();
-        return (a != khundefprice && b != klundefprice) ? (a + b) / 2 : finitprice;
+        return (bid_defined(b) && ask_defined(a)) ? (a + b) / 2 : finitprice;
     }
 
     template <tprice finitprice = 100>
     std::pair<tprice, tprice> get_alpha_beta(const tmarketinfo& mi, tprice last_bid, tprice last_ask)
     {
-        tprice alpha = mi.alpha();
-        tprice beta = mi.beta();
+        tprice a = mi.alpha();
+        tprice b = mi.beta();
+        double p = get_p<finitprice>(mi);
         
-        double p = (alpha != khundefprice && beta != klundefprice)
-            ? (alpha + beta) / 2 : finitprice;
-        
-        if (beta == klundefprice) beta = (last_bid == klundefprice) ? p - 1 : last_bid;
-        if (alpha == khundefprice) alpha = (last_ask == khundefprice) ? p + 1 : last_ask;
+        if (!bid_defined(b)) b = (!bid_defined(last_bid)) ? p - 1 : last_bid;
+        if (!ask_defined(a)) a = (!ask_defined(last_ask)) ? p + 1 : last_ask;
 
-        return std::make_pair<>(alpha, beta);
+        return std::make_pair<>(a, b);
     }
 
-    template <int conslim, bool verbose = false, bool with_stocks = false, int explore_cons = 0, bool explore = false>
-    double modify_consumption(const tmarketinfo& mi, double conspred) {
-            // try to do some nonzero consumption
-            if (explore) {
-                torch::Tensor randn = torch::rand({1});
+    template<int volume = 1, bool erase = true>
+    trequest construct_order(tprice bid, tprice ask, tprice cons) {
+        tpreorderprofile pp;
+        trequest ord;
 
-                if ((randn < 0.1).item<bool>()) {
-                    conspred = explore_cons;
-                    if (verbose) {
-                        std::cout << "modify" << std::endl;
-                    }
-                }
-            }
-
-            // don't consume if money low
-            double lim = mi.mywallet().money();
-            lim = with_stocks ? lim + mi.beta() * mi.mywallet().stocks() : lim;
-
-            if ((lim - conspred) < conslim) {
-                conspred = 0.0;
-            }
-            if (conspred < 0) {
-                conspred = 0.0;
-            }
-
-            return conspred;
-    }
-
-    class ordertemplate {
-    public:
-        ordertemplate(bool erase) :
-            cons(0), erase(erase), _is_bid(false), _is_ask(false), _is_cons(false) {}
-
-        void set_bid(tprice bid, int volume) {
-            this->bid = bid;
-            this->bv = volume;
-            _is_bid = true;
+        if (bid_defined(bid)) {
+            ord.addbuylimit(bid, volume);
+            pp.B.add(tpreorder(bid, volume));
         }
 
-        void set_ask(tprice ask, int volume) {
-            this->ask = ask;
-            this->av = volume;
-            _is_ask = true;
+        if (ask_defined(ask)) {
+            ord.addselllimit(ask, volume);
+            pp.A.add(tpreorder(ask, volume));
         }
 
-        void set_cons(tprice cons) {
-            this->cons = cons;
-            _is_cons = true;
-        }
-
-        trequest to_request() {
-            tpreorderprofile pp;
-            trequest ord;
-
-            if (_is_bid) {
-                ord.addbuylimit(bid, bv);
-                pp.B.add(tpreorder(bid, bv));
-            }
-
-            if (_is_ask) {
-                ord.addselllimit(ask, av);
-                pp.A.add(tpreorder(ask, av));
-            }
-
+        if (cons > 0) {
             ord.setconsumption(cons);
-
-            if (erase) {
-                return {pp, trequest::teraserequest(true), cons};
-            }
-            return ord;
         }
-    
-        tprice get_bid() { return bid; }
-        tprice get_ask() { return ask; }
-        tprice get_cons() { return cons; }
 
-        bool is_bid() { return _is_bid; }
-        bool is_ask() { return _is_ask; }
-        bool is_cons() { return _is_cons; }
-
-    private:
-        int bv, av;
-        bool _is_bid, _is_ask, _is_cons, erase;
-        tprice bid, ask, cons;
-    };
-
-    void print_state(const tmarketinfo& mi, ordertemplate& ot, int bpred = 0, int apred = 0) {
-        std::cout << "Bid: " << (ot.is_bid() ? std::to_string(ot.get_bid()) : std::string(" ")) << "(" << bpred << ")";
-        std::cout << ", Ask: " << (ot.is_ask() ? std::to_string(ot.get_ask()) : std::string(" ")) << "(" << apred << ")";
-        std::cout << ", Cons: " << (ot.is_cons() ? ot.get_cons() : 0) << std::endl;
-        std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks();
-        std::cout << ", Value: " << mi.mywallet().money() + mi.mywallet().stocks() * mi.beta() << std::endl;
+        if (erase) {
+            return {pp, trequest::teraserequest(true), cons};
+        }
+        return ord;
     }
 
-    template <int volume, int keep_stocks, bool verbose = false, bool emergency = true, bool erase = true>
-    ordertemplate create_order(const tmarketinfo& mi, tprice bid, tprice ask, tprice cons) {
-			ordertemplate ot(erase);
-            
-            tprice m = mi.mywallet().money();
-            tprice s = mi.mywallet().stocks();
-
-            bool vol_enough = m > (bid * volume);
-            bool b_enough = m > bid;
-            bool stocks_enough = s > keep_stocks;
-
-            if (vol_enough || b_enough) {
-                int bid_vol = vol_enough ? volume : 1;
-                ot.set_bid(bid, bid_vol);
-            }
-
-            if (stocks_enough) {
-                ot.set_ask(ask, volume);
-            }
-
-            // get out of low resources
-            if (emergency && !stocks_enough && !b_enough) {
-                if (verbose) {
-                    std::cout << "emergency" << std::endl;
-                }
-
-                bid = std::min(int(m / 2), bid);
-                ot.set_bid(bid, 1);
-                ot.set_ask(ask, 1);
-            }
-
-            ot.set_cons(cons);
-
-            return ot;
+    void print_state(const tmarketinfo& mi, tprice bid, tprice ask, tprice cons, int bpred = 0, int apred = 0) {
+        if (bid_defined(bid)) {
+            std::cout << "Bid: " << bid << " (" << bpred << "), ";
+        }
+        if (ask_defined(ask)) {
+            std::cout << "Ask: " << ask << " (" << apred << "), ";
+        }
+        std::cout << "Cons: " << cons << std::endl;
+        
+        tprice m = mi.mywallet().money();
+        tprice s = mi.mywallet().stocks();
+        std::cout << "Wallet: " << m << ", Stocks: " << s << ", Value: " << m + s * mi.beta() << std::endl;
     }
+
 }
 
 #endif  //NET_UTILS_HPP_

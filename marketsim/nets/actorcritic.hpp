@@ -5,6 +5,8 @@ using namespace torch::indexing;
 
 
 namespace marketsim {
+    //TODO does this work when batched?
+
     torch::Tensor state_forward(torch::nn::LSTM layer, torch::Tensor x) {
         x = x.view({x.size(0), 1, -1});
 
@@ -24,24 +26,45 @@ namespace marketsim {
     } 
 
 
-    template<int state_size, int hidden_size, typename TLayer>
-    class ActorCriticBase : public torch::nn::Module {
+    template <int state_size, int hidden_size, typename TLayer>
+    class Critic : public torch::nn::Module {
     public:
-        ActorCriticBase()
-        {
-            state_critic = register_module("state_critic", TLayer(state_size, hidden_size));
-            state_actor = register_module("state_actor", TLayer(state_size, hidden_size));
-            critic = register_module("critic", torch::nn::Linear(hidden_size, 1));
+        Critic() {
+            state_layer = register_module("state_layer", TLayer(state_size, hidden_size));
+            out = register_module("out", torch::nn::Linear(hidden_size, 1));
         }
 
-        virtual ~ActorCriticBase() {}
+        torch::Tensor forward(torch::Tensor x) {
+            x = state_forward(this->state_layer, x);
+            x = torch::relu(x);
+            return out->forward(x);
+        }
+
+    private:
+        TLayer state_layer{nullptr};    
+        torch::nn::Linear out{nullptr};
+    };
+
+
+    template<typename TActor, typename TCritic>
+    class ActorCritic : public torch::nn::Module {
+    public:
+        ActorCritic()
+        {
+            actor = register_module("actor", std::make_shared<TActor>());
+            critic = register_module("critic", std::make_shared<TCritic>());
+        }
+
+        virtual ~ActorCritic() {}
         
-        virtual action_container<torch::Tensor> predict_actions(torch::Tensor x) = 0;
-        virtual action_container<action_tensors> predict_actions_train(torch::Tensor x) = 0;
+        action_container<torch::Tensor> predict_actions(torch::Tensor x) {
+            return actor->predict_actions(x);
+        }
+        action_container<action_tensors> predict_actions_train(torch::Tensor x) {
+            return actor->predict_actions_train(x);
+        }
 
         torch::Tensor predict_values(torch::Tensor x) {
-            x = state_forward(this->state_critic, x);
-            x = torch::relu(x);
             return critic->forward(x);
         }
 
@@ -52,25 +75,31 @@ namespace marketsim {
         }
 
         virtual torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
-                                              const action_container<action_tensors>& pred) = 0;
-        virtual torch::Tensor entropy(const action_container<action_tensors>& pred) = 0;
+                                              const action_container<action_tensors>& pred) {
+            return actor->action_log_prob(actions, pred);
+        }
+        virtual torch::Tensor entropy(const action_container<action_tensors>& pred) {
+            return actor->entropy(pred);
+        }
 
-    protected:
-        torch::nn::Linear critic{nullptr};
-        TLayer state_critic{nullptr}, state_actor{nullptr};
+    private:
+        std::shared_ptr<TActor> actor{nullptr};
+        std::shared_ptr<TCritic> critic{nullptr};
     };
 
     template <int state_size, int hidden_size, typename TLayer, typename TBidActor, typename TAskActor, typename TConsActor, bool cons_on = true>
-    class ActorCritic : public ActorCriticBase<state_size, hidden_size, TLayer> {
+    class BidAskActor : public torch::nn::Module {
     public:
-        ActorCritic() : ActorCriticBase<state_size, hidden_size, TLayer>(), zero_tensor(torch::zeros({1})) {
+        BidAskActor() : zero_tensor(torch::zeros({1})) {
+            state_layer = register_module("state_layer", TLayer(state_size, hidden_size));
+
             bid_actor = this->register_module("bid_actor", std::make_shared<TBidActor>());
             ask_actor = this->register_module("ask_actor", std::make_shared<TAskActor>());
             if (cons_on) {
                 cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>());
             }
         }
-        virtual ~ActorCritic() {}
+        virtual ~BidAskActor() {}
 
         virtual action_container<torch::Tensor> predict_actions(torch::Tensor x) {
             auto res = predict_actions_train(x);
@@ -82,7 +111,7 @@ namespace marketsim {
         }
 
         virtual action_container<action_tensors> predict_actions_train(torch::Tensor x) {
-            x = state_forward(this->state_actor, x);
+            x = state_forward(this->state_layer, x);
             x = torch::relu(x);
 
             return action_container<action_tensors>(
@@ -118,17 +147,19 @@ namespace marketsim {
     protected:
         torch::Tensor zero_tensor;
 
+        TLayer state_layer{nullptr};
+
         std::shared_ptr<TBidActor> bid_actor{nullptr};
         std::shared_ptr<TAskActor> ask_actor{nullptr};
         std::shared_ptr<TConsActor> cons_actor{nullptr};
     };
 
     template <int state_size, int hidden_size, typename TLayer, typename TBidActor, typename TAskActor, typename TConsActor, bool cons_on = true>
-    class ActorCriticFlags : public ActorCritic<state_size, hidden_size, TLayer, TBidActor, TAskActor, TConsActor, cons_on> {
+    class BidAskActorFlags : public BidAskActor<state_size, hidden_size, TLayer, TBidActor, TAskActor, TConsActor, cons_on> {
     public:
-        using Base = ActorCritic<state_size, hidden_size, TLayer, TBidActor, TAskActor, TConsActor, cons_on>;
+        using Base = BidAskActor<state_size, hidden_size, TLayer, TBidActor, TAskActor, TConsActor, cons_on>;
 
-        ActorCriticFlags() : ActorCritic<state_size, hidden_size, TLayer, TBidActor, TAskActor, TConsActor, cons_on>() {
+        BidAskActorFlags() : Base() {
             bid_flag = this->register_module("bid_flag", std::make_shared<BinaryAction<hidden_size>>());
             ask_flag = this->register_module("ask_flag", std::make_shared<BinaryAction<hidden_size>>());
         }
@@ -146,7 +177,7 @@ namespace marketsim {
         }
 
         virtual action_container<action_tensors> predict_actions_train(torch::Tensor x) {
-            x = state_forward(this->state_actor, x);
+            x = state_forward(this->state_layer, x);
             x = torch::relu(x);
 
             return action_container<action_tensors>(
@@ -178,9 +209,11 @@ namespace marketsim {
     };
 
     template <int state_size, int hidden_size, typename TLayer, typename TConsActor, bool cons_on = true>
-    class ActorCriticSpeculator : public ActorCriticBase<state_size, hidden_size, TLayer> {
+    class BidAskActorSpeculator : torch::nn::Module {
     public:
-        ActorCriticSpeculator() : ActorCriticBase<state_size, hidden_size, TLayer>(), zero_tensor(torch::zeros({1})) {
+        BidAskActorSpeculator() : zero_tensor(torch::zeros({1})) {
+            state_layer = register_module("state_layer", TLayer(state_size, hidden_size));
+
             bid_ask_actor = this->register_module("bid_ask_actor", std::make_shared<DiscreteActions<hidden_size, 3>>());
             cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>());
         }
@@ -202,7 +235,7 @@ namespace marketsim {
         }
 
         virtual action_container<action_tensors> predict_actions_train(torch::Tensor x) {
-            x = state_forward(this->state_actor, x);
+            x = state_forward(this->state_layer, x);
             x = torch::relu(x);
 
             return action_container<action_tensors>(
@@ -236,7 +269,7 @@ namespace marketsim {
 
     private:
         torch::Tensor construct_target(const action_container<torch::Tensor>& actions) {
-            double bid = actions.bid_flag.item<double>();
+            double bid = actions.bid_flag.item<double>();  //TODO nebude tady divny cislo mezi 0 a 1?
             double ask = actions.ask_flag.item<double>();
 
             assert((bid + ask) <= 1.001);
@@ -247,6 +280,8 @@ namespace marketsim {
         }
 
         torch::Tensor zero_tensor;
+        TLayer state_layer{nullptr};
+
         std::shared_ptr<DiscreteActions<hidden_size, 3>> bid_ask_actor;
         std::shared_ptr<TConsActor> cons_actor;
     };

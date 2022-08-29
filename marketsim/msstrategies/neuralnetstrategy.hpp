@@ -8,9 +8,9 @@
 
 namespace marketsim {
 
-    template<typename TNet, typename TOrder, int conslim, int spread_lim, int explore_cons, bool verbose = true,
-             bool modify_c = true, bool explore = true, bool limspread = true, bool train_cons = true, int fixed_cons = 200,
-             bool with_stocks = false, bool use_naive_cons = false>
+    template<typename TNet, typename TOrder, int spread_lim = 0, bool verbose = true,
+            bool train_cons = true, int fixed_cons = 200,
+            bool use_naive_cons = false>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
@@ -26,20 +26,16 @@ namespace marketsim {
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
-            torch::Tensor next_state = this->construct_state(mi);
+            torch::Tensor next_state = this->construct_state(mi);  //TODO tady add next state - trida co uchovava history, pocita rewardy atd
             net.train(history, next_state);
 
             auto pred_actions = net.predict_actions(history, next_state);
+            set_consumption(mi, pred_actions);
+            set_flags(pred_actions);
 
-            if (modify_c) {
-                limit_cons(mi, pred_actions);
-            }
-
-            if (limspread) {
+            if (spread_lim > 0) {
                 limit_spread(pred_actions);
             }
-
-            set_flags(pred_actions);
 
             history.push_back(hist_entry(next_state, pred_actions));
             return order.construct_order(mi, pred_actions);
@@ -58,31 +54,22 @@ namespace marketsim {
         }
 
         void limit_spread(action_container<torch::Tensor>& next_action) {
-            double a1 = next_action.bid.item<double>();
-            double a2 = next_action.ask.item<double>();
-            
-            if ((a1 >= spread_lim) || (a1 <= -spread_lim)) {
-                a1 = (a1 < 0) ? -spread_lim : spread_lim;
-                next_action.bid = torch::tensor({a1});
-            }
-            if ((a2 >= spread_lim) || (a2 <= -spread_lim)) {
-                a2 = (a2 < 0) ? -spread_lim : spread_lim;
-                next_action.ask = torch::tensor({a2});
-            }
+            next_action.bid = torch::clamp(next_action.bid, -spread_lim, spread_lim);
+            next_action.ask = torch::clamp(next_action.ask, -spread_lim, spread_lim);            
         }
 
-        void limit_cons(const tmarketinfo& mi, action_container<torch::Tensor>& next_action) {
-            double next_cons;
+        void set_consumption(const tmarketinfo& mi, action_container<torch::Tensor>& next_action) {
+            if (train_cons) {
+                return;
+            }
 
-            if (!train_cons && use_naive_cons) {
+            double next_cons = fixed_cons;
+            if (use_naive_cons) {
                 tprice m = mi.mywallet().money();
                 tprice p = get_p(mi);
                 next_cons = (m > 5 * p) ? (m - 5 * p) : 0;
             }
-            else {
-                next_cons = train_cons ? next_action.cons.item<double>() : fixed_cons;
-                next_cons = modify_consumption<conslim, verbose, with_stocks, explore_cons, explore>(mi, next_cons);
-            }
+
             next_action.cons = torch::tensor({next_cons});
         }
 
@@ -109,48 +96,46 @@ namespace marketsim {
         std::vector<hist_entry> history;
     };
 
-    template <int volume = 10, bool verbose = false, bool with_stocks = false>
+    template <int volume = 10, bool verbose = false>
     class neuralspeculatororder {
     public:
-        neuralspeculatororder() : lim(0.5) {} 
+        neuralspeculatororder() : threshold(0.5) {} 
 
         trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
             double bpred = actions.bid_flag.item<double>();
             double apred = actions.ask_flag.item<double>();
-            double conspred = actions.cons.item<double>();
+            int cons = int(actions.cons.item<double>());
 
             if (verbose) {
-                std::cout << "Bid: " << bpred << ", Ask: " << apred << ", Cons: " << conspred << std::endl;
-                std::cout << "Wallet: " << mi.mywallet().money() << ", Stocks: " << mi.mywallet().stocks() << std::endl;
+                print_state(mi, bpred, apred, cons);
             }
 
             trequest o;
-            if (bpred > lim) {
+            if (bpred > threshold) {
                 o.addbuymarket(volume);
             }
 
-            if (apred > lim) {
+            if (apred > threshold) {
                 o.addsellmarket(volume);
             }
 
-            o.setconsumption(int(conspred));
-            
+            o.setconsumption(cons);
             return o;
         }
     
     private:
-        double lim;
+        double threshold;
     };
 
     template <int keep_stocks, int volume = 10, bool verbose = false, bool emergency = true>
     class neuralmmorder {
     public:
-        neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice) {}
+        neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice), threshold(0.5) {}
 
         trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
             double bpred = actions.bid.item<double>();
             double apred = actions.ask.item<double>();
-            double conspred = actions.cons.item<double>();
+            int cons = int(actions.cons.item<double>());
 
             auto ab = get_alpha_beta(mi, last_bid, last_ask);
             tprice a = std::get<0>(ab);
@@ -169,28 +154,32 @@ namespace marketsim {
                 ask = bid + 1;
             }
 
-            // create order template
-            auto ot = create_order<volume, keep_stocks, verbose, emergency>(mi, bid, ask, int(conspred));
+            if (actions.is_flag_valid()) {
+                double bid_flag = (actions.is_flag_valid()) ? actions.bid_flag.item<double>() : 1.0;
+                double ask_flag = (actions.is_flag_valid()) ? actions.ask_flag.item<double>() : 1.0;
+
+                if (bid_flag <= threshold) {
+                    bid = klundefprice;
+                }
+                if (ask_flag <= threshold) {
+                    ask = khundefprice;
+                }
+            }
+
+            auto ot = construct_order(bid, ask, cons);
             if (verbose) {
-                print_state(mi, ot, bpred, apred);
+                print_state(mi, bid, ask, cons, bpred, apred);
             }
 
-            double bid_flag = (actions.is_flag_valid()) ? actions.bid_flag.item<double>() : 1.0;
-            double ask_flag = (actions.is_flag_valid()) ? actions.ask_flag.item<double>() : 1.0;
-            double threshold = 0.5;
-
-            // set last bid/ask values
-            if (ot.is_bid() && (bid_flag > threshold)) {
-                last_bid = ot.get_bid();
-            }
-            if (ot.is_ask() && (ask_flag > threshold)) {
-                last_ask = ot.get_ask();
-            }
-
-            return ot.to_request();
+           if (bid_defined(bid)) last_bid = bid;
+           if (ask_defined(ask)) last_ask = ask;
+           
+           return ot;
         }
+
     private:
         tprice last_bid, last_ask;
+        double threshold;
     };
 }
 

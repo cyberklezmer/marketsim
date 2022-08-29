@@ -13,16 +13,12 @@ namespace marketsim {
     class greedystrategy : public teventdrivenstrategy {
     public:
         greedystrategy() :
-            teventdrivenstrategy(1), 
-			finitprice(100),
+            teventdrivenstrategy(1),
             last_bid(klundefprice),
             last_ask(khundefprice) {}
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
-            tprice m = mi.mywallet().money();// - mi.myorderprofile().B.value();
-            tprice s = mi.mywallet().stocks();
-
             auto ab = get_alpha_beta(mi, last_bid, last_ask);
             tprice a = std::get<0>(ab);
             tprice b = std::get<1>(ab);
@@ -40,20 +36,15 @@ namespace marketsim {
             tprice next_ask = a + ask;
             next_ask = (next_ask < 0) ? 1 : next_ask;
 
-            int next_cons = modify_consumption<conslim, verbose, with_stocks>(mi, cons);
-            auto ot = create_order<volume, keep_stocks, verbose>(mi, next_bid, next_ask, next_cons);
+            auto ot = construct_order(next_bid, next_ask, cons);
             if (verbose) {
-                print_state(mi, ot, bid, ask);
+                print_state(mi, next_bid, next_ask, cons, bid, ask);
             }
 
-            // set last bid/ask values
-            if (ot.is_bid()) {
-                last_bid = ot.get_bid();
-            }
-            if (ot.is_ask()) {
-                last_ask = ot.get_ask();
-            }
-            return ot.to_request();
+            last_bid = next_bid;
+            last_ask = next_ask;
+            
+            return ot;
         }
 
         int get_random_int() {
@@ -61,7 +52,7 @@ namespace marketsim {
             return rand_tens.item<int>();
         }
 
-        tprice last_bid, last_ask, finitprice;
+        tprice last_bid, last_ask;
     };
 }
 

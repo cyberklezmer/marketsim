@@ -89,9 +89,6 @@ namespace marketsim {
                 mdiff_mult = TMinM / value + 1;
                 sdiff_mult = mdiff_mult;
             }
-
-            //mdiff_mult = 20 * (-std::atan(state_money / 500) + pi() / 2);
-            //sdiff_mult = 1 * (-std::atan(state_stocks - 10) + pi() / 2);
         }
 
         virtual double compute_reward(double cons, double mdiff, double sdiff) {
