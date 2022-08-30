@@ -8,10 +8,19 @@
 namespace marketsim {
     struct hist_entry {
         hist_entry(torch::Tensor state, action_container<torch::Tensor> actions) :
-            state(state), actions(actions){}
+            state(state), actions(actions), returns(torch::zeros({1})) {}
+
+        hist_entry(torch::Tensor state, action_container<torch::Tensor> actions, torch::Tensor returns) :
+            state(state), actions(actions), returns() {}
 
         torch::Tensor state;
         action_container<torch::Tensor> actions;
+        torch::Tensor returns;
+
+        static hist_entry empty_entry() {
+        torch::Tensor zeros = torch::zeros({1});
+        return hist_entry(zeros, action_container<torch::Tensor>(zeros, zeros, zeros));
+    }
     };
 
     torch::Tensor tanh_activation(const torch::Tensor& t) {
@@ -40,6 +49,11 @@ namespace marketsim {
     torch::Tensor stack_state_history(std::vector<torch::Tensor>& history, torch::Tensor next_state, int axis) {
         history.push_back(next_state);
         return stack_state_history(history, axis);
+    }
+
+    int random_int_from_tensor(int64_t low, int64_t high) {
+        torch::Tensor rand_tens = torch::randint(low, high, {1});
+        return rand_tens.item<int>();
     }
 
     bool bid_defined(tprice bid) { return bid != klundefprice; }

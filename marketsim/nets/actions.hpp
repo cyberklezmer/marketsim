@@ -26,6 +26,50 @@ namespace marketsim {
         bool flag_valid;
     };
 
+    action_container<torch::Tensor> actions_batch(const std::vector<action_container<torch::Tensor>>& actions) {
+        std::vector<torch::Tensor> bv;
+        std::vector<torch::Tensor> av;
+        std::vector<torch::Tensor> cv;
+        std::vector<torch::Tensor> bfv;
+        std::vector<torch::Tensor> afv;
+
+        for (auto const& a : actions) {
+            bv.push_back(a.bid);
+            av.push_back(a.ask);
+            cv.push_back(a.cons);
+
+            if (a.is_flag_valid()) {
+                bfv.push_back(a.bid_flag);
+                afv.push_back(a.ask_flag);
+            }
+        }
+
+        assert(bfv.size() == 0 || bfv.size() == bv.size());
+        
+        auto stack_tensors = [](const std::vector<torch::Tensor>& tensors){ return torch::cat(tensors, 0); }; // TODO dim??
+
+        if (bfv.size() > 0) {
+            return action_container<torch::Tensor>(stack_tensors(bv), stack_tensors(av), stack_tensors(cv),
+                                                   stack_tensors(bfv), stack_tensors(afv));
+        }
+
+        return action_container<torch::Tensor>(stack_tensors(bv), stack_tensors(av), stack_tensors(cv));
+    }
+
+    action_container<torch::Tensor> actions_view(const action_container<torch::Tensor>& actions, at::IntArrayRef size) {
+        torch::Tensor bid = actions.bid.view(size);
+        torch::Tensor ask = actions.ask.view(size);
+        torch::Tensor cons = actions.cons.view(size);
+
+        if (actions.is_flag_valid()) {
+            torch::Tensor bid_flag = actions.bid_flag.view(size); 
+            torch::Tensor ask_flag = actions.ask_flag.view(size);
+            return action_container<torch::Tensor>(bid, ask, cons, bid_flag, ask_flag);
+        }
+        
+        return action_container<torch::Tensor>(bid, ask, cons);
+    }
+
     template <ActFunc MuActiv, ActFunc StdActiv, int hidden_size, int action_size, int output_scale = 1, int mu_scale = 1>
     class ContinuousActions : public torch::nn::Module {
     public:

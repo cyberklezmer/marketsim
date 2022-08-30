@@ -26,26 +26,6 @@ namespace marketsim {
     } 
 
 
-    template <int state_size, int hidden_size, typename TLayer>
-    class Critic : public torch::nn::Module {
-    public:
-        Critic() {
-            state_layer = register_module("state_layer", TLayer(state_size, hidden_size));
-            out = register_module("out", torch::nn::Linear(hidden_size, 1));
-        }
-
-        torch::Tensor forward(torch::Tensor x) {
-            x = state_forward(this->state_layer, x);
-            x = torch::relu(x);
-            return out->forward(x);
-        }
-
-    private:
-        TLayer state_layer{nullptr};    
-        torch::nn::Linear out{nullptr};
-    };
-
-
     template<typename TActor, typename TCritic>
     class ActorCritic : public torch::nn::Module {
     public:
@@ -68,17 +48,17 @@ namespace marketsim {
             return critic->forward(x);
         }
 
-        std::pair<action_container<action_tensors>, torch::Tensor> forward(torch::Tensor x) {            
+        std::pair<action_container<action_tensors>, torch::Tensor> forward(torch::Tensor x) {
             auto actions = predict_actions_train(x);
             auto state_values = predict_values(x);
             return std::make_pair<>(actions, state_values);
         }
 
-        virtual torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
+        torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
                                               const action_container<action_tensors>& pred) {
             return actor->action_log_prob(actions, pred);
         }
-        virtual torch::Tensor entropy(const action_container<action_tensors>& pred) {
+        torch::Tensor entropy(const action_container<action_tensors>& pred) {
             return actor->entropy(pred);
         }
 
@@ -86,6 +66,27 @@ namespace marketsim {
         std::shared_ptr<TActor> actor{nullptr};
         std::shared_ptr<TCritic> critic{nullptr};
     };
+
+
+    template <int state_size, int hidden_size, typename TLayer>
+    class Critic : public torch::nn::Module {
+    public:
+        Critic() {
+            state_layer = register_module("state_layer", TLayer(state_size, hidden_size));
+            out = register_module("out", torch::nn::Linear(hidden_size, 1));
+        }
+
+        torch::Tensor forward(torch::Tensor x) {
+            x = state_forward(this->state_layer, x);
+            x = torch::relu(x);
+            return out->forward(x);
+        }
+
+    private:
+        TLayer state_layer{nullptr};    
+        torch::nn::Linear out{nullptr};
+    };
+
 
     template <int state_size, int hidden_size, typename TLayer, typename TBidActor, typename TAskActor, typename TConsActor, bool cons_on = true>
     class BidAskActor : public torch::nn::Module {
@@ -164,7 +165,7 @@ namespace marketsim {
             ask_flag = this->register_module("ask_flag", std::make_shared<BinaryAction<hidden_size>>());
         }
 
-        virtual action_container<torch::Tensor> predict_actions(torch::Tensor x) {
+        action_container<torch::Tensor> predict_actions(torch::Tensor x) {
             auto pred = predict_actions_train(x);
             
             return action_container<torch::Tensor>(
@@ -176,7 +177,7 @@ namespace marketsim {
             );
         }
 
-        virtual action_container<action_tensors> predict_actions_train(torch::Tensor x) {
+        action_container<action_tensors> predict_actions_train(torch::Tensor x) {
             x = state_forward(this->state_layer, x);
             x = torch::relu(x);
 
@@ -189,7 +190,7 @@ namespace marketsim {
             );
         }
 
-        virtual torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
+        torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
                                               const action_container<action_tensors>& pred) {
             torch::Tensor log_prob = Base::action_log_prob(actions, pred);
             log_prob += bid_flag->action_log_prob(actions.bid_flag, pred.bid_flag);
@@ -197,7 +198,7 @@ namespace marketsim {
             return log_prob;
         }
 
-        virtual torch::Tensor entropy(const action_container<action_tensors>& pred) {
+        torch::Tensor entropy(const action_container<action_tensors>& pred) {
             torch::Tensor res = Base::entropy(pred);
             res += bid_flag->entropy(pred.bid_flag);
             res += ask_flag->entropy(pred.ask_flag);
@@ -218,7 +219,7 @@ namespace marketsim {
             cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>());
         }
             
-         virtual action_container<torch::Tensor> predict_actions(torch::Tensor x) {
+         action_container<torch::Tensor> predict_actions(torch::Tensor x) {
             auto pred = predict_actions_train(x);
             torch::Tensor bid_ask = bid_ask_actor->sample_actions(pred.bid);
 
@@ -234,7 +235,7 @@ namespace marketsim {
             );
         }
 
-        virtual action_container<action_tensors> predict_actions_train(torch::Tensor x) {
+        action_container<action_tensors> predict_actions_train(torch::Tensor x) {
             x = state_forward(this->state_layer, x);
             x = torch::relu(x);
 
@@ -245,7 +246,7 @@ namespace marketsim {
             );
         }
 
-        virtual torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
+        torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
                                               const action_container<action_tensors>& pred) {
             torch::Tensor true_target = construct_target(actions);
             torch::Tensor log_prob =  bid_ask_actor->action_log_prob(true_target, pred.bid);
@@ -257,7 +258,7 @@ namespace marketsim {
             return log_prob;
         }
 
-        virtual torch::Tensor entropy(const action_container<action_tensors>& pred) {
+        torch::Tensor entropy(const action_container<action_tensors>& pred) {
             torch::Tensor res = bid_ask_actor->entropy(pred.bid);
             if (cons_on) {
                 res += cons_actor->entropy(pred.cons);

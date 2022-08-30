@@ -23,9 +23,11 @@ namespace marketsim {
         DiffReturn() : curr_gamma(1.0), gamma(0.99998) {}
         virtual ~DiffReturn() {}
         
-        torch::Tensor compute_returns(const std::vector<hist_entry>& history, torch::Tensor next_state) {
+        template <typename T>
+        torch::Tensor compute_returns(const T& history, torch::Tensor next_state) {
             curr_gamma = 1.0;
             double returns = 0.0;
+            //TODO use : (foreach)
 
             size_t hist_size = history.size();
             init(history, next_state);

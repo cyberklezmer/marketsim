@@ -48,8 +48,7 @@ namespace marketsim {
         }
 
         int get_random_int() {
-            torch::Tensor rand_tens = torch::randint(-spread_size, spread_size + 1, {1});
-            return rand_tens.item<int>();
+            return random_int_from_tensor(-spread_size, spread_size + 1);
         }
 
         tprice last_bid, last_ask;
