@@ -18,10 +18,17 @@ namespace marketsim {
         torch::Tensor returns;
 
         static hist_entry empty_entry() {
-        torch::Tensor zeros = torch::zeros({1});
-        return hist_entry(zeros, action_container<torch::Tensor>(zeros, zeros, zeros));
-    }
+            torch::Tensor zeros = torch::zeros({1});
+            return hist_entry(zeros, action_container<torch::Tensor>(zeros, zeros, zeros));
+        }
     };
+
+    template <typename T, typename TIn, typename TFunc>
+    std::vector<T> map_func(std::vector<TIn> vec, TFunc fun) {
+        std::vector<T> out_vec;
+        std::transform(vec.begin(), vec.end(), std::back_inserter(out_vec), fun);
+        return out_vec;
+    }
 
     torch::Tensor tanh_activation(const torch::Tensor& t) {
         return torch::tanh(t);

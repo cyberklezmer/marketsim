@@ -26,48 +26,6 @@ namespace marketsim {
     } 
 
 
-    template<typename TActor, typename TCritic>
-    class ActorCritic : public torch::nn::Module {
-    public:
-        ActorCritic()
-        {
-            actor = register_module("actor", std::make_shared<TActor>());
-            critic = register_module("critic", std::make_shared<TCritic>());
-        }
-
-        virtual ~ActorCritic() {}
-        
-        action_container<torch::Tensor> predict_actions(torch::Tensor x) {
-            return actor->predict_actions(x);
-        }
-        action_container<action_tensors> predict_actions_train(torch::Tensor x) {
-            return actor->predict_actions_train(x);
-        }
-
-        torch::Tensor predict_values(torch::Tensor x) {
-            return critic->forward(x);
-        }
-
-        std::pair<action_container<action_tensors>, torch::Tensor> forward(torch::Tensor x) {
-            auto actions = predict_actions_train(x);
-            auto state_values = predict_values(x);
-            return std::make_pair<>(actions, state_values);
-        }
-
-        torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
-                                              const action_container<action_tensors>& pred) {
-            return actor->action_log_prob(actions, pred);
-        }
-        torch::Tensor entropy(const action_container<action_tensors>& pred) {
-            return actor->entropy(pred);
-        }
-
-    private:
-        std::shared_ptr<TActor> actor{nullptr};
-        std::shared_ptr<TCritic> critic{nullptr};
-    };
-
-
     template <int state_size, int hidden_size, typename TLayer>
     class Critic : public torch::nn::Module {
     public:

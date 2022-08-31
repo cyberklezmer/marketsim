@@ -7,6 +7,7 @@
 
 
 namespace marketsim {
+    //TODO stack with previous states
 
     template <int NSteps, typename TReturns>
     class BaseBatcher {
@@ -24,17 +25,23 @@ namespace marketsim {
         }
 
         void update_returns(torch::Tensor next_state) {
+            return update_returns(next_state, 0);
+        }
+
+        void update_returns(torch::Tensor next_state, double next_state_value) {
             if (n_step_buffer.size() < NSteps) {
                 return;
             }
 
-            torch::Tensor returns = returns_func.compute_returns(n_step_buffer, next_state);
+            double returns = returns_func.compute_returns(n_step_buffer, next_state);
+            returns += next_state_value * returns_func.curr_gamma();
             
             hist_entry front = n_step_buffer.front();
-            add_hist_entry(hist_entry(front.state, front.actions, returns));
+            add_hist_entry(hist_entry(front.state, front.actions, torch::tensor({returns})));
         }
 
         virtual void add_hist_entry(hist_entry entry) = 0;
+        virtual bool is_batch_ready() = 0;
         virtual hist_entry next_batch() = 0;
 
     private:
@@ -46,18 +53,25 @@ namespace marketsim {
     template <int NSteps, typename TReturns>
     class NextStateBatcher : BaseBatcher<NSteps, TReturns> {
     public:
-        NextStateBatcher() : BaseBatcher<NSteps, TReturns>(), next_entry(hist_entry::empty_entry()) {}
-            void add_hist_entry(hist_entry entry) {
-                next_entry = entry;
-            }
+        NextStateBatcher() : BaseBatcher<NSteps, TReturns>(), next_entry(hist_entry::empty_entry()), is_ready(false) {}
 
-            virtual hist_entry next_batch() {
-                return hist_entry(next_entry.state.view({1, -1}), actions_view(next_entry.actions, {1, -1}),
-                                  next_entry.returns.view({1, -1}));
-            }
+        void add_hist_entry(hist_entry entry) {
+            is_ready = true;
+            next_entry = entry;
+        }
+
+        bool is_batch_ready() {
+            return is_ready;
+        }
+
+        hist_entry next_batch() {
+            return hist_entry(next_entry.state.view({1, -1}), actions_view(next_entry.actions, {1, -1}),
+                                next_entry.returns.view({1, -1}));
+        }
         
 
     private:
+        bool is_ready;
         hist_entry next_entry;
     };
 
@@ -70,20 +84,27 @@ namespace marketsim {
             buffer.push_back(entry);
         }
 
+        bool is_batch_ready() {
+            return buffer.size() >= batch_size;
+        }
+
         virtual hist_entry next_batch() {
             std::vector<int> batch_ids;
             for (size_t i = 0; i < buffer.size(); ++i) {
                 batch_ids.push_back(random_int_from_tensor(0, buffer.size()));
             }
 
-            std::vector<hist_entry> batch;
-            std::transform(batch_ids.begin(), batch_ids.end(), std::back_inserter(batch), [&](int i){ return buffer[i]; });
+            std::vector<hist_entry> batch = map_func<hist_entry>(batch_ids, [&](int i){ return buffer[i]; });
+            std::vector<torch::Tensor> b_states = map_func<torch::Tensor>(batch, [](hist_entry e){ return e.state; });
+            std::vector<ac> b_actions = map_func<ac>(batch, [](hist_entry e){ return e.actions; });
+            std::vector<torch::Tensor> b_ret = map_func<torch::Tensor>(batch, [](hist_entry e){ return e.returns; });
             
-            //TODO batch states etc
-            //return actions_batch(buffer);  //TODO select indices
+            return hist_entry(torch::cat(b_states, 0), actions_batch(b_actions), torch::cat(b_ret, 0));
         }
     
     private:
+        using ac = action_container<torch::Tensor>;
+
         std::vector<hist_entry> buffer;
     };
 
