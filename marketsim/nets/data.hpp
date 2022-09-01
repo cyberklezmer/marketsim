@@ -7,21 +7,53 @@
 
 
 namespace marketsim {
-    //TODO stack with previous states
-
-    template <int NSteps, typename TReturns>
+    template <int NSteps, typename TReturns, bool stack_history = false, int stack_size = 5, int stack_dim = 0>
     class BaseBatcher {
     public:
-        BaseBatcher<NSteps>() : n_step_buffer(), returns_func() {}
+        BaseBatcher<NSteps>() : n_step_buffer(), prev_states(), prev_states_pred(), returns_func() {}
 
         void add_next_state_action(torch::Tensor state, action_container<torch::Tensor> actions) {
             n_step_buffer.push_back(hist_entry(state, actions));
+
+            if (stack_history) {
+                update_prev_states(prev_states, n_step_buffer.front().state);
+                update_prev_states(prev_states_pred, state);
+            }
 
             if (n_step_buffer.size() <= NSteps) {
                 return;
             }
 
             n_step_buffer.pop_front();
+        }
+
+        void update_prev_states(std::deque<torch::Tensor> prev, torch::Tensor state) {
+            state = _transform_state(state);
+
+            //init
+            if (prev.size() == 0) {
+                for (int i = 0; i < (stack_size - 1); ++i) {
+                    prev.push_back(state);
+                }
+                return;
+            }
+
+            prev.push_back(state);
+            prev.pop_front();
+        }
+
+        torch::Tensor stack_prev_states(std::deque<torch::Tensor> prev, torch::Tensor next_state) {
+            std::vector<torch::Tensor> stack = std::vector<torch::Tensor>(prev.begin(), prev.end());
+            stack.push_back(_transform_state(next_state));
+
+            return torch::cat(stack, stack_dim);
+        }
+
+        torch::Tensor transform_for_prediction(torch::Tensor state) {
+            if (stack_history) {
+                return stack_prev_states(prev_states_pred, state);
+            }
+            return _transform_state(state);
         }
 
         void update_returns(torch::Tensor next_state) {
@@ -37,7 +69,10 @@ namespace marketsim {
             returns += next_state_value * returns_func.curr_gamma();
             
             hist_entry front = n_step_buffer.front();
-            add_hist_entry(hist_entry(front.state, front.actions, torch::tensor({returns})));
+
+            // optionally stack previous states to keep info about past wallet and prices
+            torch::Tensor state = stack_history ? stack_prev_states(prev_states, front.state) : _transform_state(front.state);
+            add_hist_entry(hist_entry(state, front.actions, torch::tensor({returns})));
         }
 
         virtual void add_hist_entry(hist_entry entry) = 0;
@@ -45,7 +80,19 @@ namespace marketsim {
         virtual hist_entry next_batch() = 0;
 
     private:
+        torch::Tensor _transform_state(torch::Tensor state) {
+            torch::Tensor x = state.clone();
+
+            x[0][0] /= 1000;
+            for (int i = 1; i <= 3; ++i) {
+                x[0][i] /= 10000;
+            }
+
+            return x;
+        }
+
         std::deque<hist_entry> n_step_buffer;
+        std::deque<torch::Tensor> prev_states, prev_states_pred;
         TReturns returns_func;
     };
 

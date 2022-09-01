@@ -24,7 +24,7 @@ namespace marketsim {
     };
 
     template <typename T, typename TIn, typename TFunc>
-    std::vector<T> map_func(std::vector<TIn> vec, TFunc fun) {
+    std::vector<T> map_func(TIn vec, TFunc fun) {
         std::vector<T> out_vec;
         std::transform(vec.begin(), vec.end(), std::back_inserter(out_vec), fun);
         return out_vec;

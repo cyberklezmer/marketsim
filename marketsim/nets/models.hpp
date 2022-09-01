@@ -23,8 +23,6 @@ namespace marketsim {
             torch::Tensor state = batch.state;
             action_container<torch::Tensor> actions = batch.actions;
             torch::Tensor returns = batch.returns;
-
-            //state = modify_state(state);  //TODO maybe modify elsewhere
             
             // main loop
             actor_opt.zero_grad();
@@ -51,7 +49,6 @@ namespace marketsim {
         }
         
         action_container<torch::Tensor> predict_actions(torch::Tensor state) {
-            //state = modify_state(state);
             return actor->predict_actions(state);
         }
 
