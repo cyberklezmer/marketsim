@@ -8,7 +8,7 @@
 namespace marketsim {
 
     template<typename TActor, typename TCritic>
-    class ActorCritic : public torch::nn::Module {
+    class ActorCritic {
     public:
         ActorCritic() :
             clamp(2), beta(0.01),
@@ -49,7 +49,13 @@ namespace marketsim {
         }
         
         action_container<torch::Tensor> predict_actions(torch::Tensor state) {
+            torch::NoGradGuard no_grad;
             return actor->predict_actions(state);
+        }
+
+        torch::Tensor predict_values(torch::Tensor state) {
+            torch::NoGradGuard no_grad;
+            return critic->forward(state);
         }
 
     private:

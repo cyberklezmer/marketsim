@@ -8,7 +8,7 @@
 
 namespace marketsim {
 
-    template<typename TNet, typename TOrder, int spread_lim = 0, bool verbose = true,
+    template<typename TNet, typename TBatcher, typename TOrder, int spread_lim = 0, bool verbose = true,
             bool train_cons = true, int fixed_cons = 200,
             bool use_naive_cons = false>
     class neuralnetstrategy : public teventdrivenstrategy {
@@ -16,6 +16,7 @@ namespace marketsim {
         neuralnetstrategy() : teventdrivenstrategy(1),
             net(),
             order(),
+            batcher(),
             history(),
             last_bid(klundefprice),
             last_ask(khundefprice) {
@@ -26,10 +27,20 @@ namespace marketsim {
 
     private:
         virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult) {
-            torch::Tensor next_state = this->construct_state(mi);  //TODO tady add next state - trida co uchovava history, pocita rewardy atd
-            net.train(history, next_state);
+            torch::Tensor next_state = this->construct_state(mi);
+            torch::Tensor pred_state = batcher.transform_for_prediction(next_state);
 
-            auto pred_actions = net.predict_actions(history, next_state);
+            double state_value = net.predict_values(pred_state);
+            batcher.update_returns(next_state, state_value);
+
+            if (batcher.is_batch_ready()){
+                hist_entry batch = batcher.next_batch();
+                net.train(batch);
+            }
+
+            auto pred_actions = net.predict_actions(pred_state);
+            batcher->add_next_state_action(next_state, pred_actions);
+
             set_consumption(mi, pred_actions);
             set_flags(pred_actions);
 
@@ -50,7 +61,7 @@ namespace marketsim {
             tprice b = std::get<1>(ab);
             
             std::vector<float> state_data = std::vector<float>{float(m), float(s), float(a), float(b)};
-            return torch::tensor(state_data).reshape({1,4});
+            return torch::tensor(state_data);
         }
 
         void limit_spread(action_container<torch::Tensor>& next_action) {
@@ -92,6 +103,7 @@ namespace marketsim {
 		tprice last_bid, last_ask;
 
         TNet net;
+        TBatcher batcher;
         TOrder order;
         std::vector<hist_entry> history;
     };
