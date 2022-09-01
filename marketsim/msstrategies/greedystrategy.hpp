@@ -36,7 +36,7 @@ namespace marketsim {
             tprice next_ask = a + ask;
             next_ask = (next_ask < 0) ? 1 : next_ask;
 
-            auto ot = construct_order(next_bid, next_ask, cons);
+            auto ot = create_order(next_bid, next_ask, cons);
             if (verbose) {
                 print_state(mi, next_bid, next_ask, cons, bid, ask);
             }

@@ -38,26 +38,6 @@ namespace marketsim {
         return torch::nn::functional::softplus(t);
     }
 
-    std::vector<torch::Tensor> get_past_states(const std::vector<hist_entry>& history, int start, int steps) {
-        int idx = history.size() - start - steps;
-        std::vector<torch::Tensor> states;
-
-        for (int i = idx; i < idx + steps; ++i) {
-            states.push_back(history.at(i).state);
-        }
-
-        return states;
-    }
-
-    torch::Tensor stack_state_history(std::vector<torch::Tensor>& history, int axis) {
-        return torch::cat(history, axis);
-    }
-
-    torch::Tensor stack_state_history(std::vector<torch::Tensor>& history, torch::Tensor next_state, int axis) {
-        history.push_back(next_state);
-        return stack_state_history(history, axis);
-    }
-
     int random_int_from_tensor(int64_t low, int64_t high) {
         torch::Tensor rand_tens = torch::randint(low, high, {1});
         return rand_tens.item<int>();
@@ -87,7 +67,7 @@ namespace marketsim {
     }
 
     template<int volume = 1, bool erase = true>
-    trequest construct_order(tprice bid, tprice ask, tprice cons) {
+    trequest create_order(tprice bid, tprice ask, tprice cons) {
         tpreorderprofile pp;
         trequest ord;
 

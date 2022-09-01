@@ -10,7 +10,7 @@ namespace marketsim {
     template <int NSteps, typename TReturns, bool stack_history = false, int stack_size = 5, int stack_dim = 0>
     class BaseBatcher {
     public:
-        BaseBatcher<NSteps>() : n_step_buffer(), prev_states(), prev_states_pred(), returns_func() {}
+        BaseBatcher() : n_step_buffer(), prev_states(), prev_states_pred(), returns_func() {}
 
         void add_next_state_action(torch::Tensor state, action_container<torch::Tensor> actions) {
             n_step_buffer.push_back(hist_entry(state, actions));
@@ -30,19 +30,19 @@ namespace marketsim {
             return update_returns(next_state, 0);
         }
 
-        void update_returns(torch::Tensor next_state, double next_state_value) {
+        void update_returns(torch::Tensor next_state, torch::Tensor next_state_value) {
             if (n_step_buffer.size() < NSteps) {
                 return;
             }
 
-            double returns = returns_func.compute_returns(n_step_buffer, next_state);
-            returns += next_state_value * returns_func.curr_gamma();
+            torch::Tensor returns = returns_func.compute_returns(n_step_buffer, next_state);
+            returns += next_state_value * returns_func.get_gamma();
             
             hist_entry front = n_step_buffer.front();
 
             // optionally stack previous states to keep info about past wallet and prices
             torch::Tensor state = stack_history ? stack_prev_states(prev_states, front.state) : transform_state(front.state);
-            add_hist_entry(hist_entry(state, front.actions, torch::tensor({returns})));
+            add_hist_entry(hist_entry(state, front.actions, returns));
         }
 
         torch::Tensor transform_for_prediction(torch::Tensor state, bool update_stack = true) {
@@ -100,7 +100,7 @@ namespace marketsim {
 
 
     template <int NSteps, typename TReturns>
-    class NextStateBatcher : BaseBatcher<NSteps, TReturns> {
+    class NextStateBatcher : public BaseBatcher<NSteps, TReturns> {
     public:
         NextStateBatcher() : BaseBatcher<NSteps, TReturns>(), next_entry(hist_entry::empty_entry()), is_ready(false) {}
 
@@ -125,7 +125,7 @@ namespace marketsim {
     };
 
     template <int NSteps, typename TReturns, int batch_size>
-    class ReplayBufferBatcher : BaseBatcher<NSteps, TReturns> {
+    class ReplayBufferBatcher : public BaseBatcher<NSteps, TReturns> {
     public:
         ReplayBufferBatcher() : BaseBatcher<NSteps, TReturns>() {}
 

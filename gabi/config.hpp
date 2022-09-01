@@ -1,9 +1,10 @@
 
 #include "msstrategies/neuralnetstrategy.hpp"
 #include "msstrategies/greedystrategy.hpp"
+#include "nets/models.hpp"
 #include "nets/actorcritic.hpp"
-#include "nets/trainer.hpp"
 #include "nets/rewards.hpp"
+#include "nets/data.hpp"
 #include "nets/utils.hpp"
 
 #include <torch/torch.h>
@@ -35,10 +36,8 @@ namespace marketsim {
 
     constexpr int fixed_cons = 200;
     constexpr int with_stocks = true;
-    constexpr bool explore = !use_fixed_consumption;
 
     constexpr int cons_lim = use_fixed_consumption ? 13000 : 500;  // don't consume if you have less than this
-    constexpr int keep_stocks = 10;  // don't sell if you have less than 10
 
     constexpr int volume = 10;  // volume for bids and asks
 
@@ -52,35 +51,31 @@ namespace marketsim {
     //using state_layer = torch::nn::LSTM;
     using state_layer = torch::nn::Linear;
 
-    using bid_ask_discrete = DiscreteActions<hidden_size, 2 * spread_lim + 1, spread_lim>;
+    using ba_discrete = DiscreteActions<hidden_size, 2 * spread_lim + 1, spread_lim>;
     using cons_discrete = DiscreteActions<hidden_size, cons_parts + 1, 0, cons_step>;
-    using bid_ask_cont = ContinuousActions<tanh_activation, softplus_activation, hidden_size, 1>;
+    using ba_cont = ContinuousActions<tanh_activation, softplus_activation, hidden_size, 1>;
     using cons_cont = ContinuousActions<softplus_activation, softplus_activation, hidden_size, 1, cons_mult>; 
 
-    using dnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete, !use_fixed_consumption>;
-    using cnetwork = ActorCritic<state_size, hidden_size, state_layer, bid_ask_cont, bid_ask_cont, cons_cont, !use_fixed_consumption>;
-    using dflag_network = ActorCriticFlags<state_size, hidden_size, state_layer, bid_ask_discrete, bid_ask_discrete, cons_discrete, !use_fixed_consumption>;
-    using network = dnetwork;  // change to dnetwork to use discrete actions
+    using dactor = BidAskActor<state_size, hidden_size, state_layer, ba_discrete, ba_discrete, cons_discrete, !use_fixed_consumption>;
+    using cactor = BidAskActor<state_size, hidden_size, state_layer, ba_cont, ba_cont, cons_cont, !use_fixed_consumption>;
+    using dflagactor = BidAskActorFlags<state_size, hidden_size, state_layer, ba_cont, ba_cont, cons_cont, !use_fixed_consumption>;
 
-    constexpr int money_div = 1000;  // in the reward, weight money difference by money_div / money
-    constexpr int stock_div = 10; // weight stock value difference by stock_div / stock
-    constexpr bool separately = true;  // if true, the weights are computed using the overall value
-
-    using wreturns_func = WeightedDiffReturn<n_steps, money_div, stock_div, verbose, separately>;
-    using dreturns_func = DiffReturn<n_steps>;
-    using returns_func = dreturns_func;  // change to dreturns_funct to use returns that are not weighted
+    using critic = Critic<state_size, hidden_size, state_layer>;
+    using model = ActorCritic<dactor, critic>;
     
-    using trainer = NStepTrainer<network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
+    using returns_func = DiffReturn<n_steps>;
+    using batcher = NextStateBatcher<n_steps, returns_func>;
 
     // mm settings
-    using order = neuralmmorder<keep_stocks, volume, verbose>;
-    using neuralstrategy = neuralnetstrategy<trainer, order, cons_lim, spread_lim, cons_step, verbose, true, explore, true, !use_fixed_consumption, fixed_cons, with_stocks, use_naive_cons>;
+    using order = neuralmmorder<volume, verbose>;
+    using neuralstrategy = neuralnetstrategy<model, batcher, order, spread_lim, verbose, !use_fixed_consumption, fixed_cons, use_naive_cons>;
     using greedystrat = greedystrategy<cons_lim, verbose, random_strategy>;
 
     // speculator settings
     using spec_order = neuralspeculatororder<volume, verbose>;
-    using spec_network = ActorCriticSpeculator<state_size, hidden_size, state_layer, cons_discrete, !use_fixed_consumption>;
-    using spec_trainer = NStepTrainer<spec_network, n_steps, returns_func, entropy_reg, stack, stack_dim, stack_size>;
-    using spec_neuralstrategy = neuralnetstrategy<spec_trainer, spec_order, cons_lim, spread_lim, cons_step, verbose, true, explore, false, !use_fixed_consumption, fixed_cons, with_stocks, use_naive_cons>;
+    using spec_actor = BidAskActorSpeculator<state_size, hidden_size, state_layer, cons_discrete, !use_fixed_consumption>;
+    using spec_model = ActorCritic<spec_actor, critic>;
+
+    using spec_neuralstrategy = neuralnetstrategy<spec_model, batcher, order, spread_lim, verbose, !use_fixed_consumption, fixed_cons, use_naive_cons>;
 
 }

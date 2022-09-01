@@ -30,7 +30,7 @@ namespace marketsim {
             torch::Tensor next_state = this->construct_state(mi);
             torch::Tensor pred_state = batcher.transform_for_prediction(next_state);
 
-            double state_value = net.predict_values(pred_state);
+            torch::Tensor state_value = net.predict_values(pred_state);
             batcher.update_returns(next_state, state_value);
 
             if (batcher.is_batch_ready()){
@@ -39,7 +39,7 @@ namespace marketsim {
             }
 
             auto pred_actions = net.predict_actions(pred_state);
-            batcher->add_next_state_action(next_state, pred_actions);
+            batcher.add_next_state_action(next_state, pred_actions);
 
             set_consumption(mi, pred_actions);
             set_flags(pred_actions);
@@ -139,7 +139,7 @@ namespace marketsim {
         double threshold;
     };
 
-    template <int keep_stocks, int volume = 10, bool verbose = false, bool emergency = true>
+    template <int volume = 10, bool verbose = false>
     class neuralmmorder {
     public:
         neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice), threshold(0.5) {}
@@ -178,7 +178,7 @@ namespace marketsim {
                 }
             }
 
-            auto ot = construct_order(bid, ask, cons);
+            auto ot = create_order(bid, ask, cons);
             if (verbose) {
                 print_state(mi, bid, ask, cons, bpred, apred);
             }

@@ -6,15 +6,15 @@
 
 namespace marketsim {
     double get_money(torch::Tensor state) {
-        return state[0][0].item<double>();
+        return state[0].item<double>();
     }
 
     double get_stocks(torch::Tensor state) {
-        return state[0][1].item<double>();
+        return state[1].item<double>();
     }
 
     double get_beta(torch::Tensor state) {
-        return state[0][3].item<double>();
+        return state[3].item<double>();
     }
 
     template <int N>
@@ -29,14 +29,13 @@ namespace marketsim {
             double returns = 0.0;
             
             const hist_entry* prev = nullptr;
-            init(history, next_state);
             for (const hist_entry& entry : history) {
                 if (prev == nullptr) {
                     prev = &entry;
                     continue;
                 }
 
-                returns += compute_reward(*prev, entry);
+                returns += compute_reward(*prev, entry.state);
                 curr_gamma *= gamma;
                 prev = &entry;
             }
@@ -50,10 +49,10 @@ namespace marketsim {
             return curr_gamma;
         }
 
-        double compute_reward(hist_entry prev, hist_entry curr) {
+        double compute_reward(hist_entry prev, torch::Tensor state) {
             double cons =  prev.actions.cons.item<double>();
-            double mdiff = get_money_diff(prev, curr.state);
-            double sdiff = get_stock_diff(prev, curr.state);
+            double mdiff = get_money_diff(prev.state, state);
+            double sdiff = get_stock_diff(prev.state, state);
 
             return cons + curr_gamma * (mdiff + sdiff);
         }

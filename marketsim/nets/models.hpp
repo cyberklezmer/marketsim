@@ -15,8 +15,8 @@ namespace marketsim {
             actor_opt(torch::optim::Adam(actor->parameters(), /*lr=*/0.001)),
             critic_opt(torch::optim::Adam(critic->parameters(), /*lr=*/0.0001))
         {
-            actor = register_module("actor", std::make_shared<TActor>());
-            critic = register_module("critic", std::make_shared<TCritic>());
+            actor = std::make_shared<TActor>();
+            critic = std::make_shared<TCritic>();
         }
 
         void train(const hist_entry& batch) {
@@ -28,7 +28,7 @@ namespace marketsim {
             actor_opt.zero_grad();
             critic_opt.zero_grad();
 
-            action_container<torch::Tensor> pred_actions = actor->predict_actions_train(state);
+            auto pred_actions = actor->predict_actions_train(state);
             torch::Tensor state_value = critic->forward(state);
 
             auto advantages = (returns - state_value);
