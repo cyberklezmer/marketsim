@@ -42,7 +42,7 @@ namespace marketsim {
 
             // optionally stack previous states to keep info about past wallet and prices
             torch::Tensor state = stack_history ? stack_prev_states(prev_states, front.state) : transform_state(front.state);
-            add_hist_entry(hist_entry(state.view({1, -1}), actions_view(front.actions, {1, -1}), returns.view({1, -1})));
+            add_hist_entry(hist_entry(state.unsqueeze(0), actions_map<tensor_unsqueeze<0>>(front.actions), returns.unsqueeze(0)));
         }
 
         torch::Tensor transform_for_prediction(torch::Tensor state, bool update_stack = true) {
@@ -50,9 +50,9 @@ namespace marketsim {
                 if (update_stack) {
                     update_prev_states(prev_states_pred, state);
                 }
-                return stack_prev_states(prev_states_pred, state);
+                return stack_prev_states(prev_states_pred, state).unsqueeze(0);
             }
-            return transform_state(state).view({1, -1});
+            return transform_state(state).unsqueeze(0);
         }
 
         virtual void add_hist_entry(hist_entry entry) = 0;
@@ -71,15 +71,15 @@ namespace marketsim {
             return x;
         }
 
-        torch::Tensor stack_prev_states(std::deque<torch::Tensor> prev, torch::Tensor next_state) {
+        torch::Tensor stack_prev_states(const std::deque<torch::Tensor>& prev, torch::Tensor next_state) {
             std::vector<torch::Tensor> stack = std::vector<torch::Tensor>(prev.begin(), prev.end());
-            stack.push_back(transform_state(next_state));
+            stack.push_back(transform_state(next_state).unsqueeze(0));
 
             return torch::cat(stack, stack_dim);
         }
 
-        void update_prev_states(std::deque<torch::Tensor> prev, torch::Tensor state) {
-            state = transform_state(state);
+        void update_prev_states(std::deque<torch::Tensor>& prev, torch::Tensor state) {
+            state = transform_state(state).unsqueeze(0);
 
             //init
             if (prev.size() == 0) {
@@ -99,10 +99,11 @@ namespace marketsim {
     };
 
 
-    template <int NSteps, typename TReturns>
-    class NextStateBatcher : public BaseBatcher<NSteps, TReturns> {
+    template <int NSteps, typename TReturns, bool stack_history = false, int stack_size = 5, int stack_dim = 0>
+    class NextStateBatcher : public BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim> {
     public:
-        NextStateBatcher() : BaseBatcher<NSteps, TReturns>(), next_entry(hist_entry::empty_entry()), is_ready(false) {}
+        NextStateBatcher() : BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim>(),
+            next_entry(hist_entry::empty_entry()), is_ready(false) {}
 
         void add_hist_entry(hist_entry entry) {
             is_ready = true;
@@ -114,8 +115,7 @@ namespace marketsim {
         }
 
         hist_entry next_batch() {
-            return hist_entry(next_entry.state.view({1, -1}), actions_view(next_entry.actions, {1, -1}),
-                                next_entry.returns.view({1, -1}));
+            return next_entry;
         }
         
 
@@ -124,10 +124,10 @@ namespace marketsim {
         hist_entry next_entry;
     };
 
-    template <int NSteps, typename TReturns, int batch_size, int buffer_lim = 0, int buffer_margin = 250>
-    class ReplayBufferBatcher : public BaseBatcher<NSteps, TReturns> {
+    template <int NSteps, typename TReturns, int batch_size, int buffer_lim = 0, int buffer_margin = 250, bool stack_history = false, int stack_size = 5, int stack_dim = 0>
+    class ReplayBufferBatcher : public BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim> {
     public:
-        ReplayBufferBatcher() : BaseBatcher<NSteps, TReturns>() {}
+        ReplayBufferBatcher() : BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim>() {}
 
         virtual void add_hist_entry(hist_entry entry) {
             if ((buffer_lim > 0) && (buffer.size() > (buffer_lim + buffer_margin))) {

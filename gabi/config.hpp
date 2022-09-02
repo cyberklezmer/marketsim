@@ -21,9 +21,9 @@ namespace marketsim {
     
     constexpr int cons_mult = 100;  // in case of continuous actions, the predicted value is multiplied by this number
 
-    constexpr bool stack = false;  // stack state to look into history
-    constexpr int stack_dim = 0;
+    constexpr bool stack = true;  // stack state to look into history
     constexpr int stack_size = 5;
+    constexpr int stack_dim = 0;
     constexpr int state_size = 4;
 
     //constexpr int stack_dim = 1;
@@ -48,8 +48,8 @@ namespace marketsim {
     // greedy strategy settings
     constexpr bool random_strategy = true;  // choose bid/ask values randomly
     
-    //using state_layer = torch::nn::LSTM;
-    using state_layer = torch::nn::Linear;
+    using state_layer = torch::nn::LSTM;
+    //using state_layer = torch::nn::Linear;
 
     using ba_discrete = DiscreteActions<hidden_size, 2 * spread_lim + 1, spread_lim>;
     using cons_discrete = DiscreteActions<hidden_size, cons_parts + 1, 0, cons_step>;
@@ -60,15 +60,15 @@ namespace marketsim {
     using cactor = BidAskActor<state_size, hidden_size, state_layer, ba_cont, ba_cont, cons_cont, !use_fixed_consumption>;
     using dflagactor = BidAskActorFlags<state_size, hidden_size, state_layer, ba_cont, ba_cont, cons_cont, !use_fixed_consumption>;
 
-    using actor = dflagactor;
+    using actor = dactor;
     using critic = Critic<state_size, hidden_size, state_layer>;
     using model = ActorCritic<actor, critic>;
     
     constexpr int batch_size = 32;
     constexpr int replay_buffer_max = 1000;
     using returns_func = DiffReturn<n_steps>;
-    //using batcher = NextStateBatcher<n_steps, returns_func>;
-    using batcher = ReplayBufferBatcher<n_steps, returns_func, batch_size, replay_buffer_max>;
+    using batcher = NextStateBatcher<n_steps, returns_func, stack, stack_size, stack_dim>;
+    //using batcher = ReplayBufferBatcher<n_steps, returns_func, batch_size, replay_buffer_max, 250, stack, stack_size, stack_dim>;
 
     // mm settings
     using order = neuralmmorder<volume, verbose>;

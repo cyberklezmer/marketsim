@@ -7,7 +7,7 @@
 
 namespace marketsim {
     using action_tensors = std::vector<torch::Tensor>;
-    using ActFunc = torch::Tensor(const torch::Tensor&);
+    using TensorFunc = torch::Tensor(const torch::Tensor&);
 
     template <typename T>
     class action_container {
@@ -56,21 +56,32 @@ namespace marketsim {
         return action_container<torch::Tensor>(stack_tensors(bv), stack_tensors(av), stack_tensors(cv));
     }
 
-    action_container<torch::Tensor> actions_view(const action_container<torch::Tensor>& actions, at::IntArrayRef size) {
-        torch::Tensor bid = actions.bid.view(size);
-        torch::Tensor ask = actions.ask.view(size);
-        torch::Tensor cons = actions.cons.view(size);
+    template <TensorFunc func>
+    action_container<torch::Tensor> actions_map(const action_container<torch::Tensor>& actions) {
+        auto bid = func(actions.bid);
+        auto ask = func(actions.ask);
+        auto cons = func(actions.cons);
 
         if (actions.is_flag_valid()) {
-            torch::Tensor bid_flag = actions.bid_flag.view(size); 
-            torch::Tensor ask_flag = actions.ask_flag.view(size);
+            auto bid_flag = func(actions.bid_flag); 
+            auto ask_flag = func(actions.ask_flag);
             return action_container<torch::Tensor>(bid, ask, cons, bid_flag, ask_flag);
         }
         
         return action_container<torch::Tensor>(bid, ask, cons);
     }
 
-    template <ActFunc MuActiv, ActFunc StdActiv, int hidden_size, int action_size, int output_scale = 1, int mu_scale = 1>
+    template <int... size>
+    torch::Tensor tensor_view(const torch::Tensor& t) {
+        return t.view({size...});
+    }
+
+    template <int dim>
+    torch::Tensor tensor_unsqueeze(const torch::Tensor& t) {
+        return t.unsqueeze(dim);
+    }
+
+    template <TensorFunc MuActiv, TensorFunc StdActiv, int hidden_size, int action_size, int output_scale = 1, int mu_scale = 1>
     class ContinuousActions : public torch::nn::Module {
     public:
         ContinuousActions() {

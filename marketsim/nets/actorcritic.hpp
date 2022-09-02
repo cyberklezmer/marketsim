@@ -8,16 +8,16 @@ namespace marketsim {
     //TODO does this work when batched?
 
     torch::Tensor state_forward(torch::nn::LSTM layer, torch::Tensor x) {
-        x = x.view({x.size(0), 1, -1});
+        if (x.dim() == 2) {
+            x = x.unsqueeze(1);
+        }
 
         auto res = layer->forward(x);
-        torch::Tensor out = std::get<0>(res).index({Slice(), 0});
+        torch::Tensor out = std::get<0>(res);
         
         // get the last output
-        auto out_size = out.sizes()[0];
-        if (out_size != 1) {
-            out = out[out_size - 1].view({1, -1});
-        }
+        out = out.index({Slice(), out.sizes()[1] - 1});
+        
         return out;
     }
 
@@ -168,7 +168,7 @@ namespace marketsim {
     };
 
     template <int state_size, int hidden_size, typename TLayer, typename TConsActor, bool cons_on = true>
-    class BidAskActorSpeculator : torch::nn::Module {
+    class BidAskActorSpeculator : public torch::nn::Module {
     public:
         BidAskActorSpeculator() : zero_tensor(torch::zeros({1})) {
             state_layer = register_module("state_layer", TLayer(state_size, hidden_size));
@@ -205,7 +205,7 @@ namespace marketsim {
         }
 
         torch::Tensor action_log_prob(const action_container<torch::Tensor>& actions,
-                                              const action_container<action_tensors>& pred) {
+                                      const action_container<action_tensors>& pred) {
             torch::Tensor true_target = construct_target(actions);
             torch::Tensor log_prob =  bid_ask_actor->action_log_prob(true_target, pred.bid);
 
@@ -228,14 +228,12 @@ namespace marketsim {
 
     private:
         torch::Tensor construct_target(const action_container<torch::Tensor>& actions) {
-            double bid = actions.bid_flag.item<double>();  //TODO nebude tady divny cislo mezi 0 a 1?
-            double ask = actions.ask_flag.item<double>();
+            torch::Tensor bid = actions.bid_flag;
+            torch::Tensor ask = actions.ask_flag;
 
-            assert((bid + ask) <= 1.001);
+            assert(((bid + ask) < 1.0001).all().item<bool>());
             
-            double res = bid + 2 * ask;
-
-            return torch::tensor({res});
+            return bid + 2 * ask;
         }
 
         torch::Tensor zero_tensor;

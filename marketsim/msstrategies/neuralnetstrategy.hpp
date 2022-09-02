@@ -96,8 +96,8 @@ namespace marketsim {
             bid = (bid > threshold) ? 1.0 : 0.0;
             ask = (ask > threshold) ? 1.0 : 0.0;
             
-            next_action.bid_flag = torch::tensor({bid}).reshape({1,1});
-            next_action.ask_flag = torch::tensor({ask}).reshape({1,1});
+            next_action.bid_flag = torch::tensor({bid});
+            next_action.ask_flag = torch::tensor({ask});
         }
 
 		tprice last_bid, last_ask;
