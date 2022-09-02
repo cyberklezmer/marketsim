@@ -60,11 +60,15 @@ namespace marketsim {
     using cactor = BidAskActor<state_size, hidden_size, state_layer, ba_cont, ba_cont, cons_cont, !use_fixed_consumption>;
     using dflagactor = BidAskActorFlags<state_size, hidden_size, state_layer, ba_cont, ba_cont, cons_cont, !use_fixed_consumption>;
 
+    using actor = dflagactor;
     using critic = Critic<state_size, hidden_size, state_layer>;
-    using model = ActorCritic<dactor, critic>;
+    using model = ActorCritic<actor, critic>;
     
+    constexpr int batch_size = 32;
+    constexpr int replay_buffer_max = 1000;
     using returns_func = DiffReturn<n_steps>;
-    using batcher = NextStateBatcher<n_steps, returns_func>;
+    //using batcher = NextStateBatcher<n_steps, returns_func>;
+    using batcher = ReplayBufferBatcher<n_steps, returns_func, batch_size, replay_buffer_max>;
 
     // mm settings
     using order = neuralmmorder<volume, verbose>;

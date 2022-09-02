@@ -8,10 +8,10 @@
 namespace marketsim {
     struct hist_entry {
         hist_entry(torch::Tensor state, action_container<torch::Tensor> actions) :
-            state(state), actions(actions), returns(torch::zeros({1})) {}
+            state(state), actions(actions), returns() {}
 
         hist_entry(torch::Tensor state, action_container<torch::Tensor> actions, torch::Tensor returns) :
-            state(state), actions(actions), returns() {}
+            state(state), actions(actions), returns(returns) {}
 
         torch::Tensor state;
         action_container<torch::Tensor> actions;

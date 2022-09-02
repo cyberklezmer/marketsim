@@ -46,7 +46,7 @@ int main()
         constexpr bool logging = true;
 
         // if false, run only the tested strategy (without the naive mm)
-        bool with_mm = false;
+        bool with_mm = true;
 
         // change accordingly (one unit rougly corresponds to one second)
         constexpr tabstime runningtime = 1000;
@@ -62,11 +62,13 @@ int main()
                          erunall,
                          esinglerunstrategyandmaslovwithlogging,
                          emaslovcompetition,
-                         eoriginalcompetition };
+                         eoriginalcompetition,
+                         eseparatezicomp };
 
 
         // change accordingly
-        ewhattodo whattodo = emaslovcompetition;
+        //ewhattodo whattodo = emaslovcompetition;
+        ewhattodo whattodo = eseparatezicomp;
 
         /*  built in strategies*/
 
@@ -146,6 +148,7 @@ int main()
             }
             break;
         case emaslovcompetition:
+        case eseparatezicomp:
         case eoriginalcompetition:
             {
                 competitors.push_back(&ts);
@@ -161,7 +164,8 @@ int main()
                 cdef.marketdef = def;
 
                 if(whattodo==emaslovcompetition)
-                    //dsmaslovcompetition<chronos,logging>(competitors, endowment, cdef, std::clog);
+                    dsmaslovcompetition<chronos,logging>(competitors, endowment, cdef, std::clog);
+                else if (whattodo==eseparatezicomp)
                     separatezicomp<logging>({&ts});
                 else
                     originalcompetition<chronos,logging>(competitors, endowment, cdef, std::clog);

@@ -42,7 +42,7 @@ namespace marketsim {
 
             // optionally stack previous states to keep info about past wallet and prices
             torch::Tensor state = stack_history ? stack_prev_states(prev_states, front.state) : transform_state(front.state);
-            add_hist_entry(hist_entry(state, front.actions, returns));
+            add_hist_entry(hist_entry(state.view({1, -1}), actions_view(front.actions, {1, -1}), returns.view({1, -1})));
         }
 
         torch::Tensor transform_for_prediction(torch::Tensor state, bool update_stack = true) {
@@ -52,7 +52,7 @@ namespace marketsim {
                 }
                 return stack_prev_states(prev_states_pred, state);
             }
-            return transform_state(state);
+            return transform_state(state).view({1, -1});
         }
 
         virtual void add_hist_entry(hist_entry entry) = 0;
@@ -124,12 +124,16 @@ namespace marketsim {
         hist_entry next_entry;
     };
 
-    template <int NSteps, typename TReturns, int batch_size>
+    template <int NSteps, typename TReturns, int batch_size, int buffer_lim = 0, int buffer_margin = 250>
     class ReplayBufferBatcher : public BaseBatcher<NSteps, TReturns> {
     public:
         ReplayBufferBatcher() : BaseBatcher<NSteps, TReturns>() {}
 
         virtual void add_hist_entry(hist_entry entry) {
+            if ((buffer_lim > 0) && (buffer.size() > (buffer_lim + buffer_margin))) {
+                buffer = std::vector<hist_entry>(buffer.end() - buffer_lim, buffer.end());
+            }
+
             buffer.push_back(entry);
         }
 

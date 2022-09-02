@@ -11,12 +11,13 @@ namespace marketsim {
     class ActorCritic {
     public:
         ActorCritic() :
-            clamp(2), beta(0.01),
-            actor_opt(torch::optim::Adam(actor->parameters(), /*lr=*/0.001)),
-            critic_opt(torch::optim::Adam(critic->parameters(), /*lr=*/0.0001))
+            clamp(2), beta(0.01)
         {
             actor = std::make_shared<TActor>();
             critic = std::make_shared<TCritic>();
+
+            actor_opt = std::make_unique<torch::optim::Adam>(actor->parameters(), /*lr=*/0.001);
+            critic_opt = std::make_unique<torch::optim::Adam>(critic->parameters(), /*lr=*/0.0001);
         }
 
         void train(const hist_entry& batch) {
@@ -25,8 +26,8 @@ namespace marketsim {
             torch::Tensor returns = batch.returns;
             
             // main loop
-            actor_opt.zero_grad();
-            critic_opt.zero_grad();
+            actor_opt->zero_grad();
+            critic_opt->zero_grad();
 
             auto pred_actions = actor->predict_actions_train(state);
             torch::Tensor state_value = critic->forward(state);
@@ -44,8 +45,8 @@ namespace marketsim {
             loss = torch::clamp(loss, -clamp, clamp);
 
             loss.backward();
-            actor_opt.step();
-            critic_opt.step();
+            actor_opt->step();
+            critic_opt->step();
         }
         
         action_container<torch::Tensor> predict_actions(torch::Tensor state) {
@@ -63,7 +64,7 @@ namespace marketsim {
         std::shared_ptr<TCritic> critic{nullptr};
 
         double beta, clamp;
-        torch::optim::Adam actor_opt, critic_opt;
+        std::unique_ptr<torch::optim::Adam> actor_opt, critic_opt;
     };
 }
 

@@ -46,7 +46,7 @@ namespace marketsim {
 
         assert(bfv.size() == 0 || bfv.size() == bv.size());
         
-        auto stack_tensors = [](const std::vector<torch::Tensor>& tensors){ return torch::cat(tensors, 0); }; // TODO dim??
+        auto stack_tensors = [](const std::vector<torch::Tensor>& tensors){ return torch::cat(tensors, 0); };
 
         if (bfv.size() > 0) {
             return action_container<torch::Tensor>(stack_tensors(bv), stack_tensors(av), stack_tensors(cv),
