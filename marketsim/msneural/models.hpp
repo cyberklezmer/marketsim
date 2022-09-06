@@ -1,8 +1,8 @@
-#ifndef NET_MODELS_HPP_
-#define NET_MODELS_HPP_
+#ifndef MSNEURAL_MODELS_HPP_
+#define MSNEURAL_MODELS_HPP_
 
 #include <torch/torch.h>
-#include "nets/utils.hpp"
+#include "msneural/utils.hpp"
 
 
 namespace marketsim {
@@ -68,4 +68,4 @@ namespace marketsim {
     };
 }
 
-#endif  //NET_MODELS_HPP_
+#endif  //MSNEURAL_MODELS_HPP_

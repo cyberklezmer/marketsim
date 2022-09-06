@@ -1,11 +1,14 @@
+#ifndef GABI_CONFIG_HPP
+#define GABI_CONFIG_HPP
+
 
 #include "msstrategies/neuralnetstrategy.hpp"
 #include "msstrategies/greedystrategy.hpp"
-#include "nets/models.hpp"
-#include "nets/actorcritic.hpp"
-#include "nets/rewards.hpp"
-#include "nets/data.hpp"
-#include "nets/utils.hpp"
+#include "msneural/models.hpp"
+#include "msneural/nets/actorcritic.hpp"
+#include "msneural/rewards.hpp"
+#include "msneural/data.hpp"
+#include "msneural/utils.hpp"
 
 #include <torch/torch.h>
 
@@ -21,7 +24,8 @@ namespace marketsim {
     
     constexpr int cons_mult = 100;  // in case of continuous actions, the predicted value is multiplied by this number
 
-    constexpr bool stack = true;  // stack state to look into history
+    constexpr bool stack = false;
+    //constexpr bool stack = true;  // stack state to look into history
     constexpr int stack_size = 5;
     constexpr int stack_dim = 0;
     constexpr int state_size = 4;
@@ -39,7 +43,8 @@ namespace marketsim {
 
     constexpr int cons_lim = use_fixed_consumption ? 13000 : 500;  // don't consume if you have less than this
 
-    constexpr int volume = 10;  // volume for bids and asks
+    //constexpr int volume = 10;  // volume for bids and asks
+    constexpr int volume = 1;
 
     constexpr int cons_step = 125;  // for discrete actions, the max consumption is cons_parts * cons_step
     constexpr int cons_parts = 4;  // number of consumption steps
@@ -48,8 +53,8 @@ namespace marketsim {
     // greedy strategy settings
     constexpr bool random_strategy = true;  // choose bid/ask values randomly
     
-    using state_layer = torch::nn::LSTM;
-    //using state_layer = torch::nn::Linear;
+    //using state_layer = torch::nn::LSTM;
+    using state_layer = torch::nn::Linear;
 
     using ba_discrete = DiscreteActions<hidden_size, 2 * spread_lim + 1, spread_lim>;
     using cons_discrete = DiscreteActions<hidden_size, cons_parts + 1, 0, cons_step>;
@@ -64,11 +69,13 @@ namespace marketsim {
     using critic = Critic<state_size, hidden_size, state_layer>;
     using model = ActorCritic<actor, critic>;
     
+    constexpr bool clear_batch = false;
     constexpr int batch_size = 32;
     constexpr int replay_buffer_max = 1000;
-    using returns_func = DiffReturn<n_steps>;
-    using batcher = NextStateBatcher<n_steps, returns_func, stack, stack_size, stack_dim>;
-    //using batcher = ReplayBufferBatcher<n_steps, returns_func, batch_size, replay_buffer_max, 250, stack, stack_size, stack_dim>;
+    using returns_func = DiffReturn;
+    //using batcher = NextStateBatcher<n_steps, returns_func, stack, stack_size, stack_dim, batch_size, clear_batch>;
+    //using batcher = NextStateBatcher<n_steps, returns_func, stack, stack_size, stack_dim>;  //batch_size == 1
+    using batcher = ReplayBufferBatcher<n_steps, returns_func, batch_size, replay_buffer_max, 250, stack, stack_size, stack_dim>;
 
     // mm settings
     using order = neuralmmorder<volume, verbose>;
@@ -83,3 +90,5 @@ namespace marketsim {
     using spec_neuralstrategy = neuralnetstrategy<spec_model, batcher, order, spread_lim, verbose, !use_fixed_consumption, fixed_cons, use_naive_cons>;
 
 }
+
+#endif  //GABI_CONFIG_HPP_

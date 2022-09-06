@@ -1,8 +1,8 @@
-#ifndef ACTIONS_HPP_
-#define ACTIONS_HPP_
+#ifndef MSNEURAL_ACTIONS_HPP_
+#define MSNEURAL_ACTIONS_HPP_
 
 #include <torch/torch.h>
-#include "nets/proba.hpp"
+#include "msneural/proba.hpp"
 
 
 namespace marketsim {
@@ -189,4 +189,4 @@ namespace marketsim {
 
 }
 
-#endif // ACTIONS_HPP_
+#endif // MSNEURAL_ACTIONS_HPP_

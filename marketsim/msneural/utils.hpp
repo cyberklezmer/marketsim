@@ -1,8 +1,11 @@
-#ifndef NET_UTILS_HPP_
-#define NET_UTILS_HPP_
+#ifndef MSNEURAL_UTILS_HPP_
+#define MSNEURAL_UTILS_HPP_
+
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
 
 #include "marketsim.hpp"
-#include "nets/actions.hpp"
+#include "msneural/actions.hpp"
 #include <torch/torch.h>
 
 namespace marketsim {
@@ -105,6 +108,13 @@ namespace marketsim {
         std::cout << "Wallet: " << m << ", Stocks: " << s << ", Value: " << m + s * mi.beta() << std::endl;
     }
 
+    
+    boost::property_tree::ptree read_config(std::string path) {
+        boost::property_tree::ptree pt;
+        boost::property_tree::ini_parser::read_ini(path, pt);
+
+        return pt;
+    }
 }
 
-#endif  //NET_UTILS_HPP_
+#endif  //MSNEURAL_UTILS_HPP_

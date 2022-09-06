@@ -1,7 +1,7 @@
 #ifndef NEURALNETSTRATEGY_HPP_
 #define NEURALNETSTRATEGY_HPP_
 
-#include "nets/utils.hpp"
+#include "msneural/utils.hpp"
 #include "marketsim.hpp"
 #include <torch/torch.h>
 

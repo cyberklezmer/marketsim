@@ -1,7 +1,7 @@
 #ifndef GREEDYSTRATEGY_HPP_
 #define GREEDYSTRATEGY_HPP_
 
-#include "nets/utils.hpp"
+#include "msneural/utils.hpp"
 #include "marketsim.hpp"
 
 

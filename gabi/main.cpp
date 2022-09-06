@@ -49,8 +49,8 @@ int main()
         bool with_mm = true;
 
         // change accordingly (one unit rougly corresponds to one second)
-        constexpr tabstime runningtime = 1000;
-        //constexpr tabstime runningtime = 5000;
+        //constexpr tabstime runningtime = 1000;
+        constexpr tabstime runningtime = 3600;
         //constexpr tabstime runningtime = 8 * 3600;
 
         // change accordingly
@@ -67,8 +67,8 @@ int main()
 
 
         // change accordingly
-        //ewhattodo whattodo = emaslovcompetition;
-        ewhattodo whattodo = eseparatezicomp;
+        ewhattodo whattodo = emaslovcompetition;
+        //ewhattodo whattodo = eseparatezicomp;
 
         /*  built in strategies*/
 

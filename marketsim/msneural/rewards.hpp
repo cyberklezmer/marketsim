@@ -1,7 +1,10 @@
+#ifndef MSNEURAL_REWARDS_HPP_
+#define MSNEURAL_REWARDS_HPP_
+
 #include <torch/torch.h>
 #include <vector>
-#include "proba.hpp"
-#include "nets/utils.hpp"
+#include "msneural/proba.hpp"
+#include "msneural/utils.hpp"
 
 
 namespace marketsim {
@@ -17,7 +20,6 @@ namespace marketsim {
         return state[3].item<double>();
     }
 
-    template <int N>
     class DiffReturn {
     public:
         DiffReturn() : curr_gamma(1.0), gamma(0.99998) {}
@@ -73,3 +75,5 @@ namespace marketsim {
     };
 
 }
+
+#endif  // MSNEURAL_REWARDS_HPP_

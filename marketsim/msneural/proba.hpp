@@ -1,5 +1,5 @@
-#ifndef PROBA_HPP_
-#define PROBA_HPP_
+#ifndef MSNEURAL_PROBA_HPP_
+#define MSNEURAL_PROBA_HPP_
 
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -42,4 +42,4 @@ namespace marketsim {
     }
 }
 
-#endif // PROBA_HPP_
+#endif // MSNEURAL_PROBA_HPP_

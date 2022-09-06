@@ -1,7 +1,7 @@
-#ifndef NET_DATA_HPP_
-#define NET_DATA_HPP_
+#ifndef MSNEURAL_DATA_HPP_
+#define MSNEURAL_DATA_HPP_
 
-#include "nets/utils.hpp"
+#include "msneural/utils.hpp"
 #include <torch/torch.h>
 #include "marketsim.hpp"
 
@@ -98,30 +98,51 @@ namespace marketsim {
         TReturns returns_func;
     };
 
+    hist_entry stack_batch(const std::vector<hist_entry>& batch) {
+        using ac = action_container<torch::Tensor>;
 
-    template <int NSteps, typename TReturns, bool stack_history = false, int stack_size = 5, int stack_dim = 0>
+        std::vector<torch::Tensor> b_states = map_func<torch::Tensor>(batch, [](hist_entry e){ return e.state; });
+        std::vector<ac> b_actions = map_func<ac>(batch, [](hist_entry e){ return e.actions; });
+        std::vector<torch::Tensor> b_ret = map_func<torch::Tensor>(batch, [](hist_entry e){ return e.returns; });
+            
+        return hist_entry(torch::cat(b_states, 0), actions_batch(b_actions), torch::cat(b_ret, 0));
+    }
+
+    template <int NSteps, typename TReturns, bool stack_history = false, int stack_size = 5, int stack_dim = 0, int batch_size = 1, bool clear_batch = false>
     class NextStateBatcher : public BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim> {
     public:
         NextStateBatcher() : BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim>(),
-            next_entry(hist_entry::empty_entry()), is_ready(false) {}
+            batch() {}
 
         void add_hist_entry(hist_entry entry) {
-            is_ready = true;
-            next_entry = entry;
+            batch.push_back(entry);
+            if (batch.size() <= batch_size) {
+                return;
+            }
+
+            if (clear_batch) {
+                batch.clear();
+            }
+            else {
+                batch.pop_front();
+            }
         }
 
         bool is_batch_ready() {
-            return is_ready;
+            return batch.size() >= batch_size;
         }
 
         hist_entry next_batch() {
-            return next_entry;
+            if (batch_size == 1) {
+                return batch.front();
+            }
+
+            return stack_batch(std::vector<hist_entry>(batch.begin(), batch.end()));
         }
         
 
     private:
-        bool is_ready;
-        hist_entry next_entry;
+        std::deque<hist_entry> batch;
     };
 
     template <int NSteps, typename TReturns, int batch_size, int buffer_lim = 0, int buffer_margin = 250, bool stack_history = false, int stack_size = 5, int stack_dim = 0>
@@ -148,19 +169,13 @@ namespace marketsim {
             }
 
             std::vector<hist_entry> batch = map_func<hist_entry>(batch_ids, [&](int i){ return buffer[i]; });
-            std::vector<torch::Tensor> b_states = map_func<torch::Tensor>(batch, [](hist_entry e){ return e.state; });
-            std::vector<ac> b_actions = map_func<ac>(batch, [](hist_entry e){ return e.actions; });
-            std::vector<torch::Tensor> b_ret = map_func<torch::Tensor>(batch, [](hist_entry e){ return e.returns; });
-            
-            return hist_entry(torch::cat(b_states, 0), actions_batch(b_actions), torch::cat(b_ret, 0));
+            return stack_batch(batch);
         }
     
     private:
-        using ac = action_container<torch::Tensor>;
-
         std::vector<hist_entry> buffer;
     };
 
 }
 
-#endif  //NET_DATA_HPP_
+#endif  //MSNEURAL_DATA_HPP_
