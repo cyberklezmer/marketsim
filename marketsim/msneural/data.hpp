@@ -1,16 +1,24 @@
 #ifndef MSNEURAL_DATA_HPP_
 #define MSNEURAL_DATA_HPP_
 
+#include "msneural/config.hpp"
 #include "msneural/utils.hpp"
 #include <torch/torch.h>
 #include "marketsim.hpp"
 
 
 namespace marketsim {
-    template <int NSteps, typename TReturns, bool stack_history = false, int stack_size = 5, int stack_dim = 0>
+    template <typename TConfig, typename TReturns>
     class BaseBatcher {
     public:
-        BaseBatcher() : n_step_buffer(), prev_states(), prev_states_pred(), returns_func() {}
+        BaseBatcher() : n_step_buffer(), prev_states(), prev_states_pred(), returns_func() {
+            auto cfg = TConfig::config;
+
+            n_steps = cfg.batcher.n_steps;
+            stack_history = cfg.batcher.stack_history;
+            stack_dim = cfg.batcher.stack_dim;
+            stack_size = cfg.batcher.stack_size;
+        }
 
         void add_next_state_action(torch::Tensor state, action_container<torch::Tensor> actions) {
             n_step_buffer.push_back(hist_entry(state, actions));
@@ -19,7 +27,7 @@ namespace marketsim {
                 update_prev_states(prev_states, n_step_buffer.front().state);
             }
 
-            if (n_step_buffer.size() <= NSteps) {
+            if (n_step_buffer.size() <= n_steps) {
                 return;
             }
 
@@ -31,7 +39,7 @@ namespace marketsim {
         }
 
         void update_returns(torch::Tensor next_state, torch::Tensor next_state_value) {
-            if (n_step_buffer.size() < NSteps) {
+            if (n_step_buffer.size() < n_steps) {
                 return;
             }
 
@@ -93,6 +101,9 @@ namespace marketsim {
             prev.pop_front();
         }
 
+        int n_steps, stack_dim, stack_size;
+        bool stack_history;
+
         std::deque<hist_entry> n_step_buffer;
         std::deque<torch::Tensor> prev_states, prev_states_pred;
         TReturns returns_func;
@@ -108,11 +119,15 @@ namespace marketsim {
         return hist_entry(torch::cat(b_states, 0), actions_batch(b_actions), torch::cat(b_ret, 0));
     }
 
-    template <int NSteps, typename TReturns, bool stack_history = false, int stack_size = 5, int stack_dim = 0, int batch_size = 1, bool clear_batch = false>
-    class NextStateBatcher : public BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim> {
+    template <typename TConfig, typename TReturns>
+    class NextStateBatcher : public BaseBatcher<TConfig, TReturns> {
     public:
-        NextStateBatcher() : BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim>(),
-            batch() {}
+        NextStateBatcher() : BaseBatcher<TConfig, TReturns>(), batch() {
+            auto cfg = TConfig::config;
+
+            batch_size = cfg.batcher.batch_size;
+            clear_batch = cfg.batcher.clear_batch;
+        }
 
         void add_hist_entry(hist_entry entry) {
             batch.push_back(entry);
@@ -142,13 +157,22 @@ namespace marketsim {
         
 
     private:
+        int batch_size;
+        bool clear_batch;
+
         std::deque<hist_entry> batch;
     };
 
-    template <int NSteps, typename TReturns, int batch_size, int buffer_lim = 0, int buffer_margin = 250, bool stack_history = false, int stack_size = 5, int stack_dim = 0>
-    class ReplayBufferBatcher : public BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim> {
+    template <typename TConfig, typename TReturns>
+    class ReplayBufferBatcher : public BaseBatcher<TConfig, TReturns> {
     public:
-        ReplayBufferBatcher() : BaseBatcher<NSteps, TReturns, stack_history, stack_size, stack_dim>() {}
+        ReplayBufferBatcher() : BaseBatcher<TConfig, TReturns>() {
+            auto cfg = TConfig::config;
+
+            batch_size = cfg.batcher.batch_size;
+            buffer_lim = cfg.batcher.max_buffer_size;
+            buffer_margin = cfg.batcher.buffer_margin;
+        }
 
         virtual void add_hist_entry(hist_entry entry) {
             if ((buffer_lim > 0) && (buffer.size() > (buffer_lim + buffer_margin))) {
@@ -173,6 +197,8 @@ namespace marketsim {
         }
     
     private:
+        int batch_size, buffer_lim, buffer_margin;
+
         std::vector<hist_entry> buffer;
     };
 

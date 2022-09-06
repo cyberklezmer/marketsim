@@ -18,7 +18,7 @@
 #include "mscompetitions/separatecompetition.hpp"
 
 #include <torch/torch.h>
-#include "config.hpp"
+#include "settings.hpp"
 
 using namespace marketsim;
 
@@ -36,8 +36,6 @@ int main()
         /* simulation settings */
         
         //using testedstrategy = greedystrat;
-        using testedstrategy = neuralstrategy;  // change to greedy for greedy strategy competition
-        //using testedstrategy = spec_neuralstrategy;  // speculator
 
         // change accordingly (but true is still beta),
         constexpr bool chronos = false;
@@ -92,7 +90,7 @@ int main()
 
         // our ingenious strategy
         std::string name = "neuronka";
-        competitor<testedstrategy,chronos> ts(name);
+        auto ts = get_strategy<chronos>(name);
 
         std::string gname = "greedy";
         competitor<greedystrat,chronos> gs(name);

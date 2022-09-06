@@ -2,6 +2,7 @@
 #define MSNEURAL_ACTIONS_HPP_
 
 #include <torch/torch.h>
+#include "msneural/config.hpp"
 #include "msneural/proba.hpp"
 
 
@@ -81,12 +82,15 @@ namespace marketsim {
         return t.unsqueeze(dim);
     }
 
-    template <TensorFunc MuActiv, TensorFunc StdActiv, int hidden_size, int action_size, int output_scale = 1, int mu_scale = 1>
+    template <TensorFunc MuActiv, TensorFunc StdActiv>
     class ContinuousActions : public torch::nn::Module {
     public:
-        ContinuousActions() {
-            actor_mu = this->register_module("actor_mu", torch::nn::Linear(hidden_size, action_size));
-            actor_std = this->register_module("actor_std", torch::nn::Linear(hidden_size, action_size));
+        ContinuousActions(int hidden_size, action_config cfg) {
+            output_scale = cfg.output_scale;
+            mu_scale = cfg.mu_scale;
+
+            actor_mu = this->register_module("actor_mu", torch::nn::Linear(hidden_size, cfg.action_size));
+            actor_std = this->register_module("actor_std", torch::nn::Linear(hidden_size, cfg.action_size));
         }
 
         action_tensors predict_actions(torch::Tensor x) {
@@ -116,15 +120,18 @@ namespace marketsim {
         }
 
     private:
+        double output_scale, mu_scale;
+
         torch::nn::Linear actor_mu{nullptr}, actor_std{nullptr};
     };
 
-
-    template <int hidden_size, int action_size, int action_offset = 0, int action_mult = 1>
     class DiscreteActions : public torch::nn::Module {
     public:
-        DiscreteActions() {
-            actor = this->register_module("actor", torch::nn::Linear(hidden_size, action_size));
+        DiscreteActions(int hidden_size, action_config cfg) {
+            action_offset = cfg.action_offset;
+            action_mult = cfg.action_mult;
+
+            actor = this->register_module("actor", torch::nn::Linear(hidden_size, cfg.action_size));
         }
 
         action_tensors predict_actions(torch::Tensor x) {
@@ -151,13 +158,14 @@ namespace marketsim {
         }
 
     private:
+        double action_offset, action_mult;
+
         torch::nn::Linear actor{nullptr};
     };
 
-    template <int hidden_size>
     class BinaryAction : public torch::nn::Module {
     public:
-        BinaryAction() {
+        BinaryAction(int hidden_size) {
             actor = this->register_module("actor", torch::nn::Linear(hidden_size, 1));
         }
 

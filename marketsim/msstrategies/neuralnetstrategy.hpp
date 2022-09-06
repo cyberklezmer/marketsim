@@ -8,9 +8,7 @@
 
 namespace marketsim {
 
-    template<typename TNet, typename TBatcher, typename TOrder, int spread_lim = 0, bool verbose = true,
-            bool train_cons = true, int fixed_cons = 200,
-            bool use_naive_cons = false>
+    template<typename TConfig, typename TNet, typename TBatcher, typename TOrder>
     class neuralnetstrategy : public teventdrivenstrategy {
     public:
         neuralnetstrategy() : teventdrivenstrategy(1),
@@ -20,6 +18,13 @@ namespace marketsim {
             history(),
             last_bid(klundefprice),
             last_ask(khundefprice) {
+                auto cfg = TConfig::config;
+                verbose = cfg.strategy.verbose;
+                spread_lim = cfg.strategy.spread_lim;
+                train_cons = cfg.strategy.train_cons;
+                use_naive_cons = cfg.strategy.use_naive_cons;
+                fixed_cons = cfg.strategy.fixed_cons;
+
                 if (verbose) {
                     std::cout << std::endl << "--------------------" << std::endl << "Start of competition..." << std::endl;
                 }
@@ -100,6 +105,9 @@ namespace marketsim {
             next_action.ask_flag = torch::tensor({ask});
         }
 
+        int spread_lim, fixed_cons;
+        bool verbose, train_cons, use_naive_cons;
+
 		tprice last_bid, last_ask;
 
         TNet net;
@@ -108,10 +116,14 @@ namespace marketsim {
         std::vector<hist_entry> history;
     };
 
-    template <int volume = 10, bool verbose = false>
+    template <typename TConfig>
     class neuralspeculatororder {
     public:
-        neuralspeculatororder() : threshold(0.5) {} 
+        neuralspeculatororder() : threshold(0.5) {
+            auto cfg = TConfig::config;
+            verbose = cfg.strategy.verbose;
+            volume = cfg.strategy.volume;
+        } 
 
         trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
             double bpred = actions.bid_flag.item<double>();
@@ -136,13 +148,20 @@ namespace marketsim {
         }
     
     private:
+        bool verbose;
+        int volume;
+
         double threshold;
     };
 
-    template <int volume = 10, bool verbose = false>
+    template<typename TConfig>
     class neuralmmorder {
     public:
-        neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice), threshold(0.5) {}
+        neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice), threshold(0.5) {
+            auto cfg = TConfig::config;
+            verbose = cfg.strategy.verbose;
+            volume = cfg.strategy.volume;
+        }
 
         trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
             double bpred = actions.bid.item<double>();
@@ -190,6 +209,9 @@ namespace marketsim {
         }
 
     private:
+        bool verbose;
+        int volume;
+
         tprice last_bid, last_ask;
         double threshold;
     };

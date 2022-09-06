@@ -2,6 +2,8 @@
 #define MSNEURAL_NETS_ACTORCRITIC_HPP_
 
 #include <torch/torch.h>
+#include "msneural/config.hpp"
+#include "msneural/utils.hpp"
 #include "msneural/proba.hpp"
 #include "msneural/actions.hpp"
 #include "msneural/nets/netutils.hpp"
@@ -9,12 +11,14 @@
 
 namespace marketsim {
 
-    template <int state_size, int hidden_size, typename TLayer>
+    template <typename TConfig, typename TLayer>
     class Critic : public torch::nn::Module {
     public:
         Critic() {
-            state_layer = register_module("state_layer", TLayer(state_size, hidden_size));
-            out = register_module("out", torch::nn::Linear(hidden_size, 1));
+            auto cfg = TConfig::config;
+
+            state_layer = register_module("state_layer", TLayer(cfg->layer.state_size, cfg->layer.hidden_size));
+            out = register_module("out", torch::nn::Linear(cfg->layer.hidden_size, 1));
         }
 
         torch::Tensor forward(torch::Tensor x) {
@@ -29,16 +33,20 @@ namespace marketsim {
     };
 
 
-    template <int state_size, int hidden_size, typename TLayer, typename TBidActor, typename TAskActor, typename TConsActor, bool cons_on = true>
+    template <typename TConfig, typename TLayer, typename TActionActor, typename TConsActor>
     class BidAskActor : public torch::nn::Module {
     public:
         BidAskActor() : zero_tensor(torch::zeros({1})) {
-            state_layer = register_module("state_layer", TLayer(state_size, hidden_size));
+            auto cfg = TConfig::config;
+            cons_on = cfg->strategy.train_cons;
+            int hidden_size = cfg->layer.hidden_size;
 
-            bid_actor = this->register_module("bid_actor", std::make_shared<TBidActor>());
-            ask_actor = this->register_module("ask_actor", std::make_shared<TAskActor>());
+            state_layer = register_module("state_layer", TLayer(cfg->layer.state_size, hidden_size));
+
+            bid_actor = this->register_module("bid_actor", std::make_shared<TActionActor>(hidden_size, cfg->actions));
+            ask_actor = this->register_module("ask_actor", std::make_shared<TActionActor>(hidden_size, cfg->actions));
             if (cons_on) {
-                cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>());
+                cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>(cfg->cons));
             }
         }
         virtual ~BidAskActor() {}
@@ -88,22 +96,25 @@ namespace marketsim {
 
     protected:
         torch::Tensor zero_tensor;
+        bool cons_on;
 
         TLayer state_layer{nullptr};
 
-        std::shared_ptr<TBidActor> bid_actor{nullptr};
-        std::shared_ptr<TAskActor> ask_actor{nullptr};
+        std::shared_ptr<TActionActor> bid_actor{nullptr};
+        std::shared_ptr<TActionActor> ask_actor{nullptr};
         std::shared_ptr<TConsActor> cons_actor{nullptr};
     };
 
-    template <int state_size, int hidden_size, typename TLayer, typename TBidActor, typename TAskActor, typename TConsActor, bool cons_on = true>
-    class BidAskActorFlags : public BidAskActor<state_size, hidden_size, TLayer, TBidActor, TAskActor, TConsActor, cons_on> {
+    template <typename TConfig, typename TLayer, typename TActionActor, typename TConsActor>
+    class BidAskActorFlags : public BidAskActor<TConfig, TLayer, TActionActor, TConsActor> {
     public:
-        using Base = BidAskActor<state_size, hidden_size, TLayer, TBidActor, TAskActor, TConsActor, cons_on>;
+        using Base = BidAskActor<TConfig, TLayer, TActionActor, TConsActor>;
 
         BidAskActorFlags() : Base() {
-            bid_flag = this->register_module("bid_flag", std::make_shared<BinaryAction<hidden_size>>());
-            ask_flag = this->register_module("ask_flag", std::make_shared<BinaryAction<hidden_size>>());
+            auto cfg = TConfig::config;
+
+            bid_flag = this->register_module("bid_flag", std::make_shared<BinaryAction>(cfg->layer.hidden_size));
+            ask_flag = this->register_module("ask_flag", std::make_shared<BinaryAction>(cfg->layer.hidden_size));
         }
 
         action_container<torch::Tensor> predict_actions(torch::Tensor x) {
@@ -112,7 +123,7 @@ namespace marketsim {
             return action_container<torch::Tensor>(
                 this->bid_actor->sample_actions(pred.bid),
                 this->ask_actor->sample_actions(pred.ask), 
-                cons_on ? this->cons_actor->sample_actions(pred.cons) : this->zero_tensor,
+                this->cons_on ? this->cons_actor->sample_actions(pred.cons) : this->zero_tensor,
                 this->bid_flag->sample_actions(pred.bid_flag),
                 this->ask_flag->sample_actions(pred.ask_flag)
             );
@@ -125,7 +136,7 @@ namespace marketsim {
             return action_container<action_tensors>(
                 this->bid_actor->predict_actions(x),
                 this->ask_actor->predict_actions(x),
-                cons_on ? this->cons_actor->predict_actions(x) : action_tensors(),
+                this->cons_on ? this->cons_actor->predict_actions(x) : action_tensors(),
                 this->bid_flag->predict_actions(x),
                 this->ask_flag->predict_actions(x)
             );
@@ -147,17 +158,23 @@ namespace marketsim {
         }
 
     private:
-        std::shared_ptr<BinaryAction<hidden_size>> bid_flag, ask_flag;
+        std::shared_ptr<BinaryAction> bid_flag, ask_flag;
     };
 
-    template <int state_size, int hidden_size, typename TLayer, typename TConsActor, bool cons_on = true>
+    template <typename TConfig, typename TLayer, typename TConsActor>
     class BidAskActorSpeculator : public torch::nn::Module {
     public:
         BidAskActorSpeculator() : zero_tensor(torch::zeros({1})) {
-            state_layer = register_module("state_layer", TLayer(state_size, hidden_size));
+            auto cfg = TConfig::config;
+            cons_on = cfg->strategy.train_cons;
+            int hidden_size = cfg->layer.hidden_size;
 
-            bid_ask_actor = this->register_module("bid_ask_actor", std::make_shared<DiscreteActions<hidden_size, 3>>());
-            cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>());
+            state_layer = register_module("state_layer", TLayer(cfg->layer.state_size, hidden_size));
+
+            bid_ask_actor = this->register_module("bid_ask_actor", std::make_shared<DiscreteActions>(hidden_size, 3));
+            if (cons_on) {
+                cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>(cfg->cons));
+            }
         }
             
          action_container<torch::Tensor> predict_actions(torch::Tensor x) {
@@ -219,10 +236,11 @@ namespace marketsim {
             return bid + 2 * ask;
         }
 
+        bool cons_on;
         torch::Tensor zero_tensor;
         TLayer state_layer{nullptr};
 
-        std::shared_ptr<DiscreteActions<hidden_size, 3>> bid_ask_actor;
+        std::shared_ptr<DiscreteActions> bid_ask_actor;
         std::shared_ptr<TConsActor> cons_actor;
     };
 }
