@@ -14,10 +14,10 @@ namespace marketsim {
         BaseBatcher() : n_step_buffer(), prev_states(), prev_states_pred(), returns_func() {
             auto cfg = TConfig::config;
 
-            n_steps = cfg.batcher.n_steps;
-            stack_history = cfg.batcher.stack_history;
-            stack_dim = cfg.batcher.stack_dim;
-            stack_size = cfg.batcher.stack_size;
+            n_steps = cfg->batcher.n_steps;
+            stack_history = cfg->batcher.stack;
+            stack_dim = cfg->batcher.stack_dim;
+            stack_size = cfg->batcher.stack_size;
         }
 
         void add_next_state_action(torch::Tensor state, action_container<torch::Tensor> actions) {
@@ -125,8 +125,8 @@ namespace marketsim {
         NextStateBatcher() : BaseBatcher<TConfig, TReturns>(), batch() {
             auto cfg = TConfig::config;
 
-            batch_size = cfg.batcher.batch_size;
-            clear_batch = cfg.batcher.clear_batch;
+            batch_size = cfg->batcher.batch_size;
+            clear_batch = cfg->batcher.clear_batch;
         }
 
         void add_hist_entry(hist_entry entry) {
@@ -169,9 +169,9 @@ namespace marketsim {
         ReplayBufferBatcher() : BaseBatcher<TConfig, TReturns>() {
             auto cfg = TConfig::config;
 
-            batch_size = cfg.batcher.batch_size;
-            buffer_lim = cfg.batcher.max_buffer_size;
-            buffer_margin = cfg.batcher.buffer_margin;
+            batch_size = cfg->batcher.batch_size;
+            buffer_lim = cfg->batcher.replay_buffer_max;
+            buffer_margin = cfg->batcher.buffer_margin;
         }
 
         virtual void add_hist_entry(hist_entry entry) {

@@ -46,7 +46,7 @@ namespace marketsim {
             bid_actor = this->register_module("bid_actor", std::make_shared<TActionActor>(hidden_size, cfg->actions));
             ask_actor = this->register_module("ask_actor", std::make_shared<TActionActor>(hidden_size, cfg->actions));
             if (cons_on) {
-                cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>(cfg->cons));
+                cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>(hidden_size, cfg->cons));
             }
         }
         virtual ~BidAskActor() {}
@@ -171,9 +171,9 @@ namespace marketsim {
 
             state_layer = register_module("state_layer", TLayer(cfg->layer.state_size, hidden_size));
 
-            bid_ask_actor = this->register_module("bid_ask_actor", std::make_shared<DiscreteActions>(hidden_size, 3));
+            bid_ask_actor = this->register_module("bid_ask_actor", std::make_shared<DiscreteActions>(hidden_size, cfg->actions));
             if (cons_on) {
-                cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>(cfg->cons));
+                cons_actor = this->register_module("cons_actor", std::make_shared<TConsActor>(hidden_size, cfg->cons));
             }
         }
             

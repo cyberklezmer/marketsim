@@ -51,6 +51,9 @@ namespace marketsim {
             acfg.action_size = 2 * spread_lim + 1;
             acfg.action_offset = spread_lim;
         }
+        else if (cfg.get<bool>("Strategy.speculator", false)) {
+            acfg.action_size = 3;
+        }
         else {
             acfg.action_size = 1;
         }

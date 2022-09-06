@@ -65,37 +65,37 @@ namespace marketsim {
     // these methods serve to decide if discrete actions should be used, flags, speculator...
     // They are used because templates have to be defined in compile-time, so this serves as a strategy factory
     template <typename TLayer, typename TBatcher, bool chronos>
-    competitorbase<chronos> get_speculator(bool discrete, const std::string& aname) {
+    std::unique_ptr<competitorbase<chronos>> get_speculator(bool discrete, const std::string& aname) {
         if (discrete) {
-            return competitor<spec_dneuralstrategy<TLayer, TBatcher>, chronos>(aname);
+            return std::make_unique<competitor<spec_dneuralstrategy<TLayer, TBatcher>, chronos>>(aname);
         }
         else {
-            return competitor<spec_cneuralstrategy<TLayer, TBatcher>, chronos>(aname);
+            return std::make_unique<competitor<spec_cneuralstrategy<TLayer, TBatcher>, chronos>>(aname);
         }
     }
 
     template <typename TLayer, typename TBatcher, bool chronos>
-    competitorbase<chronos> get_mm_flags(bool discrete, const std::string& aname) {
+    std::unique_ptr<competitorbase<chronos>> get_mm_flags(bool discrete, const std::string& aname) {
         if (discrete) {
-            return competitor<dflagneuralstrategy<TLayer, TBatcher>, chronos>(aname);
+            return std::make_unique<competitor<dflagneuralstrategy<TLayer, TBatcher>, chronos>>(aname);
         }
         else {
-            return competitor<cflagneuralstrategy<TLayer, TBatcher>, chronos>(aname);
+            return std::make_unique<competitor<cflagneuralstrategy<TLayer, TBatcher>, chronos>>(aname);
         }
     }
 
     template <typename TLayer, typename TBatcher, bool chronos>
-    competitorbase<chronos> get_mm(bool discrete, const std::string& aname) {
+    std::unique_ptr<competitorbase<chronos>> get_mm(bool discrete, const std::string& aname) {
         if (discrete) {
-            return competitor<dneuralstrategy<TLayer, TBatcher>, chronos>(aname);
+            return std::make_unique<competitor<dneuralstrategy<TLayer, TBatcher>, chronos>>(aname);
         }
         else {
-            return competitor<cneuralstrategy<TLayer, TBatcher>, chronos>(aname);
+            return std::make_unique<competitor<cneuralstrategy<TLayer, TBatcher>, chronos>>(aname);
         }
     }
 
     template <typename TLayer, typename TBatcher, bool chronos>
-    competitorbase<chronos> get_mm_or_spec(const std::string& aname) {
+    std::unique_ptr<competitorbase<chronos>> get_mm_or_spec(const std::string& aname) {
         auto cfg = config::config;
 
         if (cfg->strategy.speculator) {
@@ -110,7 +110,7 @@ namespace marketsim {
     }
 
     template <typename TLayer, bool chronos>
-    competitorbase<chronos> get_batcher(const std::string& aname) {
+    std::unique_ptr<competitorbase<chronos>> get_batcher(const std::string& aname) {
         auto cfg = config::config;
 
         if (cfg->batcher.type == batcher_type::replay) {
@@ -125,7 +125,7 @@ namespace marketsim {
     }
 
     template <bool chronos>
-    competitorbase<chronos> get_strategy(const std::string& aname) {
+    std::unique_ptr<competitorbase<chronos>> get_strategy(const std::string& aname) {
         auto cfg = config::config;
 
         if (cfg->layer.lstm) {

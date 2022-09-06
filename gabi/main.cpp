@@ -90,7 +90,8 @@ int main()
 
         // our ingenious strategy
         std::string name = "neuronka";
-        auto ts = get_strategy<chronos>(name);
+        auto uts = get_strategy<chronos>(name);
+        auto ts = uts.get();
 
         std::string gname = "greedy";
         competitor<greedystrat,chronos> gs(name);
@@ -104,8 +105,7 @@ int main()
         {
         case esinglerunsinglestrategy:
             {
-                competitor<testedstrategy,chronos> s;
-                test<chronos,true,logging>({&s},runningtime,endowment,def);
+                test<chronos,true,logging>({ts},runningtime,endowment,def);
             }
             break;
         case erunall:
@@ -114,12 +114,12 @@ int main()
             if (with_mm) {
                 competitors.push_back(&nmm);
             }
-            competitors.push_back(&ts);
+            competitors.push_back(ts);
             test<chronos,true,logging>(competitors, runningtime, endowment, def);
             break;
         case esinglerunstrategyandmaslovwithlogging:
             {
-                competitors.push_back(&ts);
+                competitors.push_back(ts);
                 competitors.push_back(&ms);
 
                 // we will log the settlements
@@ -149,7 +149,7 @@ int main()
         case eseparatezicomp:
         case eoriginalcompetition:
             {
-                competitors.push_back(&ts);
+                competitors.push_back(ts);
                 if (with_mm) {
                     competitors.push_back(&nmm);
                 }
@@ -164,7 +164,7 @@ int main()
                 if(whattodo==emaslovcompetition)
                     dsmaslovcompetition<chronos,logging>(competitors, endowment, cdef, std::clog);
                 else if (whattodo==eseparatezicomp)
-                    separatezicomp<logging>({&ts});
+                    separatezicomp<logging>({ts});
                 else
                     originalcompetition<chronos,logging>(competitors, endowment, cdef, std::clog);
             }

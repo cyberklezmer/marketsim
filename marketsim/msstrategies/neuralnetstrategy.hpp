@@ -19,11 +19,11 @@ namespace marketsim {
             last_bid(klundefprice),
             last_ask(khundefprice) {
                 auto cfg = TConfig::config;
-                verbose = cfg.strategy.verbose;
-                spread_lim = cfg.strategy.spread_lim;
-                train_cons = cfg.strategy.train_cons;
-                use_naive_cons = cfg.strategy.use_naive_cons;
-                fixed_cons = cfg.strategy.fixed_cons;
+                verbose = cfg->strategy.verbose;
+                spread_lim = cfg->strategy.spread_lim;
+                train_cons = cfg->strategy.train_cons;
+                use_naive_cons = cfg->strategy.use_naive_cons;
+                fixed_cons = cfg->strategy.fixed_cons;
 
                 if (verbose) {
                     std::cout << std::endl << "--------------------" << std::endl << "Start of competition..." << std::endl;
@@ -159,8 +159,8 @@ namespace marketsim {
     public:
         neuralmmorder() : last_bid(klundefprice), last_ask(khundefprice), threshold(0.5) {
             auto cfg = TConfig::config;
-            verbose = cfg.strategy.verbose;
-            volume = cfg.strategy.volume;
+            verbose = cfg->strategy.verbose;
+            volume = cfg->strategy.volume;
         }
 
         trequest construct_order(const tmarketinfo& mi, const action_container<torch::Tensor>& actions) {
