@@ -20,7 +20,7 @@ include_directories("../orpp")
 include_directories("../chronos")
 
 # nlopt has to be installed, change accordingly
-find_library(LNLOPT libnlopt.so "/usr/local/lib" )
+# find_library(LNLOPT libnlopt.so "/usr/local/lib" )
 
 
 add_executable(testms main.cpp ../chronos/Chronos.cpp ../chronos/Worker.cpp )
