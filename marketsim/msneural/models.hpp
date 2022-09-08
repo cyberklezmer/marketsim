@@ -87,8 +87,14 @@ namespace marketsim {
             
             double rand = torch::rand({1}).item<double>();
 
-            torch::Tensor values = (rand < epsilon) ? torch::tensor({random_int_from_tensor(0, action_size)}) : critic->forward(state);
-            values = torch::argmax(values);
+            torch::Tensor values;
+            if (rand < epsilon) {
+                values = torch::tensor({random_int_from_tensor(0, action_size)});
+            }
+            else {
+                values = critic->forward(state);
+                values = torch::argmax(values);
+            }
 
             std::vector<int> actions = get_indices(values.item<int>(), sizes);
             

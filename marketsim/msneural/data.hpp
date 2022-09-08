@@ -73,7 +73,7 @@ namespace marketsim {
 
             x[0] /= 1000;
             for (int i = 1; i <= 3; ++i) {
-                x[i] /= 10000;
+                x[i] /= 1000;
             }
 
             return x;

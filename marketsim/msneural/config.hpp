@@ -146,6 +146,9 @@ namespace marketsim {
         int fixed_cons;
         int spread_lim;
         bool speculator;
+
+        double weight;
+        int runtime;
     };
 
     strategy_config read_strategy_config(configtree cfg) {
@@ -158,6 +161,9 @@ namespace marketsim {
         scfg.fixed_cons = cfg.get<int>("Strategy.fixed_cons", 200);
         scfg.spread_lim = cfg.get<int>("Actions.spread_lim", 5);
         scfg.speculator = cfg.get<bool>("Strategy.speculator", false);
+
+        scfg.weight = cfg.get<double>("Strategy.weight", 0.2);
+        scfg.runtime = cfg.get<int>("Strategy.runtime", 3600);
         
         return scfg;
     }

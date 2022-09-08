@@ -142,6 +142,12 @@ namespace marketsim {
             return get_batcher<linear, chronos>(aname);
         }
     }
+
+    int get_running_time() {        
+        auto cfg = neural_config<path>::config;
+
+        return cfg->strategy.runtime;
+    }
 }
 
 #endif  //GABI_CONFIG_HPP_

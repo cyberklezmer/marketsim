@@ -52,9 +52,9 @@ namespace marketsim {
         }
 
         double compute_reward(hist_entry prev, torch::Tensor state) {
-            double cons =  prev.actions.cons.item<double>();
-            double mdiff = get_money_diff(prev.state, state);
-            double sdiff = get_stock_diff(prev.state, state);
+            double cons =  prev.actions.cons.item<double>() / 100;
+            double mdiff = get_money_diff(prev.state, state) / 100;
+            double sdiff = get_stock_diff(prev.state, state) / 100;
 
             return cons + curr_gamma * (mdiff + sdiff);
         }

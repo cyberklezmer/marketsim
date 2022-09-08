@@ -50,8 +50,7 @@ int main()
 
         // change accordingly (one unit rougly corresponds to one second)
         //constexpr tabstime runningtime = 1000;
-        constexpr tabstime runningtime = 3600;
-        //constexpr tabstime runningtime = 8 * 3600;
+        tabstime runningtime = get_running_time();
 
         // change accordingly
         twallet endowment(5000,100);

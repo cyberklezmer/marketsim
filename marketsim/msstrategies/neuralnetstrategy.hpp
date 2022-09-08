@@ -24,6 +24,9 @@ namespace marketsim {
                 use_naive_cons = cfg->strategy.use_naive_cons;
                 fixed_cons = cfg->strategy.fixed_cons;
 
+                weight = cfg->strategy.weight;
+                discfact = 0.999;
+
                 if (verbose) {
                     std::cout << std::endl << "--------------------" << std::endl << "Start of competition..." << std::endl;
                 }
@@ -35,6 +38,14 @@ namespace marketsim {
             torch::Tensor pred_state = batcher.transform_for_prediction(next_state);
 
             torch::Tensor state_value = net.predict_values(pred_state).squeeze(0);
+
+            if (weight > 0.0) {
+                tprice beta = std::get<1>(get_alpha_beta(mi, last_bid, last_ask));
+                double val = (1.0 - pow(discfact, mi.mywallet().money() + mi.mywallet().stocks() * beta)) / (1.0 - discfact);
+                
+                state_value = (1.0 - weight) * state_value + weight * val;
+            }
+
             batcher.update_returns(next_state, state_value);
 
             if (batcher.is_batch_ready()){
@@ -104,6 +115,8 @@ namespace marketsim {
             next_action.bid_flag = torch::tensor({bid});
             next_action.ask_flag = torch::tensor({ask});
         }
+
+        double discfact, weight;
 
         int spread_lim, fixed_cons;
         bool verbose, train_cons, use_naive_cons;
