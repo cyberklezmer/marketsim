@@ -18,7 +18,7 @@ namespace marketsim {
     using lstm = torch::nn::LSTM;
     using linear = torch::nn::Linear;
 
-    static const char path[] = "gabi/config.ini";
+    static const char path[] = "../gabi/config.ini";
     using config = neural_config<path>; 
 
     // actions
@@ -32,10 +32,10 @@ namespace marketsim {
 
     template <typename TLayer> using critic = Critic<config, TLayer>;
     
-    template <typename TLayer> using dmodel = ActorCritic<dactor<TLayer>, critic<TLayer>>;
-    template <typename TLayer> using cmodel = ActorCritic<cactor<TLayer>, critic<TLayer>>;
-    template <typename TLayer> using dflagmodel = ActorCritic<dflagactor<TLayer>, critic<TLayer>>;
-    template <typename TLayer> using cflagmodel = ActorCritic<cflagactor<TLayer>, critic<TLayer>>;
+    template <typename TLayer> using dmodel = ActorCritic<config, dactor<TLayer>, critic<TLayer>>;
+    template <typename TLayer> using cmodel = ActorCritic<config, cactor<TLayer>, critic<TLayer>>;
+    template <typename TLayer> using dflagmodel = ActorCritic<config, dflagactor<TLayer>, critic<TLayer>>;
+    template <typename TLayer> using cflagmodel = ActorCritic<config, cflagactor<TLayer>, critic<TLayer>>;
     
     using returns_func = DiffReturn;
     using batcher = NextStateBatcher<config, returns_func>;
@@ -52,11 +52,14 @@ namespace marketsim {
     using spec_order = neuralspeculatororder<config>;
     template <typename TLayer> using spec_dactor = BidAskActorSpeculator<config, TLayer, DiscreteActions>;
     template <typename TLayer> using spec_cactor = BidAskActorSpeculator<config, TLayer, cons_cont>;
-    template <typename TLayer> using spec_dmodel = ActorCritic<spec_dactor<TLayer>, critic<TLayer>>;
-    template <typename TLayer> using spec_cmodel = ActorCritic<spec_cactor<TLayer>, critic<TLayer>>;
+    template <typename TLayer> using spec_dmodel = ActorCritic<config, spec_dactor<TLayer>, critic<TLayer>>;
+    template <typename TLayer> using spec_cmodel = ActorCritic<config, spec_cactor<TLayer>, critic<TLayer>>;
 
     template <typename TLayer, typename TBatcher> using spec_dneuralstrategy = neuralnetstrategy<config, spec_dmodel<TLayer>, TBatcher, order>;
     template <typename TLayer, typename TBatcher> using spec_cneuralstrategy = neuralnetstrategy<config, spec_dmodel<TLayer>, TBatcher, order>;
+
+    template<typename TLayer> using qnet = QNet<config, critic<TLayer>>;
+    template<typename TLayer, typename TBatcher> using qnet_strategy = neuralnetstrategy<config, qnet<TLayer>, TBatcher, order>;
 
     using greedystrat = greedystrategy<250, true, true>;
 
@@ -104,6 +107,10 @@ namespace marketsim {
 
         if (cfg->flags) {
             return get_mm_flags<TLayer, TBatcher, chronos>(cfg->discrete, aname);
+        }
+
+        if (cfg->model.qnet) {
+            return std::make_unique<competitor<qnet_strategy<TLayer, TBatcher>, chronos>>(aname);
         }
 
         return get_mm<TLayer, TBatcher, chronos>(cfg->discrete, aname);

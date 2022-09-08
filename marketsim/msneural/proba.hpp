@@ -29,7 +29,7 @@ namespace marketsim {
     }
 
     torch::Tensor sample_from_pb_binary(torch::Tensor proba) {
-        return torch::bernoulli(proba, 1);
+        return torch::bernoulli(proba);
     }
 
     torch::Tensor normal_entropy(torch::Tensor stds) {

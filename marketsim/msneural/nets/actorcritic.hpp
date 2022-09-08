@@ -18,7 +18,7 @@ namespace marketsim {
             auto cfg = TConfig::config;
 
             state_layer = register_module("state_layer", TLayer(cfg->layer.state_size, cfg->layer.hidden_size));
-            out = register_module("out", torch::nn::Linear(cfg->layer.hidden_size, 1));
+            out = register_module("out", torch::nn::Linear(cfg->layer.hidden_size, cfg->layer.critic_size));
         }
 
         torch::Tensor forward(torch::Tensor x) {

@@ -15,7 +15,6 @@ namespace marketsim {
             net(),
             order(),
             batcher(),
-            history(),
             last_bid(klundefprice),
             last_ask(khundefprice) {
                 auto cfg = TConfig::config;
@@ -35,7 +34,7 @@ namespace marketsim {
             torch::Tensor next_state = this->construct_state(mi);
             torch::Tensor pred_state = batcher.transform_for_prediction(next_state);
 
-            torch::Tensor state_value = net.predict_values(pred_state);
+            torch::Tensor state_value = net.predict_values(pred_state).squeeze(0);
             batcher.update_returns(next_state, state_value);
 
             if (batcher.is_batch_ready()){
@@ -44,7 +43,7 @@ namespace marketsim {
             }
 
             auto pred_actions = net.predict_actions(pred_state);
-            batcher.add_next_state_action(next_state, pred_actions);
+            pred_actions = actions_map<tensor_squeeze<0>>(pred_actions);
 
             set_consumption(mi, pred_actions);
             set_flags(pred_actions);
@@ -52,8 +51,9 @@ namespace marketsim {
             if (spread_lim > 0) {
                 limit_spread(pred_actions);
             }
+            
+            batcher.add_next_state_action(next_state, pred_actions);
 
-            history.push_back(hist_entry(next_state, pred_actions));
             return order.construct_order(mi, pred_actions);
         }
         
@@ -113,7 +113,6 @@ namespace marketsim {
         TNet net;
         TBatcher batcher;
         TOrder order;
-        std::vector<hist_entry> history;
     };
 
     template <typename TConfig>
@@ -200,6 +199,10 @@ namespace marketsim {
             auto ot = create_order(bid, ask, cons);
             if (verbose) {
                 print_state(mi, bid, ask, cons, bpred, apred);
+                if (actions.is_flag_valid()) {
+                    std::cout << "Bid flag: " << actions.bid_flag.item<double>();
+                    std::cout << ", Ask flag: " << actions.ask_flag.item<double>() << std::endl;
+                }
             }
 
            if (bid_defined(bid)) last_bid = bid;

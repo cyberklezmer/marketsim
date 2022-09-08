@@ -1,6 +1,7 @@
 #ifndef MSNEURAL_CONFIG_HPP_
 #define MSNEURAL_CONFIG_HPP_
 
+#include <filesystem>
 #include "marketsim.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
@@ -20,6 +21,7 @@ namespace marketsim {
         bool lstm;
         int state_size;
         int hidden_size;
+        int critic_size;
     };
 
     layer_config read_layer_config(configtree cfg) {
@@ -28,6 +30,19 @@ namespace marketsim {
         lcfg.lstm = cfg.get<bool>("Layer.lstm", false);
         lcfg.state_size = cfg.get<int>("Layer.state_size", 4);
         lcfg.hidden_size = cfg.get<int>("Layer.hidden_size", 256);
+        lcfg.critic_size = cfg.get<int>("Layer.critic_size", 1);
+
+        if (cfg.get<bool>("Model.qnet", false)) {
+            bool train_cons = cfg.get<bool>("Strategy.train_cons", false);
+            int action_size = 2 * cfg.get<int>("Actions.spread_lim", 5) + 1;
+            int cons_size = cfg.get<int>("Actions.cons_parts", 4) + 1;
+
+            lcfg.critic_size = action_size * action_size;
+            if (train_cons) {
+                lcfg.critic_size *= cons_size;
+            }
+        }
+
         return lcfg;
     }
 
@@ -147,6 +162,24 @@ namespace marketsim {
         return scfg;
     }
 
+    struct model_config {
+        double lr;
+        double actor_lr;
+        double critic_lr;
+
+        bool qnet;
+    };
+
+    model_config read_model_config(configtree cfg) {
+        model_config mcfg;
+
+        mcfg.lr = cfg.get<double>("Model.lr", 0.0001);
+        mcfg.actor_lr = cfg.get<double>("Model.actor_lr", 0.001);
+        mcfg.critic_lr = cfg.get<double>("Model.critic_lr", 0.0001);
+        mcfg.qnet = cfg.get<bool>("Model.qnet", false);
+        return mcfg;
+    }
+
     template <const char* path>
     struct neural_config {
         layer_config layer;
@@ -154,6 +187,7 @@ namespace marketsim {
         action_config cons;
         batcher_config batcher;
         strategy_config strategy;
+        model_config model;
 
         bool discrete;
         bool flags;
@@ -165,6 +199,7 @@ namespace marketsim {
     template <const char* path>
     std::shared_ptr<neural_config<path>> neural_config<path>::load_config() {
         std::cout << "Ready ready" << std::endl;
+        std::cout << std::filesystem::current_path() << std::endl;
 
         using nc = neural_config<path>;
         std::shared_ptr<nc> config = std::make_shared<nc>();
@@ -175,6 +210,7 @@ namespace marketsim {
         config->cons = read_cons_config(cfg);
         config->batcher = read_batcher_config(cfg);
         config->strategy = read_strategy_config(cfg);
+        config->model = read_model_config(cfg);
         
         config->discrete = cfg.get<bool>("Actions.discrete", true);
         config->flags = cfg.get<bool>("Actions.flags", false);

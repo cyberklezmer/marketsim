@@ -20,6 +20,8 @@
 #include <torch/torch.h>
 #include "settings.hpp"
 
+#include "msneural/models.hpp"
+
 using namespace marketsim;
 
 int main()

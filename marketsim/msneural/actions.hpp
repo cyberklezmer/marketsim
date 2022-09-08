@@ -82,6 +82,11 @@ namespace marketsim {
         return t.unsqueeze(dim);
     }
 
+    template <int dim>
+    torch::Tensor tensor_squeeze(const torch::Tensor& t) {
+        return t.squeeze(dim);
+    }
+
     template <TensorFunc MuActiv, TensorFunc StdActiv>
     class ContinuousActions : public torch::nn::Module {
     public:
@@ -141,7 +146,7 @@ namespace marketsim {
 
         torch::Tensor sample_actions(const action_tensors& pred_actions) {
             torch::Tensor pred = torch::exp(pred_actions.at(0));
-            return sample_from_pb(pred) * action_mult - action_offset;
+            return (sample_from_pb(pred) - action_offset) * action_mult;
         }
 
         torch::Tensor action_log_prob(torch::Tensor true_actions, const action_tensors& pred_actions) {
@@ -181,6 +186,7 @@ namespace marketsim {
          
         torch::Tensor action_log_prob(torch::Tensor true_actions, const action_tensors& pred_actions) {
             torch::Tensor logits = pred_actions.at(0);
+
             return -torch::binary_cross_entropy_with_logits(logits, true_actions);
         }
 

@@ -44,7 +44,7 @@ namespace marketsim {
             returns += compute_reward(*prev, next_state);
             curr_gamma *= gamma;
 
-            return torch::tensor({returns}).reshape({1,1});
+            return torch::tensor({returns}).reshape({1});
         }
 
         double get_gamma() {
