@@ -83,3 +83,9 @@ workers_list workers = {
 main_node.run(workers);
 
 ```
+
+## testing
+```
+docker build . -t chronostest
+docker run -it chronostest
+```
