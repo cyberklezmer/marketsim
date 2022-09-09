@@ -2410,7 +2410,7 @@ private:
     tmarketinfo getinfo(tstrategyid id)
     {
         int owner = findstrategy(id);
-        std::shared_ptr<tmarketdata> ssht = atomic_load(&fmarketsnapshot);
+        std::shared_ptr<tmarketdata> ssht = fmarketsnapshot;
         assert(ssht);
         return tmarketinfo(ssht,owner);
     }
@@ -2484,7 +2484,7 @@ private:
         if(frunningwithchronos)
         {
             possiblylog(floggingfilter.fmarketdata,0,"New copy of tmarketdata...");
-            atomic_store(&fmarketsnapshot, std::make_shared<tmarketdata>(*fmarketdata));
+            fmarketsnapshot = std::make_shared<tmarketdata>(*fmarketdata);
             possiblylog(floggingfilter.fmarketdata,0,"New copy of tmarketdata created");
         }
         else
@@ -2859,7 +2859,7 @@ private:
             o << ";" << (::clock() - fmarketdata->fstartclocktime) /CLOCKS_PER_SEC << ";"
               << fmarketdata->ftimestamp << ";";
 
-            std::shared_ptr<tmarketdata> ssht = atomic_load(&fmarketsnapshot);
+            std::shared_ptr<tmarketdata> ssht = fmarketsnapshot;
             if(ssht)
                o << p2str(ssht->forderbook.b()) << ";"
                  << p2str(ssht->forderbook.a()) << ";";
