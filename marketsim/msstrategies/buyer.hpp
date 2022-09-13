@@ -30,7 +30,7 @@ namespace marketsim
 			{
 
 				m = info.mywallet().money(), s = info.mywallet().stocks(), a = info.a(), vol_last = 0;
-				int bnd_ask = 1000, bnd_m = 100000; //change to sth dynamic
+				bnd_ask = 1000, bnd_m = 100000; //change to sth dynamic
 				W = T2vec(bnd_m + 1, Tvec(bnd_ask + 1, 0.0));
 				for (int i = 1; i <= bnd_m; i++)
 					for (int j = 1; j <= bnd_ask; j++)
@@ -75,13 +75,19 @@ namespace marketsim
 								{
 									double prob = pr_e * pr_f * pr_c * (y ? (1 - p_m) : p_m);
 
-									expv += v + discfact *
-										W[std::max<int>(0, m + y * k_m * c - v * (a + round(coefs[0] + 
-											coefs[1] * (v - 1) + e)))][std::max(0, a + f)] * prob;
+									unsigned ind_m = std::min(
+										std::max<int>(0, m + y * k_m * c - v * (a + round(coefs[0] + coefs[1] * (v - 1) + e))),
+										bnd_m);
 
-									expv_opt += vol_best + discfact *
-										W[std::max<int>(0, m + y * k_m * c - vol_best * (a + round(coefs[0] + 
-											coefs[1] * (vol_best - 1) + e)))][std::max(0, a + f)] * prob;
+									unsigned ind_ask = std::min(std::max(0, a + f), bnd_ask);
+
+									expv += v + discfact * W[ind_m][ind_ask] * prob;
+
+									ind_m = std::min(
+										std::max<int>(0, m + y * k_m * c - vol_best * (a + round(coefs[0] +coefs[1] * (vol_best - 1) + e))),
+										bnd_m);
+
+									expv_opt += vol_best + discfact * W[ind_m][ind_ask] * prob;
 								}	
 							}
 						}
@@ -129,6 +135,8 @@ namespace marketsim
 		T2vec W;
 		double E_stddev, F_stddev, E_mean, F_mean;
 		double p_m, k_m, lambda_m;
+		int bnd_m, bnd_ask;
+
         private:
 
                virtual bool acceptsdemand() const  { return true; }
