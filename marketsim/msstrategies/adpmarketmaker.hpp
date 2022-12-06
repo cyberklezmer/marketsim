@@ -22,10 +22,11 @@ namespace marketsim
 		{
 			initprice = 100, qvol = 1;
 			last_stocks = 0;
-			ldelta = 20, udelta = 40;
+			ldelta = 15, udelta = 20;
 			N = P = T4vec(2, T3vec(2, T2vec(ldelta + udelta + 1, Tvec(ldelta + udelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
-			Kparam = 3000, epsparam = 0.2, discfact = 0.99998;
+			Kparam = 3000, epsparam = 0.2, discfact = 0.999;
+			learncons = 1;
 		}
 
 	private:
@@ -95,33 +96,41 @@ namespace marketsim
 			double v = 0.0;
 			tprice m = mi.mywallet().money(); tvolume s = mi.mywallet().stocks();
 			tprice a_best = p + 1, b_best = std::min<tprice>(m, p - 1);
-			tprice cons = 0;
+			tprice c_best = 0, cons = 0;
 			if (m > 5 * p) cons = m - 5 * p;
 
-			for (tprice b = std::max(alpha - udelta, 1); (b < alpha) && (m - cons - std::max(b,b_best) * qvol >= 0); b++)
-				for (tprice a = beta + udelta; (a > b) && (a > beta); a--)
-				{
-					tprice da = std::min(std::max(a - alpha, beta - alpha - ldelta), beta - alpha + udelta),
-						db = std::min(std::max(b - beta, alpha - beta - udelta), alpha - beta + ldelta),
-						da_best = std::min(std::max(a_best - alpha, beta - alpha - ldelta), beta - alpha + udelta),
-						db_best = std::min(std::max(b_best - beta, alpha - beta - udelta), alpha - beta + ldelta);
-
-					double u = 0.0, u_best = 0.0;
-					for (int C = 0; C <= 1 && (s - C * qvol >= 0); C++)
-						for (int D = 0; (D <= 1); D++)
-						{
-							int C_hat = C * qvol, D_hat = D * qvol;
-							u_best += discfact * W[m - cons - D_hat * b_best + C_hat * a_best][s + D_hat - C_hat] *
-								P[C][D][da_best - (beta - alpha - ldelta)][db_best - (alpha - beta - udelta)];
-							u += discfact * W[m - cons - D_hat * b + C_hat * a][s + D_hat - C_hat] *
-								P[C][D][da - (beta - alpha - ldelta)][db - (alpha - beta - udelta)];
-						}
-					if (u_best < u)
+			for (tprice c = 0; c + b_best * qvol <= m; c++)
+				for (tprice b = std::max(alpha - udelta, 1); (b < alpha) && (m - c - b * qvol >= 0); b++)
+					for (tprice a = beta + udelta; (a > b) && (a > beta); a--)
 					{
-						a_best = a; b_best = b;
-						v = u;
+						tprice da = std::min(std::max(a - alpha, beta - alpha - ldelta), beta - alpha + udelta),
+							db = std::min(std::max(b - beta, alpha - beta - udelta), alpha - beta + ldelta),
+							da_best = std::min(std::max(a_best - alpha, beta - alpha - ldelta), beta - alpha + udelta),
+							db_best = std::min(std::max(b_best - beta, alpha - beta - udelta), alpha - beta + ldelta);
+
+						double u = 0.0, u_best = 0.0;
+						for (int C = 0; C <= 1 && (s - C * qvol >= 0); C++)
+							for (int D = 0; (D <= 1); D++)
+							{
+								int C_hat = C * qvol,
+									D_hat = D * qvol;
+
+								int m_upd =
+									std::min(std::max(m - c - D_hat * b + C_hat * a, 0), bndmoney);
+								int m_best_upd =
+									std::min(std::max(m - c_best - D_hat * b_best + C_hat * a_best, 0), bndmoney);
+
+								u_best += c_best + discfact * W[m_best_upd][s + D_hat - C_hat] *
+									P[C][D][da_best - (beta - alpha - ldelta)][db_best - (alpha - beta - udelta)];
+								u += c + discfact * W[m_upd][s + D_hat - C_hat] *
+									P[C][D][da - (beta - alpha - ldelta)][db - (alpha - beta - udelta)];
+							}
+						if (u_best < u)
+						{
+							a_best = a; b_best = b; c_best = c;
+							v = u;
+						}
 					}
-				}
 
 			b_best = m > 0 ? b_best : klundefprice;
 			a_best = s > 0 ? a_best : khundefprice;
@@ -140,7 +149,7 @@ namespace marketsim
 			trequest ord;
 			if(b_best != klundefprice) ord.addbuylimit(b_best, qvol);
 			if(a_best != khundefprice) ord.addselllimit(a_best, qvol);
-			ord.setconsumption(cons);
+			ord.setconsumption(learncons ? c_best : cons);
 			return ord;
 		}
 
@@ -153,6 +162,7 @@ namespace marketsim
 		T2vec W;
 		T4vec N, P;
 		tprice last_bid, last_ask;
+		bool learncons;
 
 	};
 

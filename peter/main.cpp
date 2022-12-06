@@ -33,7 +33,7 @@ int main()
         constexpr bool logging = false;
 
         // change accordingly (one unit rougly corresponds to one second)
-        constexpr tabstime runningtime = 3600;
+        constexpr tabstime runningtime = 100;
         constexpr int nsimulations = 10;
 
         // change accordingly

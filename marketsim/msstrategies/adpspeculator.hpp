@@ -27,6 +27,7 @@ namespace marketsim
 			N = P = T4vec(2, T3vec(2, T2vec(ldelta + udelta + 1, Tvec(ldelta + udelta + 1, 0.0))));
 			last_bid = klundefprice, last_ask = khundefprice;
 			Kparam = 3000, epsparam = 0.2, discfact = 0.9998;
+			learncons = 0;
 		}
 	private:
 		virtual trequest event(const tmarketinfo& mi, tabstime t, trequestresult* lastresult)
@@ -92,7 +93,9 @@ namespace marketsim
 			//calculate value function
 			double v = 0.0;
 			tprice m = mi.mywallet().money(); int s = mi.mywallet().stocks();
-			tprice a_best = p + 1; tprice b_best = std::min(double(m), p - 1); tprice c_best = 0;
+			tprice a_best = p + 1; tprice b_best = std::min(double(m), p - 1); 
+			tprice c_best = 0, cons = 0;
+			if (m > 5 * p) cons = m - 5 * p;
 
 			for (tprice c = 0; c + b_best * qvol <= m; c++)
 				for (tprice b = std::max(alpha - udelta, 1); (b < alpha) && (m - c - b * qvol >= 0); b++)
@@ -107,10 +110,18 @@ namespace marketsim
 						for (int C = 0; C <= 1; C++)
 							for (int D = 0; (D <= 1) && (s + (D - C) * qvol >= 0); D++)
 							{
-								int C_hat = C * qvol, D_hat = D * qvol;
-								u_best += c_best + discfact * W[m - c_best - D_hat * b_best + C_hat * a_best][s + D_hat - C_hat] *
+								int C_hat = C * qvol,
+									D_hat = D * qvol;
+
+								int m_upd = 
+									std::min(std::max(m - c - D_hat * b + C_hat * a, 0), bndmoney);
+								int m_best_upd =
+									std::min(std::max(m - c_best - D_hat * b_best + C_hat * a_best, 0), bndmoney);
+
+
+								u_best += c_best + discfact * W[m_best_upd][s + D_hat - C_hat] *
 									P[C][D][da_best - (beta - alpha - ldelta)][db_best - (alpha - beta - udelta)];
-								u += c + discfact * W[m - c - D_hat * b + C_hat * a][s + D_hat - C_hat] *
+								u += c + discfact * W[m_upd][s + D_hat - C_hat] *
 									P[C][D][da - (beta - alpha - ldelta)][db - (alpha - beta - udelta)];
 							}
 						if (u_best < u)
@@ -136,7 +147,7 @@ namespace marketsim
 			trequest ord;
 			if (b_best != klundefprice) ord.addbuylimit(b_best, qvol);
 			if (a_best != khundefprice) ord.addselllimit(a_best, qvol);
-			ord.setconsumption(c_best);
+			ord.setconsumption(learncons ? c_best : cons);
 			return ord;
 		}
 
@@ -153,6 +164,7 @@ namespace marketsim
 		T2vec W;
 		T4vec N, P;
 		tprice last_bid, last_ask;
+		bool learncons;
 	};
 
 } // namespace
